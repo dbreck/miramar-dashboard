@@ -331,6 +331,78 @@ export async function GET(request: Request) {
     // Calculate agent percentage from actual data
     const calculatedAgentPercentage = calculateAgentPercentage(interactionsList, totalContacts);
 
+    // Pipeline data for Pipeline tab
+    // Lead source data (from reference - static for now, based on Spark MCP data)
+    const pipelineLeadSources = [
+      { name: 'Unknown', contacts: 70, hot: 3, warm: 15, reservations: 1, quality: 92, color: '#94a3b8' },
+      { name: 'Website', contacts: 45, hot: 3, warm: 18, reservations: 1, quality: 95, color: '#3b82f6' },
+      { name: 'Realtor Referral', contacts: 35, hot: 1, warm: 4, reservations: 0, quality: 88, color: '#8b5cf6' },
+      { name: 'Friend/Family', contacts: 20, hot: 0, warm: 2, reservations: 0, quality: 90, color: '#10b981' },
+      { name: 'Facebook', contacts: 12, hot: 0, warm: 0, reservations: 0, quality: 75, color: '#f59e0b' },
+      { name: 'Walk-in', contacts: 8, hot: 0, warm: 0, reservations: 0, quality: 82, color: '#ec4899' }
+    ];
+
+    // Actual rating distribution from Mira Mar
+    const ratingDistribution = [
+      { name: 'Agent', value: 113, color: '#D3C9EC', percentage: 61.4 },
+      { name: 'Warm', value: 39, color: '#FFBBAA', percentage: 21.2 },
+      { name: 'Hot', value: 7, color: '#C33A32', percentage: 3.8 },
+      { name: 'New', value: 7, color: '#C0D7B1', percentage: 3.8 },
+      { name: 'Not Interested', value: 6, color: '#DBDBDB', percentage: 3.3 },
+      { name: 'Team', value: 5, color: '#e4a02c', percentage: 2.7 },
+      { name: 'Cold', value: 5, color: '#C0E1F4', percentage: 2.7 },
+      { name: 'Reservation', value: 2, color: '#2380c4', percentage: 1.1 }
+    ];
+
+    // Sales funnel stages (excluding agents/team/not interested)
+    const funnelData = [
+      { name: 'New Leads', value: 7, color: '#C0D7B1' },
+      { name: 'Hot Leads', value: 7, color: '#C33A32' },
+      { name: 'Warm Prospects', value: 39, color: '#FFBBAA' },
+      { name: 'Cold/Follow-up', value: 5, color: '#C0E1F4' },
+      { name: 'Reservations', value: 2, color: '#2380c4' }
+    ];
+
+    // Active pipeline (excludes agents, team, not interested)
+    const activePipeline = 60;
+    const engagedContacts = 184;
+    const reservations = 2;
+    const engagementRate = 96.8;
+
+    // Source performance comparison
+    const sourcePerformance = pipelineLeadSources.map(source => ({
+      source: source.name,
+      contacts: source.contacts,
+      conversionRate: parseFloat(((source.reservations / source.contacts) * 100).toFixed(1)),
+      quality: source.quality,
+      hotWarmCount: source.hot + source.warm
+    }));
+
+    // Website data
+    const websiteLeadsSource = pipelineLeadSources.find(s => s.name === 'Website');
+    const websiteLeadsData = websiteLeadsSource ? {
+      contacts: websiteLeadsSource.contacts,
+      quality: websiteLeadsSource.quality,
+      conversionRate: parseFloat(((websiteLeadsSource.reservations / websiteLeadsSource.contacts) * 100).toFixed(1))
+    } : {
+      contacts: 45,
+      quality: 95,
+      conversionRate: 2.2
+    };
+
+    const pipelineData = {
+      totalContacts,
+      engagedContacts,
+      activePipeline,
+      reservations,
+      engagementRate,
+      leadSources: pipelineLeadSources,
+      funnelData,
+      ratingDistribution,
+      sourcePerformance,
+      websiteLeads: websiteLeadsData
+    };
+
     return NextResponse.json({
       keyMetrics: {
         totalContacts,
@@ -347,6 +419,7 @@ export async function GET(request: Request) {
       leadSources,
       activityTimeline,
       topContacts,
+      pipelineData,
     });
   } catch (error: any) {
     console.error('Dashboard API error:', error);
