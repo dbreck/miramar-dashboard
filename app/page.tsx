@@ -6,10 +6,11 @@ import OverviewTab from '@/components/tabs/OverviewTab';
 import ContactsTab from '@/components/tabs/ContactsTab';
 import EngagementTab from '@/components/tabs/EngagementTab';
 import TeamTab from '@/components/tabs/TeamTab';
+import PipelineTab from '@/components/tabs/PipelineTab';
 import { DateRange } from '@/components/DateRangePicker';
 
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'contacts' | 'engagement' | 'team'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline'>('overview');
   const [dateRange, setDateRange] = useState<DateRange>({
     start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
     end: new Date(),
@@ -22,6 +23,7 @@ export default function DashboardPage() {
       {activeTab === 'contacts' && <ContactsTab dateRange={dateRange} />}
       {activeTab === 'engagement' && <EngagementTab dateRange={dateRange} />}
       {activeTab === 'team' && <TeamTab dateRange={dateRange} />}
+      {activeTab === 'pipeline' && <PipelineTab dateRange={dateRange} />}
     </DashboardLayout>
   );
 }

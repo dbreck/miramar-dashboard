@@ -8,8 +8,8 @@ import DateRangePicker, { DateRange } from './DateRangePicker';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  activeTab: 'overview' | 'contacts' | 'engagement' | 'team';
-  setActiveTab: (tab: 'overview' | 'contacts' | 'engagement' | 'team') => void;
+  activeTab: 'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline';
+  setActiveTab: (tab: 'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline') => void;
   dateRange: DateRange;
   setDateRange: (range: DateRange) => void;
 }
@@ -61,6 +61,7 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
     { id: 'contacts' as const, label: 'Contacts' },
     { id: 'engagement' as const, label: 'Engagement' },
     { id: 'team' as const, label: 'Team' },
+    { id: 'pipeline' as const, label: 'Pipeline' },
   ];
 
   return (
