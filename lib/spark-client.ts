@@ -299,4 +299,12 @@ export class SparkAPIClient {
   async listTeamMembers(): Promise<any> {
     return this.get('/team-members?per_page=100');
   }
+
+  /**
+   * List registration sources (lead sources)
+   */
+  async listRegistrationSources(params: Record<string, any> = {}): Promise<any> {
+    const query = this.buildQueryString(params);
+    return this.get(`/registration-sources${query}`);
+  }
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Sun, Moon, LogOut } from 'lucide-react';
+import { Sun, Moon, LogOut, Info } from 'lucide-react';
 import DateRangePicker, { DateRange } from './DateRangePicker';
 
 interface DashboardLayoutProps {
@@ -91,7 +91,7 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
             <div className="flex items-center gap-2">
               <button
                 onClick={toggleDarkMode}
-                className="p-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all"
+                className="p-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all cursor-pointer"
                 aria-label="Toggle dark mode"
               >
                 {darkMode ? (
@@ -101,9 +101,16 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
                 )}
               </button>
               <button
+                onClick={() => router.push('/about')}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all text-gray-700 dark:text-gray-300 cursor-pointer"
+              >
+                <Info className="w-4 h-4" />
+                <span className="hidden sm:inline">About</span>
+              </button>
+              <button
                 onClick={handleLogout}
                 disabled={loggingOut}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all text-gray-700 dark:text-gray-300 disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all text-gray-700 dark:text-gray-300 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Logout</span>

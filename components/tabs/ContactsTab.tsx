@@ -73,8 +73,8 @@ export default function ContactsTab({ dateRange }: ContactsTabProps) {
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
             Lead Source Volume
             <InfoTooltip
-              title="Lead Source Volume"
-              description="Total number of active contacts from each source during the selected period. Helps identify which channels are driving the most engagement. Numbers are based on estimated distribution of active contacts."
+              title="Active Lead Source Volume"
+              description="Total number of contacts from each source that had interactions during the selected period. Only includes contacts that were actively engaged (emails, calls, meetings, etc.). Contacts with zero interactions are not shown."
             />
           </h3>
           <ResponsiveContainer width="100%" height={350}>
