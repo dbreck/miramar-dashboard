@@ -217,10 +217,10 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
             <Users className="w-5 h-5 text-blue-600" />
-            Lead Sources
+            Active Lead Sources
             <InfoTooltip
-              title="Lead Sources"
-              description="Where active contacts came from during the selected period (Website, Referral, Direct, etc.). Based on estimated distribution since direct source data is not available from the API. Shows relative volumes by source."
+              title="Active Lead Sources"
+              description="Where active contacts came from (Website, Referral, Direct, etc.). Shows only contacts that had interactions during the selected period. Contacts added without any interactions yet are not included."
             />
           </h3>
           <ResponsiveContainer width="100%" height={300}>

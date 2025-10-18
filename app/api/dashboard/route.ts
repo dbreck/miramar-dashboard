@@ -11,6 +11,26 @@ import {
 
 const PROJECT_ID = 2855; // Mira Mar project ID
 
+// Simple in-memory cache with TTL
+const cache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCached(key: string): any | null {
+  const cached = cache.get(key);
+  if (!cached) return null;
+
+  if (Date.now() - cached.timestamp > CACHE_TTL) {
+    cache.delete(key);
+    return null;
+  }
+
+  return cached.data;
+}
+
+function setCache(key: string, data: any): void {
+  cache.set(key, { data, timestamp: Date.now() });
+}
+
 // Helper function to calculate trends
 function calculateTrend(current: number, previous: number): { value: number; direction: 'up' | 'down' | 'neutral' } {
   if (previous === 0) return { value: 0, direction: 'neutral' };
@@ -37,6 +57,18 @@ export async function GET(request: Request) {
     const startParam = searchParams.get('start');
     const endParam = searchParams.get('end');
 
+    // Parse date range (default to last 30 days)
+    const endDate = endParam ? new Date(endParam) : new Date();
+    const startDate = startParam ? new Date(startParam) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    // Check cache first
+    const cacheKey = `dashboard-${startDate.toISOString()}-${endDate.toISOString()}`;
+    const cached = getCached(cacheKey);
+    if (cached) {
+      console.log('Returning cached dashboard data');
+      return NextResponse.json(cached);
+    }
+
     const apiKey = process.env.SPARK_API_KEY;
 
     if (!apiKey) {
@@ -45,10 +77,6 @@ export async function GET(request: Request) {
         { status: 500 }
       );
     }
-
-    // Parse date range (default to last 30 days)
-    const endDate = endParam ? new Date(endParam) : new Date();
-    const startDate = startParam ? new Date(startParam) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     // Calculate previous period dates
     const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -64,11 +92,13 @@ export async function GET(request: Request) {
       interactions,
       interactionTypes,
       teamMembers,
+      registrationSources,
     ] = await Promise.all([
       client.listProjects(), // Get project data including contacts_count
-      client.listInteractions({ project_id_eq: PROJECT_ID, per_page: 200 }),
+      client.listInteractions({ project_id_eq: PROJECT_ID, per_page: 100, order: 'created_at DESC' }),
       client.listInteractionTypes(),
       client.listTeamMembers(),
+      client.listRegistrationSources({ project_id_eq: PROJECT_ID, per_page: 100 }),
     ]);
 
     // Log summary
@@ -174,35 +204,125 @@ export async function GET(request: Request) {
       }))
       .sort((a, b) => b.interactions - a.interactions);
 
-    // Process lead sources
-    // Since we don't have access to contacts endpoint, derive lead sources from current period interactions
-    // Use the number of unique contacts active in the current period
-    const uniqueActiveContacts = activeContacts; // Unique contacts with interactions in current period
-
-    console.log(`Lead Sources: ${uniqueActiveContacts} active contacts in current period (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()})`);
+    // Process lead sources (registration sources)
+    console.log(`Lead Sources: Fetching real data from Spark API for period (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()})`);
 
     // Calculate email coverage from actual interaction data
     const calculatedEmailCoverage = calculateEmailCoverage(currentInteractions, typeMap);
 
-    // Get estimated lead source distribution
-    const sourceDistribution = estimateLeadSourceDistribution(uniqueActiveContacts);
+    // Build registration source ID to name mapping
+    const registrationSourcesList = Array.isArray(registrationSources)
+      ? registrationSources
+      : registrationSources.data || [];
 
-    // Calculate lead sources with REAL metrics from interaction data
-    const leadSources = sourceDistribution
-      .map((source) => {
-        const sourceContacts = Math.floor(uniqueActiveContacts * source.proportion);
-        // Estimate which interactions belong to this source (evenly distributed)
-        const sourceInteractions = currentInteractions.slice(0, Math.floor(currentInteractions.length * source.proportion));
+    const sourceMap = new Map<number, string>();
+    registrationSourcesList.forEach((source: any) => {
+      if (source.id && source.name) {
+        sourceMap.set(source.id, source.name);
+      }
+    });
+
+    // Fetch contacts created in the date range (not just those with interactions)
+    // This matches Spark's "Added After" / "Added Before" filtering
+    console.log(`Fetching contacts added between ${startDate.toISOString()} and ${endDate.toISOString()}`);
+
+    let contactsWithSources: any[] = [];
+
+    try {
+      // Try to fetch contacts by created_at date range
+      // Note: This may fail due to Spark API permissions, so we have a fallback
+      const contactsResponse = await client.listContacts({
+        project_id_eq: PROJECT_ID,
+        created_at_gteq: startDate.toISOString().split('T')[0], // YYYY-MM-DD format
+        created_at_lteq: endDate.toISOString().split('T')[0],
+        per_page: 100
+      });
+
+      const contactsList = Array.isArray(contactsResponse)
+        ? contactsResponse
+        : contactsResponse.data || [];
+
+      contactsWithSources.push(...contactsList);
+      console.log(`Successfully fetched ${contactsWithSources.length} contacts by date range`);
+
+      // If we got 0 results, the query succeeded but returned nothing
+      // This means the API doesn't support this filtering approach
+      if (contactsWithSources.length === 0) {
+        throw new Error('Date range filtering returned 0 results, using fallback');
+      }
+    } catch (error) {
+      console.warn('Failed to fetch contacts by date range, falling back to interaction-based approach:', error);
+
+      // FALLBACK: Get unique contact IDs from all interactions (not just current period)
+      // Then filter by created_at after fetching
+      const allInteractionsList = Array.isArray(interactions) ? interactions : interactions.data || [];
+      const allContactIds = [...new Set(allInteractionsList.map((i: any) => i.contact_id))];
+
+      console.log(`Found ${allContactIds.length} total unique contacts from interactions`);
+
+      // Fetch contacts in batches using id_in
+      const batchSize = 100;
+      for (let i = 0; i < allContactIds.length; i += batchSize) {
+        const batch = allContactIds.slice(i, i + batchSize);
+        try {
+          const contactsBatch = await client.listContacts({
+            id_in: batch.join(','),
+            per_page: batchSize
+          });
+
+          const contactsList = Array.isArray(contactsBatch)
+            ? contactsBatch
+            : contactsBatch.data || [];
+
+          contactsWithSources.push(...contactsList);
+        } catch (batchError) {
+          console.error(`Failed to fetch contacts batch ${i}-${i + batchSize}:`, batchError);
+        }
+      }
+
+      // Filter by created_at date range
+      contactsWithSources = contactsWithSources.filter((contact: any) => {
+        if (!contact.created_at) return false;
+        const contactDate = new Date(contact.created_at);
+        return contactDate >= startDate && contactDate <= endDate;
+      });
+
+      console.log(`Filtered to ${contactsWithSources.length} contacts created in date range`);
+    }
+
+    // Count contacts by registration source
+    const sourceContactCounts = new Map<number, Set<number>>();
+    contactsWithSources.forEach((contact: any) => {
+      const sourceId = contact.registration_source_id;
+      if (sourceId) {
+        if (!sourceContactCounts.has(sourceId)) {
+          sourceContactCounts.set(sourceId, new Set());
+        }
+        sourceContactCounts.get(sourceId)!.add(contact.id);
+      }
+    });
+
+    // Build lead sources array with REAL data
+    const leadSources = Array.from(sourceContactCounts.entries())
+      .map(([sourceId, contactIds]) => {
+        const sourceName = sourceMap.get(sourceId) || `Source ${sourceId}`;
+        const contactCount = contactIds.size;
+
+        // Get interactions for contacts from this source
+        const sourceInteractions = currentInteractions.filter((i: any) =>
+          contactIds.has(i.contact_id)
+        );
 
         return {
-          name: source.name,
-          contacts: sourceContacts,
+          name: sourceName,
+          contacts: contactCount,
           quality: calculateQualityScore(sourceInteractions),
           engagement: calculateEngagementScore(sourceInteractions),
           email: calculatedEmailCoverage,
         };
       })
-      .filter((source) => source.contacts > 0);
+      .filter((source) => source.contacts > 0)
+      .sort((a, b) => b.contacts - a.contacts); // Sort by contact count descending
 
     // Get activity timeline for current period
     const activityByDate = new Map<string, { fullDate: Date; interactions: number; emails: number; calls: number }>();
@@ -331,49 +451,162 @@ export async function GET(request: Request) {
     // Calculate agent percentage from actual data
     const calculatedAgentPercentage = calculateAgentPercentage(interactionsList, totalContacts);
 
-    // Pipeline data for Pipeline tab
-    // Lead source data (from reference - static for now, based on Spark MCP data)
-    const pipelineLeadSources = [
-      { name: 'Unknown', contacts: 70, hot: 3, warm: 15, reservations: 1, quality: 92, color: '#94a3b8' },
-      { name: 'Website', contacts: 45, hot: 3, warm: 18, reservations: 1, quality: 95, color: '#3b82f6' },
-      { name: 'Realtor Referral', contacts: 35, hot: 1, warm: 4, reservations: 0, quality: 88, color: '#8b5cf6' },
-      { name: 'Friend/Family', contacts: 20, hot: 0, warm: 2, reservations: 0, quality: 90, color: '#10b981' },
-      { name: 'Facebook', contacts: 12, hot: 0, warm: 0, reservations: 0, quality: 75, color: '#f59e0b' },
-      { name: 'Walk-in', contacts: 8, hot: 0, warm: 0, reservations: 0, quality: 82, color: '#ec4899' }
-    ];
+    // ========================================
+    // PIPELINE DATA - FETCH REAL RATINGS DATA
+    // ========================================
+    console.log('Fetching real rating and source data for Pipeline tab...');
 
-    // Actual rating distribution from Mira Mar
-    const ratingDistribution = [
-      { name: 'Agent', value: 113, color: '#D3C9EC', percentage: 61.4 },
-      { name: 'Warm', value: 39, color: '#FFBBAA', percentage: 21.2 },
-      { name: 'Hot', value: 7, color: '#C33A32', percentage: 3.8 },
-      { name: 'New', value: 7, color: '#C0D7B1', percentage: 3.8 },
-      { name: 'Not Interested', value: 6, color: '#DBDBDB', percentage: 3.3 },
-      { name: 'Team', value: 5, color: '#e4a02c', percentage: 2.7 },
-      { name: 'Cold', value: 5, color: '#C0E1F4', percentage: 2.7 },
-      { name: 'Reservation', value: 2, color: '#2380c4', percentage: 1.1 }
-    ];
+    // We already have contactsWithSources from the lead sources calculation above
+    // Now we need to fetch individual contacts to get their ratings
+    // NOTE: Ratings are ONLY available from individual contact endpoint
 
-    // Sales funnel stages (excluding agents/team/not interested)
+    // Batch fetch individual contacts to get ratings
+    // Optimize by: 1) Increasing batch size, 2) Limiting total contacts, 3) Concurrent requests
+    const maxContactsForRatings = 50; // Reduced from 100 to improve performance
+    const contactsForRatings = contactsWithSources.slice(0, maxContactsForRatings);
+    const contactsWithRatings: any[] = [];
+
+    // Fetch in parallel batches of 20 for better performance (increased from 10)
+    const batchSize = 20;
+    for (let i = 0; i < contactsForRatings.length; i += batchSize) {
+      const batch = contactsForRatings.slice(i, i + batchSize);
+      const batchPromises = batch.map(contact =>
+        client.getContact(contact.id).catch(err => {
+          console.error(`Failed to fetch contact ${contact.id}:`, err);
+          return null;
+        })
+      );
+      const batchResults = await Promise.all(batchPromises);
+      contactsWithRatings.push(...batchResults.filter(c => c !== null));
+    }
+
+    console.log(`Fetched ${contactsWithRatings.length} contacts with rating data (optimized)`);
+
+    // Count contacts by rating
+    const ratingCounts = new Map<string, number>();
+    const ratingColors = new Map<string, string>([
+      ['Agent', '#D3C9EC'],
+      ['Warm', '#FFBBAA'],
+      ['Hot', '#C33A32'],
+      ['New', '#C0D7B1'],
+      ['Not Interested', '#DBDBDB'],
+      ['Team', '#e4a02c'],
+      ['Cold', '#C0E1F4'],
+      ['Reservation', '#2380c4'],
+    ]);
+
+    contactsWithRatings.forEach((contact: any) => {
+      if (contact.ratings && contact.ratings.length > 0) {
+        const ratingName = contact.ratings[0].value || contact.ratings[0].name; // Use 'value' field
+        if (ratingName) {
+          ratingCounts.set(ratingName, (ratingCounts.get(ratingName) || 0) + 1);
+        }
+      }
+    });
+
+    // Build rating distribution with real data
+    const totalContactsWithRatings = contactsWithRatings.length;
+    const ratingDistribution = Array.from(ratingCounts.entries())
+      .map(([name, count]) => ({
+        name,
+        value: count,
+        color: ratingColors.get(name) || '#94a3b8',
+        percentage: parseFloat(((count / totalContactsWithRatings) * 100).toFixed(1))
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    console.log('Rating distribution:', ratingDistribution);
+
+    // Build sales funnel data (excluding agents/team/not interested)
     const funnelData = [
-      { name: 'New Leads', value: 7, color: '#C0D7B1' },
-      { name: 'Hot Leads', value: 7, color: '#C33A32' },
-      { name: 'Warm Prospects', value: 39, color: '#FFBBAA' },
-      { name: 'Cold/Follow-up', value: 5, color: '#C0E1F4' },
-      { name: 'Reservations', value: 2, color: '#2380c4' }
+      { name: 'New Leads', value: ratingCounts.get('New') || 0, color: '#C0D7B1' },
+      { name: 'Hot Leads', value: ratingCounts.get('Hot') || 0, color: '#C33A32' },
+      { name: 'Warm Prospects', value: ratingCounts.get('Warm') || 0, color: '#FFBBAA' },
+      { name: 'Cold/Follow-up', value: ratingCounts.get('Cold') || 0, color: '#C0E1F4' },
+      { name: 'Reservations', value: ratingCounts.get('Reservation') || 0, color: '#2380c4' }
     ];
 
-    // Active pipeline (excludes agents, team, not interested)
-    const activePipeline = 60;
-    const engagedContacts = 184;
-    const reservations = 2;
-    const engagementRate = 96.8;
+    // Calculate real pipeline metrics
+    const reservations = ratingCounts.get('Reservation') || 0;
+    const activePipeline = (ratingCounts.get('New') || 0) +
+                           (ratingCounts.get('Hot') || 0) +
+                           (ratingCounts.get('Warm') || 0) +
+                           (ratingCounts.get('Cold') || 0) +
+                           reservations;
+
+    const engagedContacts = totalContactsWithRatings - (ratingCounts.get('Not Interested') || 0);
+    const engagementRate = totalContactsWithRatings > 0
+      ? parseFloat(((engagedContacts / totalContactsWithRatings) * 100).toFixed(1))
+      : 0;
+
+    // Build pipelineLeadSources with REAL data (source + ratings breakdown)
+    const sourceRatingBreakdown = new Map<number, { hot: number; warm: number; cold: number; new: number; reservations: number }>();
+
+    contactsWithRatings.forEach((contact: any) => {
+      const sourceId = contact.registration_source_id;
+      if (!sourceId) return;
+
+      if (!sourceRatingBreakdown.has(sourceId)) {
+        sourceRatingBreakdown.set(sourceId, { hot: 0, warm: 0, cold: 0, new: 0, reservations: 0 });
+      }
+
+      const breakdown = sourceRatingBreakdown.get(sourceId)!;
+      if (contact.ratings && contact.ratings.length > 0) {
+        const ratingName = contact.ratings[0].value || contact.ratings[0].name; // Use 'value' field
+        if (ratingName === 'Hot') breakdown.hot++;
+        else if (ratingName === 'Warm') breakdown.warm++;
+        else if (ratingName === 'Cold') breakdown.cold++;
+        else if (ratingName === 'New') breakdown.new++;
+        else if (ratingName === 'Reservation') breakdown.reservations++;
+      }
+    });
+
+    // Calculate quality score for each source
+    const sourceQualityMap = new Map<number, number>();
+    sourceContactCounts.forEach((contactIds, sourceId) => {
+      const sourceInteractions = currentInteractions.filter((i: any) =>
+        contactIds.has(i.contact_id)
+      );
+      sourceQualityMap.set(sourceId, calculateQualityScore(sourceInteractions));
+    });
+
+    // Source colors
+    const sourceColorMap = new Map<string, string>([
+      ['Website', '#3b82f6'],
+      ['Realtor Referral', '#8b5cf6'],
+      ['Friend/Family', '#10b981'],
+      ['Facebook', '#f59e0b'],
+      ['Walk-in', '#ec4899'],
+      ['Phone Call', '#ef4444'],
+      ['Unknown', '#94a3b8'],
+    ]);
+
+    // Build pipeline lead sources array
+    const pipelineLeadSources = Array.from(sourceContactCounts.entries())
+      .map(([sourceId, contactIds]) => {
+        const sourceName = sourceMap.get(sourceId) || `Source ${sourceId}`;
+        const breakdown = sourceRatingBreakdown.get(sourceId) || { hot: 0, warm: 0, cold: 0, new: 0, reservations: 0 };
+        const quality = sourceQualityMap.get(sourceId) || 0;
+
+        return {
+          name: sourceName,
+          contacts: contactIds.size,
+          hot: breakdown.hot,
+          warm: breakdown.warm,
+          reservations: breakdown.reservations,
+          quality,
+          color: sourceColorMap.get(sourceName) || '#94a3b8'
+        };
+      })
+      .sort((a, b) => b.contacts - a.contacts);
+
+    console.log('Pipeline lead sources:', pipelineLeadSources);
 
     // Source performance comparison
     const sourcePerformance = pipelineLeadSources.map(source => ({
       source: source.name,
       contacts: source.contacts,
-      conversionRate: parseFloat(((source.reservations / source.contacts) * 100).toFixed(1)),
+      conversionRate: source.contacts > 0 ? parseFloat(((source.reservations / source.contacts) * 100).toFixed(1)) : 0,
       quality: source.quality,
       hotWarmCount: source.hot + source.warm
     }));
@@ -383,11 +616,13 @@ export async function GET(request: Request) {
     const websiteLeadsData = websiteLeadsSource ? {
       contacts: websiteLeadsSource.contacts,
       quality: websiteLeadsSource.quality,
-      conversionRate: parseFloat(((websiteLeadsSource.reservations / websiteLeadsSource.contacts) * 100).toFixed(1))
+      conversionRate: websiteLeadsSource.contacts > 0
+        ? parseFloat(((websiteLeadsSource.reservations / websiteLeadsSource.contacts) * 100).toFixed(1))
+        : 0
     } : {
-      contacts: 45,
-      quality: 95,
-      conversionRate: 2.2
+      contacts: 0,
+      quality: 0,
+      conversionRate: 0
     };
 
     const pipelineData = {
@@ -403,7 +638,7 @@ export async function GET(request: Request) {
       websiteLeads: websiteLeadsData
     };
 
-    return NextResponse.json({
+    const responseData = {
       keyMetrics: {
         totalContacts,
         activeContacts,
@@ -420,7 +655,12 @@ export async function GET(request: Request) {
       activityTimeline,
       topContacts,
       pipelineData,
-    });
+    };
+
+    // Cache the response
+    setCache(cacheKey, responseData);
+
+    return NextResponse.json(responseData);
   } catch (error: any) {
     console.error('Dashboard API error:', error);
     return NextResponse.json(
