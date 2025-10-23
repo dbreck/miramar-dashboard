@@ -15,6 +15,9 @@ const PROJECT_ID = 2855; // Mira Mar project ID
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Clear cache on server restart (helps with development)
+console.log('[Dashboard API] Cache cleared on startup');
+
 function getCached(key: string): any | null {
   const cached = cache.get(key);
   if (!cached) return null;
@@ -95,7 +98,7 @@ export async function GET(request: Request) {
       registrationSources,
     ] = await Promise.all([
       client.listProjects(), // Get project data including contacts_count
-      client.listInteractions({ project_id_eq: PROJECT_ID, per_page: 100, order: 'created_at DESC' }),
+      client.listAllInteractions({ project_id_eq: PROJECT_ID, order: 'created_at DESC' }), // Fetch ALL interactions with pagination
       client.listInteractionTypes(),
       client.listTeamMembers(),
       client.listRegistrationSources({ project_id_eq: PROJECT_ID, per_page: 100 }),
@@ -297,15 +300,11 @@ export async function GET(request: Request) {
 
       console.log(`Filtered to ${projectContacts.length} contacts in project ${PROJECT_ID} for ${sourceName}`);
 
-      // Optional: Filter by date range if needed
-      if (startDate && endDate) {
-        projectContacts = projectContacts.filter((contact: any) => {
-          if (!contact.created_at) return false;
-          const contactDate = new Date(contact.created_at);
-          return contactDate >= startDate && contactDate <= endDate;
-        });
-        console.log(`After date filter: ${projectContacts.length} contacts for ${sourceName}`);
-      }
+      // NOTE: We do NOT filter contacts by created_at date here
+      // The date filtering happens on interactions (lines 122-123)
+      // We need ALL contacts that have interactions in the period,
+      // regardless of when the contact was created
+      // (A contact created 6 months ago may have interactions today)
 
       // Store contacts for this source
       if (projectContacts.length > 0) {

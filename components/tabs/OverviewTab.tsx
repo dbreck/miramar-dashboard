@@ -246,11 +246,6 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
               <Bar dataKey="contacts" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Total Leads" />
             </BarChart>
           </ResponsiveContainer>
-          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-            <p className="text-xs text-blue-800 dark:text-blue-300">
-              <strong>Fixed v1.6.1:</strong> Now showing ALL leads per source (matching Spark.re UI), not just engaged contacts. Hover bars to see engagement rates.
-            </p>
-          </div>
         </div>
 
         {/* Top Contacts */}
