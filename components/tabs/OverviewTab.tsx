@@ -38,7 +38,7 @@ interface DashboardData {
   };
   interactionTypeBreakdown: Array<{ id: number; name: string; value: number }>;
   teamPerformance: Array<{ id: number; name: string; interactions: number; percentage: number }>;
-  leadSources: Array<{ name: string; contacts: number; quality: number; engagement: number; email: number }>;
+  leadSources: Array<{ name: string; contacts: number; engaged?: number; engagementRate?: number; quality: number; engagement: number; email: number }>;
   activityTimeline: Array<{ date: string; interactions: number; emails: number; calls: number }>;
   topContacts: Array<{ id: number; name: string; interactions: number }>;
 }
@@ -217,10 +217,10 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
             <Users className="w-5 h-5 text-blue-600" />
-            Active Lead Sources
+            Lead Sources
             <InfoTooltip
-              title="Active Lead Sources"
-              description="Where active contacts came from (Website, Referral, Direct, etc.). Shows only contacts that had interactions during the selected period. Contacts added without any interactions yet are not included."
+              title="Lead Sources (Updated v1.6.1)"
+              description="ALL leads by source (matching Spark UI). Shows total leads generated and engagement rate (% contacted). This now includes leads not yet contacted by your team - critical for marketing ROI tracking."
             />
           </h3>
           <ResponsiveContainer width="100%" height={300}>
@@ -234,10 +234,23 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px',
                 }}
+                formatter={(value: any, name: string, props: any) => {
+                  if (name === 'contacts') {
+                    const engaged = props.payload.engaged || 0;
+                    const rate = props.payload.engagementRate || 0;
+                    return [`${value} total (${engaged} contacted, ${rate}% engagement)`, 'Total Leads'];
+                  }
+                  return [value, name];
+                }}
               />
-              <Bar dataKey="contacts" fill="#3b82f6" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="contacts" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Total Leads" />
             </BarChart>
           </ResponsiveContainer>
+          <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-xs text-blue-800 dark:text-blue-300">
+              <strong>Fixed v1.6.1:</strong> Now showing ALL leads per source (matching Spark.re UI), not just engaged contacts. Hover bars to see engagement rates.
+            </p>
+          </div>
         </div>
 
         {/* Top Contacts */}
