@@ -118,8 +118,8 @@ export async function GET(request: Request) {
     console.log('Total contacts from project:', totalContacts);
     console.log('====================');
 
-    // Process interactions data
-    const interactionsList = Array.isArray(interactions) ? interactions : interactions.data || [];
+    // Process interactions data (listAllInteractions always returns an array)
+    const interactionsList = interactions;
 
     // Filter interactions for current and previous periods
     const currentInteractions = filterInteractionsByDateRange(interactionsList, startDate, endDate);
