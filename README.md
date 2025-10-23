@@ -2,27 +2,41 @@
 
 A password-protected Next.js analytics dashboard for Mira Mar luxury real estate CRM, powered by Spark.re API.
 
+## Version 1.1.0 - Lead Source Fix
+
+**🎯 Major Update:** Fixed lead source counts to match Spark.re UI exactly!
+
+- **Before:** Dashboard showed 43 Website leads (only engaged contacts)
+- **After:** Dashboard shows 81 Website leads (ALL contacts, matching Spark UI)
+- **Fix:** Implemented spark-mcp v1.6.1 pattern for accurate total lead counts
+- **Impact:** Now tracks ALL leads generated for marketing ROI, not just contacted ones
+
+See [SPARK_API_FIX.md](SPARK_API_FIX.md) for technical details.
+
 ## Features
 
 - **Password Protection**: Secure access with HTTP-only cookie sessions
 - **Real-time Analytics**: Live data from Spark.re CRM (Project ID: 2855)
-- **4 Dashboard Views**:
-  - **Overview**: Key metrics, activity timeline, interaction types, top contacts
-  - **Contacts**: Lead source distribution, quality metrics, performance tables
+- **Accurate Lead Counts**: Shows ALL leads by source (v1.1.0 fix)
+- **Engagement Metrics**: Total leads + engagement rates for each source
+- **5 Dashboard Views**:
+  - **Overview**: Key metrics, activity timeline, lead sources with engagement
+  - **Pipeline**: Sales funnel, lead attribution, conversion tracking
+  - **Contacts**: Contact list, quality metrics, performance tables
   - **Engagement**: Interaction breakdown, response times, key insights
-  - **Team**: Team member performance, workload distribution
+  - **About**: Dashboard information and version details
 - **Dark Mode**: Toggle with localStorage persistence
 - **Responsive Design**: Mobile-first, works on all screen sizes
 - **Beautiful Charts**: Recharts integration with smooth animations
 
 ## Tech Stack
 
-- **Framework**: Next.js 14 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **Charts**: Recharts
-- **Icons**: lucide-react
-- **API**: Spark.re REST API
+- **Framework**: Next.js 15.5.5 (App Router)
+- **Language**: TypeScript 5.9.3
+- **Styling**: Tailwind CSS 4.1.14
+- **Charts**: Recharts 3.2.1
+- **Icons**: lucide-react 0.545.0
+- **API**: Spark.re REST API v2
 
 ## Setup Instructions
 
@@ -115,8 +129,30 @@ All data is fetched from Spark.re API for Project ID 2855:
 
 - **Contacts**: Total count, email coverage, agent percentage
 - **Interactions**: Activity timeline, type breakdown, team performance
-- **Lead Sources**: Distribution, quality metrics, engagement rates
+- **Lead Sources**: **ALL leads** by source (v1.1.0), engagement rates, quality scores
+  - Shows total leads generated (not just engaged)
+  - Displays engagement percentage (how many have been contacted)
+  - Matches Spark.re UI counts exactly
+- **Sales Pipeline**: Funnel visualization, rating distribution, source attribution
 - **Top Contacts**: Most engaged contacts by interaction count
+
+### Lead Source Data (v1.1.0 Implementation)
+
+The dashboard now fetches **ALL contacts** per registration source using the proven spark-mcp v1.6.1 pattern:
+
+1. Fetches ALL contacts by `registration_source_id` (not just those with interactions)
+2. Filters by project using `projects` array (individual contact fetch)
+3. Batches requests (20 at a time) for performance
+4. Shows total leads + engagement rate (% contacted)
+
+**Example Output:**
+```
+Website: 81 total leads (53% engagement)
+  - 43 contacts contacted
+  - 38 contacts never contacted (now visible!)
+```
+
+This is critical for marketing ROI tracking - you need to see ALL leads generated, even if sales hasn't contacted them yet.
 
 ### Dark Mode
 

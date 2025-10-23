@@ -205,7 +205,7 @@ export async function GET(request: Request) {
       .sort((a, b) => b.interactions - a.interactions);
 
     // Process lead sources (registration sources)
-    console.log(`Lead Sources: Fetching real data from Spark API for period (${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()})`);
+    console.log(`Lead Sources: Fetching ALL contacts per source (matching Spark UI) - Fixed v1.6.1 approach`);
 
     // Calculate email coverage from actual interaction data
     const calculatedEmailCoverage = calculateEmailCoverage(currentInteractions, typeMap);
@@ -222,91 +222,115 @@ export async function GET(request: Request) {
       }
     });
 
-    // Fetch contacts created in the date range (not just those with interactions)
-    // This matches Spark's "Added After" / "Added Before" filtering
-    console.log(`Fetching contacts added between ${startDate.toISOString()} and ${endDate.toISOString()}`);
+    // NEW APPROACH (v1.6.1): Fetch ALL contacts by registration_source_id
+    // Then filter by project using projects array (not project_id_eq)
+    // This matches the working spark-mcp implementation
 
-    let contactsWithSources: any[] = [];
+    const sourceContactCounts = new Map<number, Set<number>>();
+    const allContactsWithSources: any[] = [];
 
-    try {
-      // Try to fetch contacts by created_at date range
-      // Note: This may fail due to Spark API permissions, so we have a fallback
-      const contactsResponse = await client.listContacts({
-        project_id_eq: PROJECT_ID,
-        created_at_gteq: startDate.toISOString().split('T')[0], // YYYY-MM-DD format
-        created_at_lteq: endDate.toISOString().split('T')[0],
-        per_page: 100
-      });
+    for (const source of registrationSourcesList) {
+      const sourceId = source.id;
+      const sourceName = source.name;
 
-      const contactsList = Array.isArray(contactsResponse)
-        ? contactsResponse
-        : contactsResponse.data || [];
+      console.log(`Fetching ALL contacts for source: ${sourceName} (ID: ${sourceId})`);
 
-      contactsWithSources.push(...contactsList);
-      console.log(`Successfully fetched ${contactsWithSources.length} contacts by date range`);
+      // Step 1: Fetch ALL contacts with this registration_source_id (paginated)
+      let allContactsForSource: any[] = [];
+      let page = 1;
+      let hasMore = true;
 
-      // If we got 0 results, the query succeeded but returned nothing
-      // This means the API doesn't support this filtering approach
-      if (contactsWithSources.length === 0) {
-        throw new Error('Date range filtering returned 0 results, using fallback');
-      }
-    } catch (error) {
-      console.warn('Failed to fetch contacts by date range, falling back to interaction-based approach:', error);
-
-      // FALLBACK: Get unique contact IDs from all interactions (not just current period)
-      // Then filter by created_at after fetching
-      const allInteractionsList = Array.isArray(interactions) ? interactions : interactions.data || [];
-      const allContactIds = [...new Set(allInteractionsList.map((i: any) => i.contact_id))];
-
-      console.log(`Found ${allContactIds.length} total unique contacts from interactions`);
-
-      // Fetch contacts in batches using id_in
-      const batchSize = 100;
-      for (let i = 0; i < allContactIds.length; i += batchSize) {
-        const batch = allContactIds.slice(i, i + batchSize);
+      while (hasMore && page <= 10) { // Safety limit: max 10 pages per source
         try {
-          const contactsBatch = await client.listContacts({
-            id_in: batch.join(','),
-            per_page: batchSize
+          const response = await client.listContacts({
+            registration_source_id_eq: sourceId,
+            per_page: 100,
+            page: page
           });
 
-          const contactsList = Array.isArray(contactsBatch)
-            ? contactsBatch
-            : contactsBatch.data || [];
+          const contacts = Array.isArray(response) ? response : response.data || [];
 
-          contactsWithSources.push(...contactsList);
-        } catch (batchError) {
-          console.error(`Failed to fetch contacts batch ${i}-${i + batchSize}:`, batchError);
+          if (contacts.length === 0) break;
+
+          allContactsForSource.push(...contacts);
+
+          // Check if there are more pages (simple check - if we got 100, there might be more)
+          hasMore = contacts.length === 100;
+          page++;
+        } catch (error) {
+          console.error(`Failed to fetch contacts for source ${sourceName}, page ${page}:`, error);
+          break;
         }
       }
 
-      // Filter by created_at date range
-      contactsWithSources = contactsWithSources.filter((contact: any) => {
-        if (!contact.created_at) return false;
-        const contactDate = new Date(contact.created_at);
-        return contactDate >= startDate && contactDate <= endDate;
-      });
+      console.log(`Found ${allContactsForSource.length} total contacts for ${sourceName}`);
 
-      console.log(`Filtered to ${contactsWithSources.length} contacts created in date range`);
-    }
+      // Step 2: Filter by project using projects array
+      // Must fetch individual contacts to access projects array
+      let projectContacts: any[] = [];
 
-    // Count contacts by registration source
-    const sourceContactCounts = new Map<number, Set<number>>();
-    contactsWithSources.forEach((contact: any) => {
-      const sourceId = contact.registration_source_id;
-      if (sourceId) {
+      // Batch fetch individual contacts (20 at a time for performance)
+      const batchSize = 20;
+      for (let i = 0; i < allContactsForSource.length; i += batchSize) {
+        const batch = allContactsForSource.slice(i, i + batchSize);
+        const batchPromises = batch.map((c: any) =>
+          client.getContact(c.id).catch((err: any) => {
+            console.error(`Failed to fetch contact ${c.id}:`, err);
+            return null;
+          })
+        );
+
+        const detailedContacts = await Promise.all(batchPromises);
+
+        // Filter to contacts in project 2855
+        detailedContacts.forEach((contact: any) => {
+          if (!contact) return;
+
+          const projects = contact.projects || [];
+          const inProject = projects.some((p: any) => p.project_id === PROJECT_ID);
+
+          if (inProject) {
+            projectContacts.push(contact);
+          }
+        });
+      }
+
+      console.log(`Filtered to ${projectContacts.length} contacts in project ${PROJECT_ID} for ${sourceName}`);
+
+      // Optional: Filter by date range if needed
+      if (startDate && endDate) {
+        projectContacts = projectContacts.filter((contact: any) => {
+          if (!contact.created_at) return false;
+          const contactDate = new Date(contact.created_at);
+          return contactDate >= startDate && contactDate <= endDate;
+        });
+        console.log(`After date filter: ${projectContacts.length} contacts for ${sourceName}`);
+      }
+
+      // Store contacts for this source
+      if (projectContacts.length > 0) {
         if (!sourceContactCounts.has(sourceId)) {
           sourceContactCounts.set(sourceId, new Set());
         }
-        sourceContactCounts.get(sourceId)!.add(contact.id);
+        projectContacts.forEach((contact: any) => {
+          sourceContactCounts.get(sourceId)!.add(contact.id);
+          allContactsWithSources.push(contact);
+        });
       }
-    });
+    }
 
-    // Build lead sources array with REAL data
+    console.log(`Total contacts across all sources: ${allContactsWithSources.length}`);
+
+    // Build lead sources array with REAL data (total counts + engagement)
     const leadSources = Array.from(sourceContactCounts.entries())
       .map(([sourceId, contactIds]) => {
         const sourceName = sourceMap.get(sourceId) || `Source ${sourceId}`;
-        const contactCount = contactIds.size;
+        const totalContacts = contactIds.size;
+
+        // Get contacts with interactions (engaged contacts)
+        const contactsForSource = allContactsWithSources.filter((c: any) => contactIds.has(c.id));
+        const engagedCount = contactsForSource.filter((c: any) => c.last_interaction_date).length;
+        const engagementRate = totalContacts > 0 ? Math.round((engagedCount / totalContacts) * 100) : 0;
 
         // Get interactions for contacts from this source
         const sourceInteractions = currentInteractions.filter((i: any) =>
@@ -315,7 +339,9 @@ export async function GET(request: Request) {
 
         return {
           name: sourceName,
-          contacts: contactCount,
+          contacts: totalContacts, // TOTAL leads (not just engaged)
+          engaged: engagedCount,   // Subset that have been contacted
+          engagementRate,          // Percentage engaged
           quality: calculateQualityScore(sourceInteractions),
           engagement: calculateEngagementScore(sourceInteractions),
           email: calculatedEmailCoverage,
@@ -323,6 +349,8 @@ export async function GET(request: Request) {
       })
       .filter((source) => source.contacts > 0)
       .sort((a, b) => b.contacts - a.contacts); // Sort by contact count descending
+
+    console.log('Lead sources with engagement data:', leadSources);
 
     // Get activity timeline for current period
     const activityByDate = new Map<string, { fullDate: Date; interactions: number; emails: number; calls: number }>();
@@ -456,31 +484,14 @@ export async function GET(request: Request) {
     // ========================================
     console.log('Fetching real rating and source data for Pipeline tab...');
 
-    // We already have contactsWithSources from the lead sources calculation above
-    // Now we need to fetch individual contacts to get their ratings
+    // We already have allContactsWithSources from the lead sources calculation above
+    // These already have full contact details including ratings (fetched individually)
     // NOTE: Ratings are ONLY available from individual contact endpoint
 
-    // Batch fetch individual contacts to get ratings
-    // Optimize by: 1) Increasing batch size, 2) Limiting total contacts, 3) Concurrent requests
-    const maxContactsForRatings = 50; // Reduced from 100 to improve performance
-    const contactsForRatings = contactsWithSources.slice(0, maxContactsForRatings);
-    const contactsWithRatings: any[] = [];
+    // Use the contacts we already fetched (they have ratings)
+    const contactsWithRatings = allContactsWithSources;
 
-    // Fetch in parallel batches of 20 for better performance (increased from 10)
-    const batchSize = 20;
-    for (let i = 0; i < contactsForRatings.length; i += batchSize) {
-      const batch = contactsForRatings.slice(i, i + batchSize);
-      const batchPromises = batch.map(contact =>
-        client.getContact(contact.id).catch(err => {
-          console.error(`Failed to fetch contact ${contact.id}:`, err);
-          return null;
-        })
-      );
-      const batchResults = await Promise.all(batchPromises);
-      contactsWithRatings.push(...batchResults.filter(c => c !== null));
-    }
-
-    console.log(`Fetched ${contactsWithRatings.length} contacts with rating data (optimized)`);
+    console.log(`Using ${contactsWithRatings.length} contacts with rating data (already fetched)`);
 
     // Count contacts by rating
     const ratingCounts = new Map<string, number>();
