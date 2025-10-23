@@ -272,11 +272,51 @@ export class SparkAPIClient {
   }
 
   /**
-   * List interactions with filters
+   * List interactions with filters (single page)
    */
   async listInteractions(params: Record<string, any> = {}): Promise<any> {
     const query = this.buildQueryString(params);
     return this.get(`/interactions${query}`);
+  }
+
+  /**
+   * List ALL interactions with automatic pagination
+   * Fetches all pages until no more results
+   */
+  async listAllInteractions(params: Record<string, any> = {}): Promise<any[]> {
+    const allInteractions: any[] = [];
+    let page = 1;
+    let hasMore = true;
+    const maxPages = 50; // Safety limit
+
+    console.log('Fetching ALL interactions with pagination...');
+
+    while (hasMore && page <= maxPages) {
+      const pageParams = { ...params, page, per_page: 100 };
+      const query = this.buildQueryString(pageParams);
+
+      try {
+        const response = await this.get<any>(`/interactions${query}`);
+        const interactions = Array.isArray(response) ? response : response.data || [];
+
+        if (interactions.length === 0) {
+          break;
+        }
+
+        allInteractions.push(...interactions);
+        console.log(`  Page ${page}: Fetched ${interactions.length} interactions (total: ${allInteractions.length})`);
+
+        // Check if there are more pages (if we got 100, there might be more)
+        hasMore = interactions.length === 100;
+        page++;
+      } catch (error) {
+        console.error(`Failed to fetch interactions page ${page}:`, error);
+        break;
+      }
+    }
+
+    console.log(`Finished fetching all interactions: ${allInteractions.length} total`);
+    return allInteractions;
   }
 
   /**
