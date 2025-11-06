@@ -58,10 +58,11 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
 
   const tabs = [
     { id: 'overview' as const, label: 'Overview' },
-    { id: 'contacts' as const, label: 'Contacts' },
-    { id: 'engagement' as const, label: 'Engagement' },
-    { id: 'team' as const, label: 'Team' },
-    { id: 'pipeline' as const, label: 'Pipeline' },
+    // Hidden temporarily - will restore when ready to add interaction data
+    // { id: 'contacts' as const, label: 'Contacts' },
+    // { id: 'engagement' as const, label: 'Engagement' },
+    // { id: 'team' as const, label: 'Team' },
+    // { id: 'pipeline' as const, label: 'Pipeline' },
   ];
 
   return (
@@ -83,7 +84,7 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
                   Mira Mar Leads
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  Spark Data Analytics Dashboard
+                  Lead Generation Dashboard
                 </p>
               </div>
             </div>
