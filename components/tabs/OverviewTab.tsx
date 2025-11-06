@@ -1,49 +1,34 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, Activity, TrendingUp, Target, Award, Loader2 } from 'lucide-react';
+import { Users, Loader2, TrendingUp, TrendingDown, MapPin } from 'lucide-react';
 import {
   LineChart,
   Line,
-  PieChart,
-  Pie,
-  Cell,
   BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
-import StatCard, { Trend } from '../StatCard';
 import { DateRange } from '../DateRangePicker';
 import InfoTooltip from '../InfoTooltip';
 
 interface DashboardData {
   keyMetrics: {
-    totalContacts: number;
-    activeContacts: number;
-    totalInteractions: number;
-    avgInteractionsPerContact: number;
-    agentPercentage: number;
-    emailCoverage: number;
-    responsiveness: string;
+    totalLeads: number;
+    trend: {
+      value: number;
+      direction: 'up' | 'down' | 'neutral';
+    };
   };
-  trends: {
-    activeContacts: Trend;
-    totalInteractions: Trend;
-    avgInteractionsPerContact: Trend;
-  };
-  interactionTypeBreakdown: Array<{ id: number; name: string; value: number }>;
-  teamPerformance: Array<{ id: number; name: string; interactions: number; percentage: number }>;
-  leadSources: Array<{ name: string; contacts: number; engaged?: number; engagementRate?: number; quality: number; engagement: number; email: number }>;
-  activityTimeline: Array<{ date: string; interactions: number; emails: number; calls: number }>;
-  topContacts: Array<{ id: number; name: string; interactions: number }>;
+  leadSources: Array<{ name: string; contacts: number }>;
+  leadGrowth: Array<{ date: string; leads: number }>;
+  leadGrowthBySource: Record<string, Array<{ date: string; leads: number }>>;
+  leadsByLocation: Array<{ location: string; leads: number }>;
 }
-
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
 interface OverviewTabProps {
   dateRange: DateRange;
@@ -53,6 +38,7 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string>('All');
 
   useEffect(() => {
     fetchDashboardData();
@@ -113,57 +99,117 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          icon={Users}
-          title="Total Contacts"
-          value={data.keyMetrics.totalContacts}
-          subtitle={`${data.keyMetrics.agentPercentage}% agents`}
-          color="#3b82f6"
-        />
-        <StatCard
-          icon={Activity}
-          title="Active Contacts"
-          value={data.keyMetrics.activeContacts}
-          subtitle={`${data.keyMetrics.totalContacts > 0
-            ? Math.round((data.keyMetrics.activeContacts / data.keyMetrics.totalContacts) * 100)
-            : 0}% of total`}
-          color="#10b981"
-          trend={data.trends.activeContacts}
-        />
-        <StatCard
-          icon={TrendingUp}
-          title="Interactions"
-          value={data.keyMetrics.totalInteractions}
-          subtitle="In selected period"
-          color="#f59e0b"
-          trend={data.trends.totalInteractions}
-        />
-        <StatCard
-          icon={Target}
-          title="Avg Per Contact"
-          value={data.keyMetrics.avgInteractionsPerContact}
-          subtitle="Interactions"
-          color="#8b5cf6"
-          trend={data.trends.avgInteractionsPerContact}
-        />
+      {/* Lead Scorecards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {/* Total Leads */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
+              <Users className="w-6 h-6 text-white" />
+            </div>
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Leads</h3>
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">
+            {data.keyMetrics.totalLeads}
+          </p>
+          {data.keyMetrics.trend.direction !== 'neutral' && (
+            <div className={`flex items-center gap-1 mt-2 ${
+              data.keyMetrics.trend.direction === 'up'
+                ? 'text-green-600 dark:text-green-400'
+                : 'text-red-600 dark:text-red-400'
+            }`}>
+              {data.keyMetrics.trend.direction === 'up' ? (
+                <TrendingUp className="w-4 h-4" />
+              ) : (
+                <TrendingDown className="w-4 h-4" />
+              )}
+              <span className="font-semibold text-sm">{data.keyMetrics.trend.value}%</span>
+            </div>
+          )}
+        </div>
+
+        {/* Individual Source Cards - Show top 5 */}
+        {data.leadSources.slice(0, 5).map((source, idx) => (
+          <div key={source.name} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                idx === 0 ? 'bg-purple-500' :
+                idx === 1 ? 'bg-green-500' :
+                idx === 2 ? 'bg-orange-500' :
+                idx === 3 ? 'bg-pink-500' :
+                'bg-cyan-500'
+              }`}>
+                <Users className="w-6 h-6 text-white" />
+              </div>
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{source.name}</h3>
+            </div>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">
+              {source.contacts}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+              {Math.round((source.contacts / data.keyMetrics.totalLeads) * 100)}% of total
+            </p>
+          </div>
+        ))}
       </div>
 
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Activity Timeline */}
+        {/* Lead Sources */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
-            <Activity className="w-5 h-5 text-blue-600" />
-            Recent Activity
+            <Users className="w-5 h-5 text-blue-600" />
+            Lead Sources
             <InfoTooltip
-              title="Recent Activity Timeline"
-              description="Total interactions (emails + calls + texts) per day for the selected date range. Shows communication volume trends over time. Helps identify busy periods and engagement patterns."
+              title="Lead Sources"
+              description="Total leads created in the selected date range, grouped by registration source. Shows where your leads are coming from (Website, Referrals, Facebook, etc.)"
             />
           </h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={data.activityTimeline}>
+            <BarChart data={data.leadSources}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="name" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#fff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                }}
+              />
+              <Bar dataKey="contacts" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Leads" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Lead Growth Over Time */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-blue-600" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Lead Growth Over Time
+              </h3>
+              <InfoTooltip
+                title="Lead Growth Timeline"
+                description="Number of new leads created per day during the selected date range. Filter by source to see growth for specific channels."
+              />
+            </div>
+            <select
+              value={selectedSource}
+              onChange={(e) => setSelectedSource(e.target.value)}
+              className="px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="All">All Sources</option>
+              {data.leadSources.map((source) => (
+                <option key={source.name} value={source.name}>
+                  {source.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={selectedSource === 'All' ? data.leadGrowth : (data.leadGrowthBySource[selectedSource] || [])}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
               <XAxis dataKey="date" stroke="#6b7280" />
               <YAxis stroke="#6b7280" />
@@ -174,130 +220,43 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
                   borderRadius: '8px',
                 }}
               />
-              <Legend />
-              <Line type="monotone" dataKey="interactions" stroke="#3b82f6" strokeWidth={3} name="Total" />
-              <Line type="monotone" dataKey="emails" stroke="#10b981" strokeWidth={2} name="Emails" />
-              <Line type="monotone" dataKey="calls" stroke="#f59e0b" strokeWidth={2} name="Calls" />
+              <Line type="monotone" dataKey="leads" stroke="#3b82f6" strokeWidth={3} name="New Leads" />
             </LineChart>
           </ResponsiveContainer>
         </div>
+      </div>
 
-        {/* Interaction Types */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
-            <TrendingUp className="w-5 h-5 text-blue-600" />
-            Interaction Type Distribution
-            <InfoTooltip
-              title="Interaction Type Distribution"
-              description="Breakdown of all interactions by type (Email Out, Phone Call, Email In, etc.) for the selected period. Helps identify primary communication channels and contact preferences."
+      {/* Location Distribution Chart */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
+          <MapPin className="w-5 h-5 text-blue-600" />
+          Leads by Location (Area Code)
+          <InfoTooltip
+            title="Geographic Distribution"
+            description="Location of leads based on phone area codes. Shows which cities/regions your leads are calling from, sorted by volume."
+          />
+        </h3>
+        <ResponsiveContainer width="100%" height={500}>
+          <BarChart data={data.leadsByLocation.slice(0, 15)} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <XAxis type="number" stroke="#6b7280" />
+            <YAxis
+              type="category"
+              dataKey="location"
+              stroke="#6b7280"
+              width={160}
+              style={{ fontSize: '12px' }}
             />
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={data.interactionTypeBreakdown}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label={(entry) => `${entry.name}: ${entry.value}`}
-                labelLine={false}
-              >
-                {data.interactionTypeBreakdown.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Lead Sources */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
-            <Users className="w-5 h-5 text-blue-600" />
-            Lead Sources
-            <InfoTooltip
-              title="Lead Sources (Updated v1.6.1)"
-              description="ALL leads by source (matching Spark UI). Shows total leads generated and engagement rate (% contacted). This now includes leads not yet contacted by your team - critical for marketing ROI tracking."
+            <Tooltip
+              contentStyle={{
+                backgroundColor: '#fff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+              }}
             />
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.leadSources.slice(0, 5)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="name" stroke="#6b7280" />
-              <YAxis stroke="#6b7280" />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#fff',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                }}
-                formatter={(value: any, name: string, props: any) => {
-                  if (name === 'contacts') {
-                    const engaged = props.payload.engaged || 0;
-                    const rate = props.payload.engagementRate || 0;
-                    return [`${value} total (${engaged} contacted, ${rate}% engagement)`, 'Total Leads'];
-                  }
-                  return [value, name];
-                }}
-              />
-              <Bar dataKey="contacts" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Total Leads" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Top Contacts */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
-            <Award className="w-5 h-5 text-blue-600" />
-            Most Engaged Contacts
-            <InfoTooltip
-              title="Most Engaged Contacts"
-              description="Contacts with the highest interaction count in the selected period. Higher engagement typically indicates hotter leads, active deals, or high-priority relationships. Use this to prioritize follow-ups."
-            />
-          </h3>
-          <div className="space-y-3">
-            {data.topContacts.slice(0, 8).map((contact, idx) => (
-              <div
-                key={contact.id}
-                className="flex items-center justify-between p-2 rounded hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${
-                      idx === 0
-                        ? 'bg-yellow-500'
-                        : idx === 1
-                        ? 'bg-gray-400'
-                        : idx === 2
-                        ? 'bg-orange-600'
-                        : 'bg-blue-500'
-                    }`}
-                  >
-                    {idx + 1}
-                  </div>
-                  <div>
-                    <p className="font-medium text-sm text-gray-900 dark:text-white">{contact.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">ID: {contact.id}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-20 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full"
-                      style={{ width: `${Math.min((contact.interactions / 5) * 100, 100)}%` }}
-                    />
-                  </div>
-                  <span className="text-sm font-bold text-blue-600 w-8 text-right">
-                    {contact.interactions}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+            <Bar dataKey="leads" fill="#10b981" radius={[0, 8, 8, 0]} name="Leads" />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

@@ -320,6 +320,47 @@ export class SparkAPIClient {
   }
 
   /**
+   * List ALL contacts with automatic pagination
+   * Fetches all pages until no more results
+   * Supports date filtering via created_at_gteq and created_at_lteq
+   */
+  async listAllContacts(params: Record<string, any> = {}): Promise<any[]> {
+    const allContacts: any[] = [];
+    let page = 1;
+    let hasMore = true;
+    const maxPages = 50; // Safety limit (5,000 contacts)
+
+    console.log('Fetching ALL contacts with pagination...');
+
+    while (hasMore && page <= maxPages) {
+      const pageParams = { ...params, page, per_page: 100 };
+      const query = this.buildQueryString(pageParams);
+
+      try {
+        const response = await this.get<any>(`/contacts${query}`);
+        const contacts = Array.isArray(response) ? response : response.data || [];
+
+        if (contacts.length === 0) {
+          break;
+        }
+
+        allContacts.push(...contacts);
+        console.log(`  Page ${page}: Fetched ${contacts.length} contacts (total: ${allContacts.length})`);
+
+        // Check if there are more pages (if we got 100, there might be more)
+        hasMore = contacts.length === 100;
+        page++;
+      } catch (error) {
+        console.error(`Failed to fetch contacts page ${page}:`, error);
+        break;
+      }
+    }
+
+    console.log(`Finished fetching all contacts: ${allContacts.length} total`);
+    return allContacts;
+  }
+
+  /**
    * Get contact details
    */
   async getContact(contactId: number): Promise<any> {
