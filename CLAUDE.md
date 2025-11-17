@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Mira Mar Dashboard is a Next.js 15.5.5 real estate CRM analytics dashboard powered by the Spark.re API. It displays sales metrics, lead sources, team performance, and pipeline data for a single real estate project.
 
-**Current Version**: 1.2.0
+**Current Version**: 1.3.0
 
 ## Common Commands
 
@@ -36,12 +36,13 @@ npm start                # Start production server
 
 ### Dashboard Structure
 
-**5 Main Tabs** (all use same `/api/dashboard` endpoint):
+**6 Main Tabs** (all use same `/api/dashboard` endpoint):
 1. **Overview** - Key metrics, recent activity, team performance, lead sources
 2. **Pipeline** - Deal stages, stage velocity, stage conversion rates
 3. **Contacts** - Contact growth, activity timeline
 4. **Engagement** - Interaction type details, team performance
-5. **Team** - Individual team member performance
+5. **Marketing** - UTM tracking (source, medium, campaign), traffic sources, top campaigns
+6. **Team** - Individual team member performance
 
 **Data Flow**:
 ```
@@ -146,6 +147,66 @@ for (let i = 0; i < contactIds.length; i += BATCH_SIZE) {
 ```
 
 **Documented in**: `SPARK_API_FIX.md` and `~/.claude/skills/spark-api/skill.md`
+
+### Custom Fields Pattern (v1.3.0 Fix)
+
+**CRITICAL**: Spark API returns custom fields as an **array of objects**, NOT a simple key-value object.
+
+**Structure**:
+```typescript
+// ❌ WRONG ASSUMPTION
+contact.custom_fields = {
+  utm_source: "google",
+  utm_medium: "cpc"
+}
+
+// ✅ ACTUAL API RESPONSE
+contact.custom_field_values = [
+  { custom_field_id: 123, value: "google" },
+  { custom_field_id: 456, value: "cpc" }
+]
+```
+
+**Implementation Pattern**:
+
+```typescript
+// Step 1: Fetch custom field definitions to map IDs to names
+const customFields = await client.listCustomFields({
+  project_id_eq: PROJECT_ID,
+  per_page: 100
+});
+
+// Build map: custom_field_id → field_name
+const customFieldMap = new Map<number, string>();
+customFields.forEach((field: any) => {
+  if (field.id && field.name) {
+    customFieldMap.set(field.id, field.name);
+  }
+});
+
+// Step 2: Extract values from each contact
+allContacts.forEach((contact: any) => {
+  const cfValues = contact.custom_field_values || [];
+
+  // Build field map for this contact
+  const fieldMap = new Map<string, any>();
+  cfValues.forEach((cfv: any) => {
+    const fieldName = customFieldMap.get(cfv.custom_field_id);
+    if (fieldName) {
+      fieldMap.set(fieldName, cfv.value);
+    }
+  });
+
+  // Now extract by field name
+  const utmSource = fieldMap.get('utm_source') || 'Direct';
+  const utmMedium = fieldMap.get('utm_medium') || 'None';
+  const utmCampaign = fieldMap.get('utm_campaign') || 'No Campaign';
+});
+```
+
+**Reference Implementation**: `app/api/dashboard/route.ts:311-329, 705-720`
+
+**Why This Matters**: Without this pattern, custom fields appear empty even when populated in Spark. The Marketing tab's UTM tracking depends on correctly parsing `custom_field_values`.
 
 ### Known API Limitations
 
@@ -255,6 +316,12 @@ From `CHANGELOG.md` v1.2.0:
 
 ## Recent Critical Fixes
 
+### v1.3.0 (2025-11-17): Custom Fields & UTM Tracking
+- **Impact**: Marketing tab showed no UTM data despite contacts having UTM parameters in Spark
+- **Fix**: Implemented proper `custom_field_values` array parsing with field ID mapping
+- **Result**: UTM tracking charts now display traffic sources and campaign data correctly
+- **Discovery**: Spark API returns `custom_field_values` array, not `custom_fields` object
+
 ### v1.2.0 (2025-10-23): Pagination Fix
 - **Impact**: ALL dashboard charts were severely underreporting numbers
 - **Fix**: Implemented `listAllInteractions()` with automatic pagination
@@ -309,4 +376,4 @@ Hosted on Vercel. Push to `main` branch triggers auto-deployment.
 
 ---
 
-**Last Updated**: 2025-11-06 (v1.2.0)
+**Last Updated**: 2025-11-17 (v1.3.0)

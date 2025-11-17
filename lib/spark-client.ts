@@ -388,4 +388,12 @@ export class SparkAPIClient {
     const query = this.buildQueryString(params);
     return this.get(`/registration-sources${query}`);
   }
+
+  /**
+   * List custom fields
+   */
+  async listCustomFields(params: Record<string, any> = {}): Promise<any> {
+    const query = this.buildQueryString(params);
+    return this.get(`/custom-fields${query}`);
+  }
 }

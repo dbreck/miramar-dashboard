@@ -5,6 +5,47 @@ All notable changes to the Mira Mar Dashboard will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2025-11-17
+
+### Fixed
+- **Marketing Tab UTM Tracking Now Works**
+  - Fixed critical bug where custom fields were not being extracted from API responses
+  - Spark API returns `custom_field_values` array, not `custom_fields` object
+  - Marketing tab charts now display UTM source, medium, and campaign data correctly
+
+### Changed
+- Updated Spark API client to fetch and map custom field definitions
+  - Added `listCustomFields()` method to SparkAPIClient
+  - Builds lookup map: `custom_field_id` → `field_name`
+- Completely rewrote UTM extraction logic to parse array structure:
+  - Converts `[{ custom_field_id: 123, value: "google" }]` → `{ utm_source: "google" }`
+  - Properly maps field IDs to human-readable names
+  - Extracts utm_source, utm_medium, utm_campaign values
+
+### Added
+- Custom field definitions fetch in dashboard API route
+- Enhanced debug logging to show custom_field_values structure and mappings
+- Field name mapping throughout debug output
+
+### Technical Details
+- **Files Modified:**
+  - `lib/spark-client.ts` - Added `listCustomFields()` method (lines 392-398)
+  - `app/api/dashboard/route.ts` - Custom fields fetch (lines 311-329), updated UTM extraction (lines 705-720), enhanced debug logging (lines 367-388, 634-703)
+
+- **API Structure Discovery:**
+  - Spark API uses `custom_field_values: Array<{ custom_field_id: number, value: any }>`
+  - NOT `custom_fields: Record<string, any>` as initially assumed
+  - Field names stored separately in `/custom-fields` endpoint definitions
+  - Must map IDs to names to extract values by field name
+
+- **What This Fixes:**
+  - ✅ Marketing > Traffic Sources chart (now shows UTM source breakdown)
+  - ✅ Marketing > Top Campaigns table (now shows campaign/source/medium data)
+  - ✅ Debug logs now correctly identify contacts with UTM data
+
+### Why This Was Important
+The Marketing tab was showing "No UTM tracking data available" even though contacts had UTM parameters populated in Spark. The code was looking for a `custom_fields` object that doesn't exist in the API response. Now it correctly parses the `custom_field_values` array structure, enabling proper UTM tracking and attribution reporting.
+
 ## [1.2.0] - 2025-10-23
 
 ### Fixed
