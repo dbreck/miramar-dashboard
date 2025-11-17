@@ -76,3 +76,15 @@ export interface LeadSource {
   engagement: number;
   email: number;
 }
+
+export interface TrafficSource {
+  source: string;
+  leads: number;
+}
+
+export interface Campaign {
+  campaign: string;
+  source: string;
+  medium: string;
+  leads: number;
+}

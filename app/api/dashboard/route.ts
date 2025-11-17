@@ -253,8 +253,19 @@ export async function GET(request: Request) {
     const endParam = searchParams.get('end');
 
     // Parse date range (default to last 30 days)
-    const endDate = endParam ? new Date(endParam) : new Date();
-    const startDate = startParam ? new Date(startParam) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    // IMPORTANT: Spark's "last 30 days" means 31 calendar days (today + 30 days back)
+    // Use UTC to avoid timezone issues - Spark API returns timestamps in UTC
+    const endDate = endParam ? new Date(endParam) : (() => {
+      const end = new Date();
+      end.setUTCHours(23, 59, 59, 999);
+      return end;
+    })();
+    const startDate = startParam ? new Date(startParam) : (() => {
+      const start = new Date();
+      start.setUTCHours(0, 0, 0, 0);
+      start.setUTCDate(start.getUTCDate() - 30);
+      return start;
+    })();
 
     console.log(`\n=== LEAD GENERATION DASHBOARD ===`);
     console.log(`Date Range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
@@ -297,6 +308,26 @@ export async function GET(request: Request) {
 
     console.log(`Found ${sourceMap.size} registration sources`);
 
+    // Fetch custom field definitions to map IDs to names
+    const customFields = await client.listCustomFields({
+      project_id_eq: PROJECT_ID,
+      per_page: 100
+    });
+
+    const customFieldsList = Array.isArray(customFields)
+      ? customFields
+      : customFields.data || [];
+
+    // Build map: custom_field_id → field_name
+    const customFieldMap = new Map<number, string>();
+    customFieldsList.forEach((field: any) => {
+      if (field.id && field.name) {
+        customFieldMap.set(field.id, field.name);
+      }
+    });
+
+    console.log(`Found ${customFieldMap.size} custom fields`);
+
     // ========================================
     // FETCH ALL CONTACTS BY REGISTRATION SOURCE
     // (API doesn't support project_id_eq on /contacts - must fetch by source then filter)
@@ -332,6 +363,29 @@ export async function GET(request: Request) {
         );
 
         const detailedContacts = await Promise.all(batchPromises);
+
+        // DEBUG: Log first detailed contact to see what fields it has
+        if (allContactsForProject.length === 0 && detailedContacts.length > 0 && detailedContacts[0]) {
+          console.log('\n🔍 DEBUG: First individual contact fetch result:');
+          console.log('Contact ID:', detailedContacts[0].id);
+          console.log('Has custom_field_values?:', 'custom_field_values' in detailedContacts[0]);
+          if (detailedContacts[0].custom_field_values && detailedContacts[0].custom_field_values.length > 0) {
+            console.log('Custom field values count:', detailedContacts[0].custom_field_values.length);
+            console.log('Custom field values:', JSON.stringify(detailedContacts[0].custom_field_values, null, 2));
+
+            // Map to readable names
+            const mappedFields: any = {};
+            detailedContacts[0].custom_field_values.forEach((cfv: any) => {
+              const fieldName = customFieldMap.get(cfv.custom_field_id);
+              if (fieldName) {
+                mappedFields[fieldName] = cfv.value;
+              }
+            });
+            console.log('Mapped custom fields:', JSON.stringify(mappedFields, null, 2));
+          }
+          console.log('All keys on contact object:', Object.keys(detailedContacts[0]));
+          console.log('');
+        }
 
         // Filter to contacts in this project
         detailedContacts.forEach((contact: any) => {
@@ -393,6 +447,26 @@ export async function GET(request: Request) {
 
     console.log(`✓ Filtered to ${allContacts.length} contacts created in date range`);
 
+    // Debug: Count Website contacts with Website ANYWHERE in sources array
+    const websiteContactsAny = allContacts.filter((c: any) => {
+      const sources = c.registration_sources || [];
+      return sources.some((s: any) => s && s.id === 17599);
+    });
+    console.log(`DEBUG: Found ${websiteContactsAny.length} contacts with source_id=17599 anywhere in sources array`);
+
+    // Debug: Check for contacts with multiple sources
+    const multiSourceContacts = allContacts.filter((c: any) => {
+      const sources = c.registration_sources || [];
+      return sources.length > 1 && sources.some((s: any) => s && s.id === 17599);
+    });
+    console.log(`DEBUG: Found ${multiSourceContacts.length} contacts with Website AND other sources`);
+    if (multiSourceContacts.length > 0) {
+      console.log('DEBUG: Sample multi-source contacts:', multiSourceContacts.slice(0, 3).map((c: any) => ({
+        id: c.id,
+        sources: c.registration_sources.map((s: any) => s.name)
+      })));
+    }
+
     // ========================================
     // CALCULATE LEAD SOURCES
     // ========================================
@@ -403,8 +477,18 @@ export async function GET(request: Request) {
       // The field is 'registration_sources' (plural, array)
       const sources = contact.registration_sources || [];
       if (sources.length > 0) {
-        const sourceId = sources[0].id; // Take first source
-        sourceContactCounts.set(sourceId, (sourceContactCounts.get(sourceId) || 0) + 1);
+        // Count UNIQUE sources per contact (deduplicate sources within the same contact)
+        const uniqueSourceIds = new Set<number>();
+        sources.forEach((source: any) => {
+          if (source && source.id) {
+            uniqueSourceIds.add(source.id);
+          }
+        });
+
+        // Increment count for each unique source this contact has
+        uniqueSourceIds.forEach((sourceId: number) => {
+          sourceContactCounts.set(sourceId, (sourceContactCounts.get(sourceId) || 0) + 1);
+        });
       } else {
         // Count contacts with no registration source
         noSourceCount++;
@@ -539,6 +623,152 @@ export async function GET(request: Request) {
     console.log('Top 5 locations:', leadsByLocation.slice(0, 5));
 
     // ========================================
+    // CALCULATE UTM TRACKING DATA
+    // ========================================
+    const utmSourceCounts = new Map<string, number>();
+    const campaignData: Array<{
+      campaign: string;
+      source: string;
+      medium: string;
+      leads: number;
+    }> = [];
+
+    // Track unique campaign combinations
+    const campaignKeys = new Map<string, {
+      campaign: string;
+      source: string;
+      medium: string;
+      count: number;
+    }>();
+
+    // Debug: Check contact structure and custom field values
+    if (allContacts.length > 0) {
+      console.log('\n=== UTM DEBUG ===');
+      console.log('Total contacts to analyze:', allContacts.length);
+      console.log('First contact ID:', allContacts[0].id);
+      console.log('First contact has custom_field_values?', 'custom_field_values' in allContacts[0]);
+
+      if (allContacts[0].custom_field_values && allContacts[0].custom_field_values.length > 0) {
+        console.log('Custom field values count:', allContacts[0].custom_field_values.length);
+        console.log('Full custom field values:', JSON.stringify(allContacts[0].custom_field_values, null, 2));
+
+        // Map to readable names
+        const mappedFields: any = {};
+        allContacts[0].custom_field_values.forEach((cfv: any) => {
+          const fieldName = customFieldMap.get(cfv.custom_field_id);
+          if (fieldName) {
+            mappedFields[fieldName] = cfv.value;
+          }
+        });
+        console.log('Mapped custom fields:', JSON.stringify(mappedFields, null, 2));
+      } else {
+        console.log('⚠️  No custom_field_values on first contact');
+        console.log('Available keys:', Object.keys(allContacts[0]));
+      }
+
+      // Check multiple contacts for ANY custom field data
+      let contactsWithCustomFields = 0;
+      let contactsWithUTM = 0;
+      const sampleSize = Math.min(50, allContacts.length);
+
+      for (let i = 0; i < sampleSize; i++) {
+        const cfValues = allContacts[i].custom_field_values || [];
+        if (cfValues.length > 0) {
+          contactsWithCustomFields++;
+
+          // Build field map for this contact
+          const fieldMap = new Map<string, any>();
+          cfValues.forEach((cfv: any) => {
+            const fieldName = customFieldMap.get(cfv.custom_field_id);
+            if (fieldName) {
+              fieldMap.set(fieldName, cfv.value);
+            }
+          });
+
+          // Log first contact with custom fields
+          if (contactsWithCustomFields === 1) {
+            console.log(`\nFirst contact with custom field values (ID: ${allContacts[i].id}):`);
+            console.log('Field names:', Array.from(fieldMap.keys()));
+            console.log('Field data:', Object.fromEntries(fieldMap));
+          }
+
+          // Check for UTM fields
+          const hasUTM = fieldMap.has('utm_source') || fieldMap.has('utm_medium') || fieldMap.has('utm_campaign');
+
+          if (hasUTM) {
+            contactsWithUTM++;
+            if (contactsWithUTM === 1) {
+              console.log(`\n✓ Found UTM data on contact ${i} (ID: ${allContacts[i].id}):`);
+              console.log('utm_source:', fieldMap.get('utm_source'));
+              console.log('utm_medium:', fieldMap.get('utm_medium'));
+              console.log('utm_campaign:', fieldMap.get('utm_campaign'));
+            }
+          }
+        }
+      }
+
+      console.log(`\nSummary: ${contactsWithCustomFields}/${sampleSize} contacts have custom_field_values`);
+      console.log(`Summary: ${contactsWithUTM}/${sampleSize} contacts have UTM data`);
+      console.log('=================\n');
+    }
+
+    allContacts.forEach((contact: any) => {
+      // Parse custom_field_values array to extract UTM parameters
+      const cfValues = contact.custom_field_values || [];
+      const fieldMap = new Map<string, any>();
+
+      cfValues.forEach((cfv: any) => {
+        const fieldName = customFieldMap.get(cfv.custom_field_id);
+        if (fieldName) {
+          fieldMap.set(fieldName, cfv.value);
+        }
+      });
+
+      // Extract UTM parameters from parsed field map
+      const utmSource = fieldMap.get('utm_source') || 'Direct';
+      const utmMedium = fieldMap.get('utm_medium') || 'None';
+      const utmCampaign = fieldMap.get('utm_campaign') || 'No Campaign';
+
+      // Count by source
+      utmSourceCounts.set(utmSource, (utmSourceCounts.get(utmSource) || 0) + 1);
+
+      // Track campaign combinations
+      const campaignKey = `${utmCampaign}|${utmSource}|${utmMedium}`;
+      if (campaignKeys.has(campaignKey)) {
+        campaignKeys.get(campaignKey)!.count++;
+      } else {
+        campaignKeys.set(campaignKey, {
+          campaign: utmCampaign,
+          source: utmSource,
+          medium: utmMedium,
+          count: 1
+        });
+      }
+    });
+
+    // Format traffic sources
+    const trafficSources = Array.from(utmSourceCounts.entries())
+      .map(([source, count]) => ({
+        source,
+        leads: count
+      }))
+      .sort((a, b) => b.leads - a.leads);
+
+    // Format top campaigns
+    const topCampaigns = Array.from(campaignKeys.values())
+      .map(({ campaign, source, medium, count }) => ({
+        campaign,
+        source,
+        medium,
+        leads: count
+      }))
+      .sort((a, b) => b.leads - a.leads)
+      .slice(0, 20); // Top 20 campaigns
+
+    console.log(`Traffic sources: ${trafficSources.length} unique sources`);
+    console.log(`Top campaigns: ${topCampaigns.length} campaigns`);
+
+    // ========================================
     // CALCULATE PREVIOUS PERIOD FOR TRENDS
     // ========================================
     const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -580,6 +810,8 @@ export async function GET(request: Request) {
       leadGrowth,
       leadGrowthBySource,
       leadsByLocation,
+      trafficSources,
+      topCampaigns,
     };
 
     // Cache the response

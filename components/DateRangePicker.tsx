@@ -29,18 +29,25 @@ export default function DateRangePicker({ dateRange, onChange }: DateRangePicker
   };
 
   const handlePresetClick = (preset: '7d' | '30d' | '90d') => {
+    // IMPORTANT: Spark's "last 30 days" means 31 calendar days (today + 30 days back)
+    // Use UTC to avoid timezone issues when comparing with API timestamps
+    // End date: Set to end of today UTC (23:59:59.999)
+    // Start date: Set to start of day N days ago UTC (00:00:00)
     const end = new Date();
+    end.setUTCHours(23, 59, 59, 999);
+
     const start = new Date();
+    start.setUTCHours(0, 0, 0, 0);
 
     switch (preset) {
       case '7d':
-        start.setDate(end.getDate() - 7);
+        start.setUTCDate(start.getUTCDate() - 7);
         break;
       case '30d':
-        start.setDate(end.getDate() - 30);
+        start.setUTCDate(start.getUTCDate() - 30);
         break;
       case '90d':
-        start.setDate(end.getDate() - 90);
+        start.setUTCDate(start.getUTCDate() - 90);
         break;
     }
 
