@@ -28,6 +28,8 @@ interface DashboardData {
   leadGrowth: Array<{ date: string; leads: number }>;
   leadGrowthBySource: Record<string, Array<{ date: string; leads: number }>>;
   leadsByLocation: Array<{ location: string; leads: number }>;
+  leadsByZipCode: Array<{ zipCode: string; leads: number }>;
+  agentDistribution: Array<{ category: string; count: number }>;
 }
 
 interface OverviewTabProps {
@@ -153,7 +155,7 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
         ))}
       </div>
 
-      {/* Charts Grid */}
+      {/* Charts Grid - Row 1: Lead Sources + Agent Distribution */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Lead Sources */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
@@ -166,52 +168,43 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
             />
           </h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.leadSources}>
+            <BarChart data={data.leadSources} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="name" stroke="#6b7280" />
-              <YAxis stroke="#6b7280" />
+              <XAxis type="number" stroke="#6b7280" />
+              <YAxis
+                type="category"
+                dataKey="name"
+                stroke="#6b7280"
+                width={200}
+                style={{ fontSize: '12px' }}
+              />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#fff',
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px',
                 }}
+                formatter={(value: any, name: any, props: any) => [value, props.payload.name]}
               />
-              <Bar dataKey="contacts" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Leads" />
+              <Bar dataKey="contacts" fill="#3b82f6" radius={[0, 8, 8, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Lead Growth Over Time */}
+        {/* Agent Distribution */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-blue-600" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Lead Growth Over Time
-              </h3>
-              <InfoTooltip
-                title="Lead Growth Timeline"
-                description="Number of new leads created per day during the selected date range. Filter by source to see growth for specific channels."
-              />
-            </div>
-            <select
-              value={selectedSource}
-              onChange={(e) => setSelectedSource(e.target.value)}
-              className="px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="All">All Sources</option>
-              {data.leadSources.map((source) => (
-                <option key={source.name} value={source.name}>
-                  {source.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
+            <Users className="w-5 h-5 text-blue-600" />
+            Agent Distribution
+            <InfoTooltip
+              title="Agent vs Non-Agent Breakdown"
+              description="Breakdown of all leads created in the selected date range by agent status. Shows total leads, contacts marked as agents, and non-agent contacts."
+            />
+          </h3>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={selectedSource === 'All' ? data.leadGrowth : (data.leadGrowthBySource[selectedSource] || [])}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
-              <XAxis dataKey="date" stroke="#6b7280" />
+            <BarChart data={data.agentDistribution}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="category" stroke="#6b7280" />
               <YAxis stroke="#6b7280" />
               <Tooltip
                 contentStyle={{
@@ -220,33 +213,43 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
                   borderRadius: '8px',
                 }}
               />
-              <Line type="monotone" dataKey="leads" stroke="#3b82f6" strokeWidth={3} name="New Leads" />
-            </LineChart>
+              <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} name="Count" />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Location Distribution Chart */}
+      {/* Lead Growth Over Time - Full Width */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
-          <MapPin className="w-5 h-5 text-blue-600" />
-          Leads by Location (Area Code)
-          <InfoTooltip
-            title="Geographic Distribution"
-            description="Location of leads based on phone area codes. Shows which cities/regions your leads are calling from, sorted by volume."
-          />
-        </h3>
-        <ResponsiveContainer width="100%" height={500}>
-          <BarChart data={data.leadsByLocation.slice(0, 15)} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis type="number" stroke="#6b7280" />
-            <YAxis
-              type="category"
-              dataKey="location"
-              stroke="#6b7280"
-              width={160}
-              style={{ fontSize: '12px' }}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-blue-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Lead Growth Over Time
+            </h3>
+            <InfoTooltip
+              title="Lead Growth Timeline"
+              description="Number of new leads created per day during the selected date range. Filter by source to see growth for specific channels."
             />
+          </div>
+          <select
+            value={selectedSource}
+            onChange={(e) => setSelectedSource(e.target.value)}
+            className="px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="All">All Sources</option>
+            {data.leadSources.map((source) => (
+              <option key={source.name} value={source.name}>
+                {source.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={selectedSource === 'All' ? data.leadGrowth : (data.leadGrowthBySource[selectedSource] || [])}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
+            <XAxis dataKey="date" stroke="#6b7280" />
+            <YAxis stroke="#6b7280" />
             <Tooltip
               contentStyle={{
                 backgroundColor: '#fff',
@@ -254,9 +257,78 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
                 borderRadius: '8px',
               }}
             />
-            <Bar dataKey="leads" fill="#10b981" radius={[0, 8, 8, 0]} name="Leads" />
-          </BarChart>
+            <Line type="monotone" dataKey="leads" stroke="#3b82f6" strokeWidth={3} name="New Leads" />
+          </LineChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Location Distribution Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Leads by Area Code */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
+            <MapPin className="w-5 h-5 text-blue-600" />
+            Leads by Location (Area Code)
+            <InfoTooltip
+              title="Geographic Distribution"
+              description="Location of leads based on phone area codes. Shows which cities/regions your leads are calling from, sorted by volume."
+            />
+          </h3>
+          <ResponsiveContainer width="100%" height={500}>
+            <BarChart data={data.leadsByLocation.slice(0, 15)} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis type="number" stroke="#6b7280" />
+              <YAxis
+                type="category"
+                dataKey="location"
+                stroke="#6b7280"
+                width={160}
+                style={{ fontSize: '12px' }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#fff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                }}
+              />
+              <Bar dataKey="leads" fill="#10b981" radius={[0, 8, 8, 0]} name="Leads" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Leads by ZIP Code */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
+            <MapPin className="w-5 h-5 text-blue-600" />
+            Leads by Location (ZIP Code)
+            <InfoTooltip
+              title="ZIP Code Distribution"
+              description="Location of leads based on postal/ZIP codes. Shows the most common ZIP codes where your leads are located, sorted by volume."
+            />
+          </h3>
+          <ResponsiveContainer width="100%" height={500}>
+            <BarChart data={data.leadsByZipCode.slice(0, 15)} layout="vertical">
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis type="number" stroke="#6b7280" />
+              <YAxis
+                type="category"
+                dataKey="zipCode"
+                stroke="#6b7280"
+                width={160}
+                style={{ fontSize: '12px' }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#fff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                }}
+              />
+              <Bar dataKey="leads" fill="#10b981" radius={[0, 8, 8, 0]} name="Leads" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
     </div>
   );
