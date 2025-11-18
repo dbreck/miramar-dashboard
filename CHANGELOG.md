@@ -5,6 +5,58 @@ All notable changes to the Mira Mar Dashboard will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2025-11-18
+
+### Added
+- **Agent Distribution Chart**
+  - New chart on Overview tab showing breakdown of All Leads, Agents, and Non-Agents
+  - Filters by `created_at` date to match dashboard date range
+  - Uses `agent` boolean field from Spark API
+  - Vertical bar chart with clean visualization
+
+- **Leads by ZIP Code Chart**
+  - New location chart alongside Area Code chart on Overview tab
+  - Extracts ZIP codes from `postcode` field
+  - Shows "ZIP City" format when city data is available (e.g., "34236 Sarasota")
+  - Displays top 15 ZIP codes sorted by lead volume
+  - Handles missing data gracefully (shows "Unknown" for contacts without ZIP codes)
+
+### Changed
+- **Dashboard Layout Reorganization**
+  - Row 1: Lead Sources (left) + Agent Distribution (right) - both horizontal charts
+  - Row 2: Lead Growth Over Time - full width
+  - Row 3: Leads by Location (Area Code) + Leads by ZIP Code - side by side
+
+- **Lead Sources Chart UX Improvements**
+  - Converted from vertical to horizontal bar chart
+  - Full registration source names now visible (no truncation)
+  - Y-axis width increased to 200px for better label visibility
+  - Custom tooltip formatter shows "Source Name: Count" instead of "Leads: Count"
+  - Consistent styling with other horizontal charts
+
+### Technical Details
+- **Files Modified:**
+  - `app/api/dashboard/route.ts` (lines 450-462, 639-690, 865) - Agent distribution and ZIP code calculations
+  - `components/tabs/OverviewTab.tsx` (lines 31-32, 157-323) - New charts and layout
+  - `package.json` - Version bump to 1.4.0
+
+- **Agent Distribution Logic:**
+  - Counts contacts where `agent === true`
+  - Counts contacts where `agent === false/null/undefined` as non-agents
+  - Uses same date filtering as rest of dashboard (`created_at` field)
+
+- **ZIP Code Processing:**
+  - Normalizes ZIP codes to first 5 digits
+  - Maps ZIP codes to city names from `contact.city` field
+  - Combines as "ZIP City" when city data exists
+  - Falls back to ZIP-only display when city data missing
+
+### Why These Changes Matter
+- **Agent tracking**: Enables filtering and understanding agent vs client acquisition
+- **ZIP code visibility**: Provides granular geographic insights beyond area codes
+- **Better UX**: Horizontal charts prevent label truncation, custom tooltips improve clarity
+- **Flexible layout**: Dashboard now has logical groupings with room for future expansion
+
 ## [1.3.0] - 2025-11-17
 
 ### Fixed

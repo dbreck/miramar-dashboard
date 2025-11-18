@@ -447,6 +447,20 @@ export async function GET(request: Request) {
 
     console.log(`✓ Filtered to ${allContacts.length} contacts created in date range`);
 
+    // ========================================
+    // CALCULATE AGENT DISTRIBUTION
+    // ========================================
+    const agentCount = allContacts.filter((contact: any) => contact.agent === true).length;
+    const nonAgentCount = allContacts.filter((contact: any) => contact.agent === false || contact.agent === null || contact.agent === undefined).length;
+
+    const agentDistribution = [
+      { category: 'All Leads', count: allContacts.length },
+      { category: 'Agents', count: agentCount },
+      { category: 'Non-Agents', count: nonAgentCount }
+    ];
+
+    console.log(`Agent distribution: ${agentCount} agents, ${nonAgentCount} non-agents, ${allContacts.length} total`);
+
     // Debug: Count Website contacts with Website ANYWHERE in sources array
     const websiteContactsAny = allContacts.filter((c: any) => {
       const sources = c.registration_sources || [];
@@ -621,6 +635,59 @@ export async function GET(request: Request) {
 
     console.log(`Leads by location: ${leadsByLocation.length} locations found`);
     console.log('Top 5 locations:', leadsByLocation.slice(0, 5));
+
+    // ========================================
+    // CALCULATE LOCATION DISTRIBUTION FROM ZIP CODES
+    // ========================================
+    const zipCodeData = new Map<string, { count: number; city: string }>();
+    let noZipCodeCount = 0;
+
+    allContacts.forEach((contact: any) => {
+      const zipCode = contact.postcode;
+      const city = contact.city;
+
+      if (zipCode && zipCode.trim() !== '') {
+        // Normalize ZIP code (take first 5 digits for US ZIP codes)
+        const normalizedZip = String(zipCode).trim().substring(0, 5);
+        const existing = zipCodeData.get(normalizedZip);
+
+        if (existing) {
+          // Increment count
+          zipCodeData.set(normalizedZip, {
+            count: existing.count + 1,
+            city: existing.city || city || '' // Keep first city or use new one if not set
+          });
+        } else {
+          // New ZIP code
+          zipCodeData.set(normalizedZip, {
+            count: 1,
+            city: city || ''
+          });
+        }
+      } else {
+        noZipCodeCount++;
+      }
+    });
+
+    const leadsByZipCode = Array.from(zipCodeData.entries())
+      .map(([zipCode, data]) => ({
+        zipCode: data.city ? `${zipCode} ${data.city}` : zipCode,
+        leads: data.count,
+      }))
+      .sort((a, b) => b.leads - a.leads);
+
+    // Add "Unknown" if there are contacts without ZIP code
+    if (noZipCodeCount > 0) {
+      leadsByZipCode.push({
+        zipCode: 'Unknown',
+        leads: noZipCodeCount,
+      });
+      // Re-sort after adding
+      leadsByZipCode.sort((a, b) => b.leads - a.leads);
+    }
+
+    console.log(`Leads by ZIP code: ${leadsByZipCode.length} ZIP codes found`);
+    console.log('Top 5 ZIP codes:', leadsByZipCode.slice(0, 5));
 
     // ========================================
     // CALCULATE UTM TRACKING DATA
@@ -810,6 +877,8 @@ export async function GET(request: Request) {
       leadGrowth,
       leadGrowthBySource,
       leadsByLocation,
+      leadsByZipCode,
+      agentDistribution,
       trafficSources,
       topCampaigns,
     };

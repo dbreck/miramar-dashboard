@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Mira Mar Dashboard is a Next.js 15.5.5 real estate CRM analytics dashboard powered by the Spark.re API. It displays sales metrics, lead sources, team performance, and pipeline data for a single real estate project.
 
-**Current Version**: 1.3.0
+**Current Version**: 1.4.0
 
 ## Common Commands
 
@@ -376,4 +376,4 @@ Hosted on Vercel. Push to `main` branch triggers auto-deployment.
 
 ---
 
-**Last Updated**: 2025-11-17 (v1.3.0)
+**Last Updated**: 2025-11-18 (v1.4.0)
