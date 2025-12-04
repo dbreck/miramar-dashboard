@@ -8,12 +8,12 @@ interface LoadingProgressProps {
 }
 
 const loadingStages = [
-  { icon: Database, message: 'Connecting to Spark API...', minDuration: 500 },
-  { icon: Filter, message: 'Fetching registration sources...', minDuration: 800 },
-  { icon: Users, message: 'Loading contacts by source...', minDuration: 2000 },
-  { icon: Users, message: 'Fetching contact details...', minDuration: 3000 },
-  { icon: BarChart3, message: 'Aggregating analytics data...', minDuration: 1500 },
-  { icon: CheckCircle2, message: 'Preparing dashboard...', minDuration: 500 },
+  { icon: Database, message: 'Connecting to Spark API...', minDuration: 1500 },
+  { icon: Filter, message: 'Fetching registration sources...', minDuration: 3000 },
+  { icon: Users, message: 'Loading contacts by source...', minDuration: 6000 },
+  { icon: Users, message: 'Fetching contact details...', minDuration: 10000 },
+  { icon: BarChart3, message: 'Aggregating analytics data...', minDuration: 6000 },
+  { icon: CheckCircle2, message: 'Preparing dashboard...', minDuration: 3000 },
 ];
 
 export default function LoadingProgress({ startTime }: LoadingProgressProps) {
