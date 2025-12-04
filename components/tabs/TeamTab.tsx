@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import LoadingProgress from '../LoadingProgress';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { DateRange } from '../DateRangePicker';
 
@@ -12,6 +12,7 @@ interface TeamTabProps {
 export default function TeamTab({ dateRange }: TeamTabProps) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadStartTime, setLoadStartTime] = useState<number>(Date.now());
 
   useEffect(() => {
     fetchData();
@@ -19,6 +20,7 @@ export default function TeamTab({ dateRange }: TeamTabProps) {
 
   const fetchData = async () => {
     try {
+      setLoadStartTime(Date.now());
       const params = new URLSearchParams({
         start: dateRange.start.toISOString(),
         end: dateRange.end.toISOString(),
@@ -34,11 +36,7 @@ export default function TeamTab({ dateRange }: TeamTabProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
-      </div>
-    );
+    return <LoadingProgress startTime={loadStartTime} />;
   }
 
   if (!data || !data.teamPerformance.length) {
@@ -60,8 +58,8 @@ export default function TeamTab({ dateRange }: TeamTabProps) {
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data.teamPerformance} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis type="number" stroke="#6b7280" />
-              <YAxis dataKey="name" type="category" stroke="#6b7280" width={180} />
+              <XAxis type="number" stroke="#9ca3af" />
+              <YAxis dataKey="name" type="category" stroke="#9ca3af" width={180} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#fff',

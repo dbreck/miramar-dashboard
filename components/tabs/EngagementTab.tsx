@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Target, Activity, TrendingUp, Mail, Phone, MessageSquare, Loader2 } from 'lucide-react';
+import { Target, Activity, TrendingUp, Mail, Phone, MessageSquare } from 'lucide-react';
+import LoadingProgress from '../LoadingProgress';
 import { DateRange } from '../DateRangePicker';
 
 const StatCard = ({ icon: Icon, title, value, subtitle, color }: any) => (
@@ -24,6 +25,7 @@ interface EngagementTabProps {
 export default function EngagementTab({ dateRange }: EngagementTabProps) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadStartTime, setLoadStartTime] = useState<number>(Date.now());
 
   useEffect(() => {
     fetchData();
@@ -31,6 +33,7 @@ export default function EngagementTab({ dateRange }: EngagementTabProps) {
 
   const fetchData = async () => {
     try {
+      setLoadStartTime(Date.now());
       const params = new URLSearchParams({
         start: dateRange.start.toISOString(),
         end: dateRange.end.toISOString(),
@@ -46,11 +49,7 @@ export default function EngagementTab({ dateRange }: EngagementTabProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
-      </div>
-    );
+    return <LoadingProgress startTime={loadStartTime} />;
   }
 
   if (!data) return null;

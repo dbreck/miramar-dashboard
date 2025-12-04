@@ -14,9 +14,9 @@ import { FilterProvider } from '@/lib/filter-context';
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline' | 'marketing'>('overview');
   const [dateRange, setDateRange] = useState<DateRange>({
-    start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+    start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago (reduced to minimize API calls)
     end: new Date(),
-    preset: '30d'
+    preset: '7d'
   });
 
   return (

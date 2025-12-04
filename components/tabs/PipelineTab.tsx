@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, Users, Target, Award, Zap, Loader2 } from 'lucide-react';
+import { TrendingUp, Users, Target, Award, Zap } from 'lucide-react';
+import LoadingProgress from '../LoadingProgress';
 import {
   BarChart,
   Bar,
@@ -75,6 +76,7 @@ const LEAD_SOURCE_COLORS: Record<string, string> = {
 export default function PipelineTab({ dateRange }: PipelineTabProps) {
   const [data, setData] = useState<PipelineData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadStartTime, setLoadStartTime] = useState<number>(Date.now());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -83,6 +85,7 @@ export default function PipelineTab({ dateRange }: PipelineTabProps) {
 
   const fetchPipelineData = async () => {
     try {
+      setLoadStartTime(Date.now());
       setLoading(true);
       const params = new URLSearchParams({
         start: dateRange.start.toISOString(),
@@ -107,14 +110,7 @@ export default function PipelineTab({ dateRange }: PipelineTabProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto" />
-          <p className="text-gray-600 dark:text-gray-400">Loading pipeline data...</p>
-        </div>
-      </div>
-    );
+    return <LoadingProgress startTime={loadStartTime} />;
   }
 
   if (error) {
@@ -207,11 +203,11 @@ export default function PipelineTab({ dateRange }: PipelineTabProps) {
               margin={{ left: 120, right: 40 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
-              <XAxis type="number" stroke="#6b7280" />
+              <XAxis type="number" stroke="#9ca3af" />
               <YAxis
                 dataKey="name"
                 type="category"
-                stroke="#6b7280"
+                stroke="#9ca3af"
                 width={110}
               />
               <Tooltip
@@ -306,8 +302,8 @@ export default function PipelineTab({ dateRange }: PipelineTabProps) {
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data.sourcePerformance} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
-              <XAxis type="number" stroke="#6b7280" />
-              <YAxis dataKey="source" type="category" stroke="#6b7280" width={100} />
+              <XAxis type="number" stroke="#9ca3af" />
+              <YAxis dataKey="source" type="category" stroke="#9ca3af" width={100} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#fff',
@@ -398,8 +394,8 @@ export default function PipelineTab({ dateRange }: PipelineTabProps) {
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data.sourcePerformance}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
-              <XAxis dataKey="source" stroke="#6b7280" />
-              <YAxis stroke="#6b7280" />
+              <XAxis dataKey="source" stroke="#9ca3af" />
+              <YAxis stroke="#9ca3af" />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#fff',

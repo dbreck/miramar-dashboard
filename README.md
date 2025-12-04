@@ -2,37 +2,33 @@
 
 A password-protected Next.js analytics dashboard for Mira Mar luxury real estate CRM, powered by Spark.re API.
 
-## Version 1.1.0 - Lead Source Fix
+## Version 1.5.1
 
-**🎯 Major Update:** Fixed lead source counts to match Spark.re UI exactly!
-
-- **Before:** Dashboard showed 43 Website leads (only engaged contacts)
-- **After:** Dashboard shows 81 Website leads (ALL contacts, matching Spark UI)
-- **Fix:** Implemented spark-mcp v1.6.1 pattern for accurate total lead counts
-- **Impact:** Now tracks ALL leads generated for marketing ROI, not just contacted ones
-
-See [SPARK_API_FIX.md](SPARK_API_FIX.md) for technical details.
+Current features include comprehensive data filtering, marketing analytics with UTM tracking, and optimized API performance.
 
 ## Features
 
 - **Password Protection**: Secure access with HTTP-only cookie sessions
 - **Real-time Analytics**: Live data from Spark.re CRM (Project ID: 2855)
-- **Accurate Lead Counts**: Shows ALL leads by source (v1.1.0 fix)
-- **Engagement Metrics**: Total leads + engagement rates for each source
-- **5 Dashboard Views**:
-  - **Overview**: Key metrics, activity timeline, lead sources with engagement
+- **Comprehensive Filtering**: Exclude sources (Agent Import, No Value, etc.), filter agents, save presets
+- **Accurate Lead Counts**: Shows ALL leads by source with engagement rates
+- **UTM Tracking**: Full marketing attribution with source, medium, and campaign tracking
+- **6 Dashboard Views**:
+  - **Overview**: Key metrics, activity timeline, lead sources, agent distribution, ZIP code analysis
   - **Pipeline**: Sales funnel, lead attribution, conversion tracking
   - **Contacts**: Contact list, quality metrics, performance tables
   - **Engagement**: Interaction breakdown, response times, key insights
-  - **About**: Dashboard information and version details
+  - **Marketing**: UTM tracking, traffic sources, top campaigns
+  - **Team**: Team member performance and activity
 - **Dark Mode**: Toggle with localStorage persistence
 - **Responsive Design**: Mobile-first, works on all screen sizes
 - **Beautiful Charts**: Recharts integration with smooth animations
 
 ## Tech Stack
 
-- **Framework**: Next.js 15.5.5 (App Router)
+- **Framework**: Next.js 15.5.7 (App Router)
 - **Language**: TypeScript 5.9.3
+- **React**: 19.2.1
 - **Styling**: Tailwind CSS 4.1.14
 - **Charts**: Recharts 3.2.1
 - **Icons**: lucide-react 0.545.0
@@ -52,11 +48,9 @@ Create a `.env.local` file in the root directory:
 
 ```env
 SPARK_API_KEY=your_spark_api_key_here
-DASHBOARD_PASSWORD=miramar2025
-NEXTAUTH_SECRET=4a8f3e2b-9c1d-4e5a-b3f7-8d2c1a9e6b4f
+DASHBOARD_PASSWORD=your_password_here
+SESSION_SECRET=your_32_char_secret_here
 ```
-
-**Important**: Replace `your_spark_api_key_here` with your actual Spark.re API key.
 
 ### 3. Run Development Server
 
@@ -66,12 +60,6 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 4. Login
-
-- Navigate to `/login`
-- Enter password: `miramar2025` (or your custom password from `.env.local`)
-- You'll be redirected to the dashboard
-
 ## Project Structure
 
 ```
@@ -79,27 +67,32 @@ miramar-dashboard/
 ├── app/
 │   ├── api/
 │   │   ├── auth/          # Authentication endpoints
-│   │   ├── dashboard/     # Dashboard data endpoint
+│   │   ├── dashboard/     # Dashboard data endpoint (with caching)
 │   │   └── test/          # API connection test
 │   ├── login/             # Login page
+│   ├── about/             # About page
 │   ├── layout.tsx         # Root layout
 │   ├── page.tsx           # Main dashboard page
 │   └── globals.css        # Global styles
 ├── components/
 │   ├── DashboardLayout.tsx  # Dashboard shell with header/nav
+│   ├── DateRangePicker.tsx  # Date range selector
+│   ├── FilterPanel.tsx      # Filter slide-out panel
 │   └── tabs/
 │       ├── OverviewTab.tsx
+│       ├── PipelineTab.tsx
 │       ├── ContactsTab.tsx
 │       ├── EngagementTab.tsx
+│       ├── MarketingTab.tsx
 │       └── TeamTab.tsx
 ├── lib/
-│   ├── spark-client.ts    # Spark.re API client
+│   ├── spark-client.ts    # Spark.re API client with pagination
+│   ├── filter-context.tsx # Global filter state management
 │   ├── types.ts           # TypeScript types
 │   └── auth.ts            # Authentication utilities
 ├── middleware.ts          # Route protection
 └── public/
     └── logo.png           # Mira Mar logo
-
 ```
 
 ## API Endpoints
@@ -112,62 +105,23 @@ miramar-dashboard/
 ### Dashboard Data
 
 - `GET /api/dashboard` - Fetch all dashboard analytics
+  - Query params: `start`, `end`, `excludeSources`, `excludeAgents`, `excludeNoSource`
 - `GET /api/test` - Test Spark.re API connection
 
-## Features Detail
+## Performance Optimizations
 
-### Authentication System
+- **30-minute cache**: Reduces API calls for repeated views
+- **7-day default range**: Minimizes initial data fetch
+- **Batch size 50**: Faster concurrent contact fetching
+- **Automatic pagination**: Fetches all data without missing records
 
-- Password-based login (configurable via environment variable)
-- HTTP-only cookies for session management
-- Automatic redirect to login for unauthenticated users
-- Middleware-based route protection
+## Security Notes
 
-### Dashboard Analytics
-
-All data is fetched from Spark.re API for Project ID 2855:
-
-- **Contacts**: Total count, email coverage, agent percentage
-- **Interactions**: Activity timeline, type breakdown, team performance
-- **Lead Sources**: **ALL leads** by source (v1.1.0), engagement rates, quality scores
-  - Shows total leads generated (not just engaged)
-  - Displays engagement percentage (how many have been contacted)
-  - Matches Spark.re UI counts exactly
-- **Sales Pipeline**: Funnel visualization, rating distribution, source attribution
-- **Top Contacts**: Most engaged contacts by interaction count
-
-### Lead Source Data (v1.1.0 Implementation)
-
-The dashboard now fetches **ALL contacts** per registration source using the proven spark-mcp v1.6.1 pattern:
-
-1. Fetches ALL contacts by `registration_source_id` (not just those with interactions)
-2. Filters by project using `projects` array (individual contact fetch)
-3. Batches requests (20 at a time) for performance
-4. Shows total leads + engagement rate (% contacted)
-
-**Example Output:**
-```
-Website: 81 total leads (53% engagement)
-  - 43 contacts contacted
-  - 38 contacts never contacted (now visible!)
-```
-
-This is critical for marketing ROI tracking - you need to see ALL leads generated, even if sales hasn't contacted them yet.
-
-### Dark Mode
-
-- Toggle button in header (☀️/🌙)
-- Preference saved to localStorage
-- Smooth transitions between themes
-- Respects system color scheme on first load
-
-### Responsive Design
-
-- Mobile-first approach
-- Breakpoints: 375px, 768px, 1440px
-- Horizontal scroll for tabs on mobile
-- Adaptive chart sizes
-- Touch-friendly interface
+- All routes protected by middleware except `/login` and `/api/auth/*`
+- Session cookies are HTTP-only (not accessible via JavaScript)
+- Cookies are Secure in production (HTTPS only)
+- API key never exposed to client
+- Password validation happens server-side only
 
 ## Build for Production
 
@@ -178,44 +132,17 @@ npm start
 
 ## Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `SPARK_API_KEY` | Spark.re API authentication key | Required |
-| `DASHBOARD_PASSWORD` | Password for dashboard access | `miramar2025` |
-| `NEXTAUTH_SECRET` | Secret for session encryption | Required |
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `SPARK_API_KEY` | Spark.re API authentication key | Yes |
+| `DASHBOARD_PASSWORD` | Password for dashboard access | Yes |
+| `SESSION_SECRET` | Secret for session encryption (32+ chars) | Yes |
 
-## Security Notes
+## Documentation
 
-- All routes protected by middleware except `/login` and `/api/auth/*`
-- Session cookies are HTTP-only (not accessible via JavaScript)
-- Cookies are Secure in production (HTTPS only)
-- API key never exposed to client
-- Password validation happens server-side only
-
-## Browser Support
-
-- Chrome/Edge (latest 2 versions)
-- Firefox (latest 2 versions)
-- Safari (latest 2 versions)
-- Mobile browsers (iOS Safari, Chrome Mobile)
-
-## Troubleshooting
-
-### "SPARK_API_KEY not configured" error
-
-Make sure your `.env.local` file exists and contains a valid API key.
-
-### Charts not rendering
-
-Ensure `recharts` is installed: `npm install recharts`
-
-### Dark mode not persisting
-
-Check browser localStorage permissions and console for errors.
-
-### Login redirect loop
-
-Clear cookies and try again. Check that `NEXTAUTH_SECRET` is set.
+- **CLAUDE.md**: Comprehensive development guide and API patterns
+- **CHANGELOG.md**: Detailed version history
+- **SPARK_API_REQUEST.md**: Spark API feature requests and limitations
 
 ## License
 

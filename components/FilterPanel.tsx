@@ -136,12 +136,6 @@ export default function FilterPanel({ isOpen, onClose }: FilterPanelProps) {
             </h3>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => handleQuickExclude(['agent import', 'import'])}
-                className="px-3 py-1.5 text-sm bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
-              >
-                Exclude Agent Imports
-              </button>
-              <button
                 onClick={() => handleQuickExclude(['no value', 'unknown', 'none', 'n/a'])}
                 className="px-3 py-1.5 text-sm bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 rounded-lg hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors"
               >
