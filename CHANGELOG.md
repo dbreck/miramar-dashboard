@@ -5,6 +5,77 @@ All notable changes to the Mira Mar Dashboard will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2025-12-04
+
+### Added
+- **Comprehensive Data Filtering System**
+  - New Filter button in dashboard header with active filter count badge
+  - Slide-out FilterPanel with rich multi-select UI
+  - **Registration Source Exclusion**: Exclude any source (e.g., "Agent Import", "No Value")
+  - **Quick Filters**: One-click buttons for common exclusions (Agent Imports, No Value, Test Data)
+  - **Agent Filtering**: Toggle to exclude contacts marked as agents
+  - **No Source Filtering**: Toggle to exclude contacts without registration source
+  - **Filter Presets**: Save and load filter configurations for quick switching
+  - **localStorage Persistence**: Filters persist across browser sessions
+  - **Active Filters Banner**: Shows when filters are active with quick access to manage
+
+- **Filter Context System**
+  - Global React Context for filter state management (`lib/filter-context.tsx`)
+  - Centralized filter state shared across all tabs
+  - Stable dependency handling to prevent infinite re-render loops
+
+- **Server-Side Filtering**
+  - API accepts `excludeSources`, `excludeAgents`, `excludeNoSource` query parameters
+  - Filters applied server-side before data aggregation for efficiency
+  - Cache key includes filter params for proper caching per filter combination
+  - Returns `availableSources` list for filter panel population
+  - Returns `activeFilters` metadata showing filter status and count
+
+- **Filter UI Indicators**
+  - Total Leads card shows "(filtered)" label and hidden count when filters active
+  - Marketing tab shows filtered contact count badge
+  - Filter button turns blue with red badge showing active filter count
+
+### Security
+- **CVE-2025-55182 & CVE-2025-66478 Patch**
+  - Updated Next.js from 15.5.5 to **15.5.7** (patched)
+  - Updated React from 19.2.0 to **19.2.1** (patched)
+  - Updated React-DOM from 19.2.0 to **19.2.1** (patched)
+  - Critical React Server Components vulnerability fixed
+  - All npm audit vulnerabilities resolved (0 vulnerabilities)
+
+### Fixed
+- **Infinite Re-render Loop Prevention**
+  - Fixed useEffect dependency issue where array references caused infinite loops
+  - Used `JSON.stringify(excludedSources)` for stable dependency comparison
+  - Prevents endless API calls when `setAvailableSources` updates context
+
+### Technical Details
+- **New Files:**
+  - `lib/filter-context.tsx` - Global filter state management with React Context
+  - `components/FilterPanel.tsx` - Rich slide-out filter panel component
+
+- **Modified Files:**
+  - `app/page.tsx` - Wrapped with FilterProvider
+  - `app/api/dashboard/route.ts` - Added filter parameter parsing and server-side filtering
+  - `components/DashboardLayout.tsx` - Added Filter button, banner, and FilterPanel integration
+  - `components/tabs/OverviewTab.tsx` - Integrated filter context, stable dependencies
+  - `components/tabs/MarketingTab.tsx` - Integrated filter context, stable dependencies
+  - `package.json` - Version bump and dependency updates
+
+- **Filter Processing Flow:**
+  1. Client sends filter params to `/api/dashboard`
+  2. Server parses `excludeSources` (comma-separated names), `excludeAgents`, `excludeNoSource`
+  3. Contacts filtered after date range filtering, before aggregation
+  4. Response includes `availableSources` for filter panel and `activeFilters` metadata
+  5. Cache key includes filter combination for proper caching
+
+### Why This Matters
+- **Data Quality**: Easily exclude 6,000+ imported agent records that skew lead metrics
+- **Flexible Analysis**: Create custom views by excluding irrelevant sources
+- **Saved Workflows**: Filter presets enable quick switching between analysis modes
+- **Accurate Reporting**: See true lead generation numbers without bulk imports
+
 ## [1.4.0] - 2025-11-18
 
 ### Added

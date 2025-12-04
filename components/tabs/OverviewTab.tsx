@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, Loader2, TrendingUp, TrendingDown, MapPin } from 'lucide-react';
+import { Users, Loader2, TrendingUp, TrendingDown, MapPin, Filter } from 'lucide-react';
 import {
   LineChart,
   Line,
@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { DateRange } from '../DateRangePicker';
 import InfoTooltip from '../InfoTooltip';
+import { useFilters } from '@/lib/filter-context';
 
 interface DashboardData {
   keyMetrics: {
@@ -23,6 +24,7 @@ interface DashboardData {
       value: number;
       direction: 'up' | 'down' | 'neutral';
     };
+    unfilteredTotal?: number;
   };
   leadSources: Array<{ name: string; contacts: number }>;
   leadGrowth: Array<{ date: string; leads: number }>;
@@ -30,6 +32,13 @@ interface DashboardData {
   leadsByLocation: Array<{ location: string; leads: number }>;
   leadsByZipCode: Array<{ zipCode: string; leads: number }>;
   agentDistribution: Array<{ category: string; count: number }>;
+  availableSources?: string[];
+  activeFilters?: {
+    excludedSources: string[];
+    excludeAgents: boolean;
+    excludeNoSource: boolean;
+    filteredOutCount: number;
+  };
 }
 
 interface OverviewTabProps {
@@ -42,9 +51,21 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
   const [error, setError] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string>('All');
 
+  const {
+    excludedSources,
+    excludeAgents,
+    excludeNoSource,
+    setAvailableSources,
+    getFilterParams,
+  } = useFilters();
+
+  // Stringify for stable dependency (array reference changes on context updates)
+  const excludedSourcesKey = JSON.stringify(excludedSources);
+
   useEffect(() => {
     fetchDashboardData();
-  }, [dateRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange, excludedSourcesKey, excludeAgents, excludeNoSource]);
 
   const fetchDashboardData = async () => {
     try {
@@ -53,6 +74,13 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
         start: dateRange.start.toISOString(),
         end: dateRange.end.toISOString(),
       });
+
+      // Add filter parameters
+      const filterParams = getFilterParams();
+      filterParams.forEach((value, key) => {
+        params.set(key, value);
+      });
+
       const response = await fetch(`/api/dashboard?${params}`);
 
       if (!response.ok) {
@@ -63,6 +91,11 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
       const dashboardData = await response.json();
       setData(dashboardData);
       setError(null);
+
+      // Update available sources in filter context
+      if (dashboardData.availableSources) {
+        setAvailableSources(dashboardData.availableSources);
+      }
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
       setError(err.message || 'Failed to load dashboard data');
@@ -109,25 +142,38 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
             <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center">
               <Users className="w-6 h-6 text-white" />
             </div>
-            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Leads</h3>
+            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Total Leads
+              {data.activeFilters?.filteredOutCount && data.activeFilters.filteredOutCount > 0 && (
+                <span className="ml-1 text-xs text-blue-500">(filtered)</span>
+              )}
+            </h3>
           </div>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">
             {data.keyMetrics.totalLeads}
           </p>
-          {data.keyMetrics.trend.direction !== 'neutral' && (
-            <div className={`flex items-center gap-1 mt-2 ${
-              data.keyMetrics.trend.direction === 'up'
-                ? 'text-green-600 dark:text-green-400'
-                : 'text-red-600 dark:text-red-400'
-            }`}>
-              {data.keyMetrics.trend.direction === 'up' ? (
-                <TrendingUp className="w-4 h-4" />
-              ) : (
-                <TrendingDown className="w-4 h-4" />
-              )}
-              <span className="font-semibold text-sm">{data.keyMetrics.trend.value}%</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 mt-2">
+            {data.keyMetrics.trend.direction !== 'neutral' && (
+              <div className={`flex items-center gap-1 ${
+                data.keyMetrics.trend.direction === 'up'
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {data.keyMetrics.trend.direction === 'up' ? (
+                  <TrendingUp className="w-4 h-4" />
+                ) : (
+                  <TrendingDown className="w-4 h-4" />
+                )}
+                <span className="font-semibold text-sm">{data.keyMetrics.trend.value}%</span>
+              </div>
+            )}
+            {data.activeFilters?.filteredOutCount && data.activeFilters.filteredOutCount > 0 && (
+              <div className="flex items-center gap-1 text-xs text-gray-500">
+                <Filter className="w-3 h-3" />
+                <span>{data.activeFilters.filteredOutCount} hidden</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Individual Source Cards - Show top 5 */}

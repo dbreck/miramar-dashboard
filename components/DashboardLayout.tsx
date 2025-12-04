@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Sun, Moon, LogOut, Info } from 'lucide-react';
+import { Sun, Moon, LogOut, Info, Filter } from 'lucide-react';
 import DateRangePicker, { DateRange } from './DateRangePicker';
+import FilterPanel from './FilterPanel';
+import { useFilters } from '@/lib/filter-context';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -18,6 +20,8 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
   const router = useRouter();
   const [darkMode, setDarkMode] = useState(true); // Default to dark mode
   const [loggingOut, setLoggingOut] = useState(false);
+  const { isFilterPanelOpen, setFilterPanelOpen, getActiveFilterCount } = useFilters();
+  const activeFilterCount = getActiveFilterCount();
 
   useEffect(() => {
     // Load dark mode preference from localStorage, default to true
@@ -91,6 +95,23 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Filter Button */}
+              <button
+                onClick={() => setFilterPanelOpen(true)}
+                className={`relative flex items-center gap-2 px-4 py-2 rounded-lg shadow hover:shadow-md transition-all cursor-pointer ${
+                  activeFilterCount > 0
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                <span className="hidden sm:inline">Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
               <button
                 onClick={toggleDarkMode}
                 className="p-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all cursor-pointer"
@@ -141,11 +162,35 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
           ))}
         </div>
 
+        {/* Active Filters Banner */}
+        {activeFilterCount > 0 && (
+          <div className="mb-4 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+              <Filter className="w-4 h-4" />
+              <span className="font-medium">
+                {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} active
+              </span>
+              <span className="text-blue-500 dark:text-blue-400">
+                - Some data may be hidden
+              </span>
+            </div>
+            <button
+              onClick={() => setFilterPanelOpen(true)}
+              className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
+            >
+              Manage Filters
+            </button>
+          </div>
+        )}
+
         {/* Tab Content */}
         <div className="transition-all duration-300">
           {children}
         </div>
       </div>
+
+      {/* Filter Panel */}
+      <FilterPanel isOpen={isFilterPanelOpen} onClose={() => setFilterPanelOpen(false)} />
     </div>
   );
 }

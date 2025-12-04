@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Mira Mar Dashboard is a Next.js 15.5.5 real estate CRM analytics dashboard powered by the Spark.re API. It displays sales metrics, lead sources, team performance, and pipeline data for a single real estate project.
+Mira Mar Dashboard is a Next.js 15.5.7 real estate CRM analytics dashboard powered by the Spark.re API. It displays sales metrics, lead sources, team performance, and pipeline data for a single real estate project.
 
-**Current Version**: 1.4.0
+**Current Version**: 1.5.0
 
 ## Common Commands
 
@@ -27,8 +27,8 @@ npm start                # Start production server
 ## Architecture Overview
 
 ### Tech Stack
-- **Next.js 15.5.5** - App Router (not Pages Router)
-- **React 19** - Client and Server Components
+- **Next.js 15.5.7** - App Router (not Pages Router)
+- **React 19.2.1** - Client and Server Components
 - **TypeScript 5.9.3** - Strict mode
 - **Recharts 3.2.1** - Chart visualizations
 - **Tailwind CSS 4.1.14** - Styling
@@ -46,12 +46,42 @@ npm start                # Start production server
 
 **Data Flow**:
 ```
-Client Component → /api/dashboard?start=...&end=... → SparkAPIClient → Spark.re API
+Client Component → /api/dashboard?start=...&end=...&excludeSources=...&excludeAgents=... → SparkAPIClient → Spark.re API
                 ↓
-         5-minute in-memory cache (dashboardCache)
+         5-minute in-memory cache (keyed by date range + filters)
                 ↓
-         Aggregated JSON response
+         Filtered & Aggregated JSON response
 ```
+
+### Filtering System (v1.5.0)
+
+The dashboard includes a comprehensive filtering system to exclude unwanted data (e.g., 6,000+ agent imports).
+
+**Filter Types:**
+- **Registration Source Exclusion** - Multi-select to exclude sources like "Agent Import", "No Value"
+- **Agent Filtering** - Toggle to exclude contacts marked as agents
+- **No Source Filtering** - Toggle to exclude contacts without registration source
+- **Filter Presets** - Save/load filter configurations
+
+**Architecture:**
+```
+FilterProvider (app/page.tsx)
+    ↓
+FilterContext (lib/filter-context.tsx) - Global state with localStorage persistence
+    ↓
+DashboardLayout - Filter button + FilterPanel component
+    ↓
+Tabs (OverviewTab, MarketingTab) - Send filter params to API, update availableSources
+    ↓
+API Route - Server-side filtering before aggregation
+```
+
+**API Filter Parameters:**
+- `excludeSources` - Comma-separated source names to exclude
+- `excludeAgents` - "true" to exclude contacts where `agent === true`
+- `excludeNoSource` - "true" to exclude contacts with no registration source
+
+**Important:** Use `JSON.stringify(excludedSources)` in useEffect dependencies to prevent infinite loops (array references change on context updates).
 
 ## CRITICAL: Spark.re API Patterns
 
@@ -376,4 +406,4 @@ Hosted on Vercel. Push to `main` branch triggers auto-deployment.
 
 ---
 
-**Last Updated**: 2025-11-18 (v1.4.0)
+**Last Updated**: 2025-12-04 (v1.5.0)
