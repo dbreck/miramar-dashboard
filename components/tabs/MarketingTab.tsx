@@ -1,19 +1,34 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BarChart3, TrendingUp } from 'lucide-react';
+import { BarChart3, TrendingUp, Filter } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { DateRange } from '@/components/DateRangePicker';
 import { TrafficSource, Campaign } from '@/lib/types';
+import { useFilters } from '@/lib/filter-context';
 
 interface MarketingData {
   trafficSources: TrafficSource[];
   topCampaigns: Campaign[];
+  activeFilters?: {
+    filteredOutCount: number;
+  };
 }
 
 export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
   const [data, setData] = useState<MarketingData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const {
+    excludedSources,
+    excludeAgents,
+    excludeNoSource,
+    setAvailableSources,
+    getFilterParams,
+  } = useFilters();
+
+  // Stringify for stable dependency (array reference changes on context updates)
+  const excludedSourcesKey = JSON.stringify(excludedSources);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -24,13 +39,25 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
           end: dateRange.end.toISOString(),
         });
 
+        // Add filter parameters
+        const filterParams = getFilterParams();
+        filterParams.forEach((value, key) => {
+          params.set(key, value);
+        });
+
         const response = await fetch(`/api/dashboard?${params}`);
         const result = await response.json();
 
         setData({
           trafficSources: result.trafficSources || [],
           topCampaigns: result.topCampaigns || [],
+          activeFilters: result.activeFilters,
         });
+
+        // Update available sources in filter context
+        if (result.availableSources) {
+          setAvailableSources(result.availableSources);
+        }
       } catch (error) {
         console.error('Error fetching marketing data:', error);
       } finally {
@@ -39,7 +66,8 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
     };
 
     fetchData();
-  }, [dateRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange, excludedSourcesKey, excludeAgents, excludeNoSource]);
 
   if (loading) {
     return (
@@ -65,14 +93,22 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
     <div className="space-y-6">
       {/* Traffic Sources Chart */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-            <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+              <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Traffic Sources</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Leads by UTM source</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Traffic Sources</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Leads by UTM source</p>
-          </div>
+          {data.activeFilters?.filteredOutCount && data.activeFilters.filteredOutCount > 0 && (
+            <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+              <Filter className="w-3 h-3" />
+              <span>{data.activeFilters.filteredOutCount} contacts filtered</span>
+            </div>
+          )}
         </div>
 
         {data.trafficSources.length === 0 ? (

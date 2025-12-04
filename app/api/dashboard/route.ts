@@ -252,6 +252,17 @@ export async function GET(request: Request) {
     const startParam = searchParams.get('start');
     const endParam = searchParams.get('end');
 
+    // Parse filter parameters
+    const excludeSourcesParam = searchParams.get('excludeSources');
+    const excludeAgentsParam = searchParams.get('excludeAgents');
+    const excludeNoSourceParam = searchParams.get('excludeNoSource');
+
+    const excludedSourceNames = excludeSourcesParam
+      ? excludeSourcesParam.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    const excludeAgents = excludeAgentsParam === 'true';
+    const excludeNoSource = excludeNoSourceParam === 'true';
+
     // Parse date range (default to last 30 days)
     // IMPORTANT: Spark's "last 30 days" means 31 calendar days (today + 30 days back)
     // Use UTC to avoid timezone issues - Spark API returns timestamps in UTC
@@ -269,9 +280,11 @@ export async function GET(request: Request) {
 
     console.log(`\n=== LEAD GENERATION DASHBOARD ===`);
     console.log(`Date Range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+    console.log(`Filters: excludeSources=${excludedSourceNames.length}, excludeAgents=${excludeAgents}, excludeNoSource=${excludeNoSource}`);
 
-    // Check cache first
-    const cacheKey = `dashboard-${startDate.toISOString()}-${endDate.toISOString()}`;
+    // Check cache first (include filter params in cache key)
+    const filterKey = `${excludedSourceNames.sort().join('|')}-${excludeAgents}-${excludeNoSource}`;
+    const cacheKey = `dashboard-${startDate.toISOString()}-${endDate.toISOString()}-${filterKey}`;
     const cached = getCached(cacheKey);
     if (cached) {
       console.log('✓ Returning cached dashboard data');
@@ -439,13 +452,57 @@ export async function GET(request: Request) {
     console.log(`✓ Total contacts in project (including no source): ${allContactsForProject.length}`);
 
     // Filter by created_at date client-side
-    const allContacts = allContactsForProject.filter((contact: any) => {
+    const dateFilteredContacts = allContactsForProject.filter((contact: any) => {
       if (!contact.created_at) return false;
       const createdDate = new Date(contact.created_at);
       return createdDate >= startDate && createdDate <= endDate;
     });
 
-    console.log(`✓ Filtered to ${allContacts.length} contacts created in date range`);
+    console.log(`✓ Filtered to ${dateFilteredContacts.length} contacts created in date range`);
+
+    // Build set of excluded source IDs from names
+    const excludedSourceIds = new Set<number>();
+    excludedSourceNames.forEach((name: string) => {
+      for (const [id, sourceName] of sourceMap.entries()) {
+        if (sourceName === name) {
+          excludedSourceIds.add(id);
+          break;
+        }
+      }
+    });
+
+    // Apply user-specified filters
+    const allContacts = dateFilteredContacts.filter((contact: any) => {
+      // Filter by agent status
+      if (excludeAgents && contact.agent === true) {
+        return false;
+      }
+
+      // Filter by registration source
+      const sources = contact.registration_sources || [];
+
+      // Exclude contacts with no source if requested
+      if (excludeNoSource && sources.length === 0) {
+        return false;
+      }
+
+      // Exclude contacts where ANY source is in the excluded list
+      if (excludedSourceIds.size > 0) {
+        const hasExcludedSource = sources.some((source: any) =>
+          source && excludedSourceIds.has(source.id)
+        );
+        if (hasExcludedSource) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    const filteredOutCount = dateFilteredContacts.length - allContacts.length;
+    if (filteredOutCount > 0) {
+      console.log(`✓ Filtered out ${filteredOutCount} contacts by user filters (${allContacts.length} remaining)`);
+    }
 
     // ========================================
     // CALCULATE AGENT DISTRIBUTION
@@ -865,13 +922,29 @@ export async function GET(request: Request) {
     // ========================================
     // BUILD RESPONSE
     // ========================================
+
+    // Build available sources list for filter UI (sorted alphabetically)
+    const availableSources = Array.from(sourceMap.values()).sort((a, b) =>
+      a.localeCompare(b)
+    );
+
+    // Add "No Source" to available sources if there are contacts without sources
+    const hasNoSourceContacts = dateFilteredContacts.some((c: any) =>
+      !c.registration_sources || c.registration_sources.length === 0
+    );
+    if (hasNoSourceContacts && !availableSources.includes('No Source')) {
+      availableSources.push('No Source');
+    }
+
     const responseData = {
       keyMetrics: {
         totalLeads: currentTotal,
         trend: {
           value: Math.abs(trend),
           direction: trendDirection
-        }
+        },
+        // Include unfiltered total for reference
+        unfilteredTotal: dateFilteredContacts.length,
       },
       leadSources,
       leadGrowth,
@@ -881,6 +954,14 @@ export async function GET(request: Request) {
       agentDistribution,
       trafficSources,
       topCampaigns,
+      // Filter metadata for UI
+      availableSources,
+      activeFilters: {
+        excludedSources: excludedSourceNames,
+        excludeAgents,
+        excludeNoSource,
+        filteredOutCount: dateFilteredContacts.length - allContacts.length,
+      },
     };
 
     // Cache the response

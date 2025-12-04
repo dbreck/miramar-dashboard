@@ -9,6 +9,7 @@ import TeamTab from '@/components/tabs/TeamTab';
 import PipelineTab from '@/components/tabs/PipelineTab';
 import MarketingTab from '@/components/tabs/MarketingTab';
 import { DateRange } from '@/components/DateRangePicker';
+import { FilterProvider } from '@/lib/filter-context';
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline' | 'marketing'>('overview');
@@ -19,13 +20,15 @@ export default function DashboardPage() {
   });
 
   return (
-    <DashboardLayout activeTab={activeTab} setActiveTab={setActiveTab} dateRange={dateRange} setDateRange={setDateRange}>
-      {activeTab === 'overview' && <OverviewTab dateRange={dateRange} />}
-      {activeTab === 'contacts' && <ContactsTab dateRange={dateRange} />}
-      {activeTab === 'engagement' && <EngagementTab dateRange={dateRange} />}
-      {activeTab === 'team' && <TeamTab dateRange={dateRange} />}
-      {activeTab === 'pipeline' && <PipelineTab dateRange={dateRange} />}
-      {activeTab === 'marketing' && <MarketingTab dateRange={dateRange} />}
-    </DashboardLayout>
+    <FilterProvider>
+      <DashboardLayout activeTab={activeTab} setActiveTab={setActiveTab} dateRange={dateRange} setDateRange={setDateRange}>
+        {activeTab === 'overview' && <OverviewTab dateRange={dateRange} />}
+        {activeTab === 'contacts' && <ContactsTab dateRange={dateRange} />}
+        {activeTab === 'engagement' && <EngagementTab dateRange={dateRange} />}
+        {activeTab === 'team' && <TeamTab dateRange={dateRange} />}
+        {activeTab === 'pipeline' && <PipelineTab dateRange={dateRange} />}
+        {activeTab === 'marketing' && <MarketingTab dateRange={dateRange} />}
+      </DashboardLayout>
+    </FilterProvider>
   );
 }
