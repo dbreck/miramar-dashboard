@@ -17,6 +17,7 @@ import {
 import { DateRange } from '../DateRangePicker';
 import InfoTooltip from '../InfoTooltip';
 import { useFilters } from '@/lib/filter-context';
+import { useDashboardStream } from '@/lib/use-dashboard-stream';
 
 interface DashboardData {
   keyMetrics: {
@@ -47,68 +48,37 @@ interface OverviewTabProps {
 }
 
 export default function OverviewTab({ dateRange }: OverviewTabProps) {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadStartTime, setLoadStartTime] = useState<number>(Date.now());
-  const [error, setError] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string>('All');
+  const [sourcesUpdated, setSourcesUpdated] = useState(false);
 
   const {
     excludedSources,
     excludeAgents,
     excludeNoSource,
     setAvailableSources,
-    getFilterParams,
   } = useFilters();
 
-  // Stringify for stable dependency (array reference changes on context updates)
-  const excludedSourcesKey = JSON.stringify(excludedSources);
+  const { data, loading, error, progress, startTime, refetch } = useDashboardStream({
+    start: dateRange.start,
+    end: dateRange.end,
+    excludedSources,
+    excludeAgents,
+    excludeNoSource,
+  });
 
+  // Update available sources when data loads (only once per data load)
   useEffect(() => {
-    fetchDashboardData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange, excludedSourcesKey, excludeAgents, excludeNoSource]);
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoadStartTime(Date.now());
-      setLoading(true);
-      const params = new URLSearchParams({
-        start: dateRange.start.toISOString(),
-        end: dateRange.end.toISOString(),
-      });
-
-      // Add filter parameters
-      const filterParams = getFilterParams();
-      filterParams.forEach((value, key) => {
-        params.set(key, value);
-      });
-
-      const response = await fetch(`/api/dashboard?${params}`);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch dashboard data');
-      }
-
-      const dashboardData = await response.json();
-      setData(dashboardData);
-      setError(null);
-
-      // Update available sources in filter context
-      if (dashboardData.availableSources) {
-        setAvailableSources(dashboardData.availableSources);
-      }
-    } catch (err: any) {
-      console.error('Error fetching dashboard data:', err);
-      setError(err.message || 'Failed to load dashboard data');
-    } finally {
-      setLoading(false);
+    if (data?.availableSources && !loading && !sourcesUpdated) {
+      setAvailableSources(data.availableSources);
+      setSourcesUpdated(true);
     }
-  };
+    if (loading) {
+      setSourcesUpdated(false);
+    }
+  }, [data, loading, sourcesUpdated, setAvailableSources]);
 
   if (loading) {
-    return <LoadingProgress startTime={loadStartTime} />;
+    return <LoadingProgress progress={progress} startTime={startTime} />;
   }
 
   if (error) {
@@ -117,7 +87,7 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
         <h3 className="text-lg font-semibold text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
         <p className="text-red-600 dark:text-red-400">{error}</p>
         <button
-          onClick={fetchDashboardData}
+          onClick={refetch}
           className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
         >
           Retry
@@ -127,6 +97,8 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
   }
 
   if (!data) return null;
+
+  const dashboardData = data as DashboardData;
 
   return (
     <div className="space-y-6">
@@ -140,40 +112,40 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
             </div>
             <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">
               Total Leads
-              {data.activeFilters?.filteredOutCount && data.activeFilters.filteredOutCount > 0 && (
+              {dashboardData.activeFilters?.filteredOutCount && dashboardData.activeFilters.filteredOutCount > 0 && (
                 <span className="ml-1 text-xs text-blue-500">(filtered)</span>
               )}
             </h3>
           </div>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">
-            {data.keyMetrics.totalLeads}
+            {dashboardData.keyMetrics.totalLeads}
           </p>
           <div className="flex items-center gap-2 mt-2">
-            {data.keyMetrics.trend.direction !== 'neutral' && (
+            {dashboardData.keyMetrics.trend.direction !== 'neutral' && (
               <div className={`flex items-center gap-1 ${
-                data.keyMetrics.trend.direction === 'up'
+                dashboardData.keyMetrics.trend.direction === 'up'
                   ? 'text-green-600 dark:text-green-400'
                   : 'text-red-600 dark:text-red-400'
               }`}>
-                {data.keyMetrics.trend.direction === 'up' ? (
+                {dashboardData.keyMetrics.trend.direction === 'up' ? (
                   <TrendingUp className="w-4 h-4" />
                 ) : (
                   <TrendingDown className="w-4 h-4" />
                 )}
-                <span className="font-semibold text-sm">{data.keyMetrics.trend.value}%</span>
+                <span className="font-semibold text-sm">{dashboardData.keyMetrics.trend.value}%</span>
               </div>
             )}
-            {data.activeFilters?.filteredOutCount && data.activeFilters.filteredOutCount > 0 && (
+            {dashboardData.activeFilters?.filteredOutCount && dashboardData.activeFilters.filteredOutCount > 0 && (
               <div className="flex items-center gap-1 text-xs text-gray-500">
                 <Filter className="w-3 h-3" />
-                <span>{data.activeFilters.filteredOutCount} hidden</span>
+                <span>{dashboardData.activeFilters.filteredOutCount} hidden</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Individual Source Cards - Show top 5 */}
-        {data.leadSources.slice(0, 5).map((source, idx) => (
+        {dashboardData.leadSources.slice(0, 5).map((source, idx) => (
           <div key={source.name} className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
             <div className="flex items-center gap-3 mb-2">
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
@@ -191,7 +163,7 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
               {source.contacts}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              {Math.round((source.contacts / data.keyMetrics.totalLeads) * 100)}% of total
+              {Math.round((source.contacts / dashboardData.keyMetrics.totalLeads) * 100)}% of total
             </p>
           </div>
         ))}
@@ -210,7 +182,7 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
             />
           </h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.leadSources} layout="vertical">
+            <BarChart data={dashboardData.leadSources} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis type="number" stroke="#9ca3af" />
               <YAxis
@@ -244,7 +216,7 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
             />
           </h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.agentDistribution}>
+            <BarChart data={dashboardData.agentDistribution}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis dataKey="category" stroke="#9ca3af" />
               <YAxis stroke="#9ca3af" />
@@ -280,7 +252,7 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
             className="px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="All">All Sources</option>
-            {data.leadSources.map((source) => (
+            {dashboardData.leadSources.map((source) => (
               <option key={source.name} value={source.name}>
                 {source.name}
               </option>
@@ -288,7 +260,7 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
           </select>
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={selectedSource === 'All' ? data.leadGrowth : (data.leadGrowthBySource[selectedSource] || [])}>
+          <LineChart data={selectedSource === 'All' ? dashboardData.leadGrowth : (dashboardData.leadGrowthBySource[selectedSource] || [])}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
             <XAxis dataKey="date" stroke="#9ca3af" />
             <YAxis stroke="#9ca3af" />
@@ -317,7 +289,7 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
             />
           </h3>
           <ResponsiveContainer width="100%" height={500}>
-            <BarChart data={data.leadsByLocation.slice(0, 15)} layout="vertical">
+            <BarChart data={dashboardData.leadsByLocation.slice(0, 15)} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis type="number" stroke="#9ca3af" />
               <YAxis
@@ -350,7 +322,7 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
             />
           </h3>
           <ResponsiveContainer width="100%" height={500}>
-            <BarChart data={data.leadsByZipCode.slice(0, 15)} layout="vertical">
+            <BarChart data={dashboardData.leadsByZipCode.slice(0, 15)} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis type="number" stroke="#9ca3af" />
               <YAxis

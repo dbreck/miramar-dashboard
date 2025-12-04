@@ -7,6 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { DateRange } from '@/components/DateRangePicker';
 import { TrafficSource, Campaign } from '@/lib/types';
 import { useFilters } from '@/lib/filter-context';
+import { useDashboardStream } from '@/lib/use-dashboard-stream';
 
 interface MarketingData {
   trafficSources: TrafficSource[];
@@ -17,63 +18,44 @@ interface MarketingData {
 }
 
 export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
-  const [data, setData] = useState<MarketingData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [loadStartTime, setLoadStartTime] = useState<number>(Date.now());
+  const [sourcesUpdated, setSourcesUpdated] = useState(false);
 
   const {
     excludedSources,
     excludeAgents,
     excludeNoSource,
     setAvailableSources,
-    getFilterParams,
   } = useFilters();
 
-  // Stringify for stable dependency (array reference changes on context updates)
-  const excludedSourcesKey = JSON.stringify(excludedSources);
+  const { data, loading, error, progress, startTime } = useDashboardStream({
+    start: dateRange.start,
+    end: dateRange.end,
+    excludedSources,
+    excludeAgents,
+    excludeNoSource,
+  });
 
+  // Update available sources when data loads (only once per data load)
   useEffect(() => {
-    const fetchData = async () => {
-      setLoadStartTime(Date.now());
-      setLoading(true);
-      try {
-        const params = new URLSearchParams({
-          start: dateRange.start.toISOString(),
-          end: dateRange.end.toISOString(),
-        });
-
-        // Add filter parameters
-        const filterParams = getFilterParams();
-        filterParams.forEach((value, key) => {
-          params.set(key, value);
-        });
-
-        const response = await fetch(`/api/dashboard?${params}`);
-        const result = await response.json();
-
-        setData({
-          trafficSources: result.trafficSources || [],
-          topCampaigns: result.topCampaigns || [],
-          activeFilters: result.activeFilters,
-        });
-
-        // Update available sources in filter context
-        if (result.availableSources) {
-          setAvailableSources(result.availableSources);
-        }
-      } catch (error) {
-        console.error('Error fetching marketing data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange, excludedSourcesKey, excludeAgents, excludeNoSource]);
+    if (data?.availableSources && !loading && !sourcesUpdated) {
+      setAvailableSources(data.availableSources);
+      setSourcesUpdated(true);
+    }
+    if (loading) {
+      setSourcesUpdated(false);
+    }
+  }, [data, loading, sourcesUpdated, setAvailableSources]);
 
   if (loading) {
-    return <LoadingProgress startTime={loadStartTime} />;
+    return <LoadingProgress progress={progress} startTime={startTime} />;
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
   }
 
   if (!data) {
@@ -83,6 +65,12 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
       </div>
     );
   }
+
+  const marketingData: MarketingData = {
+    trafficSources: data.trafficSources || [],
+    topCampaigns: data.topCampaigns || [],
+    activeFilters: data.activeFilters,
+  };
 
   // Colors for the bar chart
   const COLORS = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#6366f1', '#ef4444', '#06b6d4'];
@@ -101,15 +89,15 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
               <p className="text-sm text-gray-500 dark:text-gray-400">Leads by UTM source</p>
             </div>
           </div>
-          {data.activeFilters?.filteredOutCount && data.activeFilters.filteredOutCount > 0 && (
+          {marketingData.activeFilters?.filteredOutCount && marketingData.activeFilters.filteredOutCount > 0 && (
             <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
               <Filter className="w-3 h-3" />
-              <span>{data.activeFilters.filteredOutCount} contacts filtered</span>
+              <span>{marketingData.activeFilters.filteredOutCount} contacts filtered</span>
             </div>
           )}
         </div>
 
-        {data.trafficSources.length === 0 ? (
+        {marketingData.trafficSources.length === 0 ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">
             <p>No UTM tracking data available yet.</p>
             <p className="text-sm mt-2">UTM parameters will appear here once contacts are captured with tracking codes.</p>
@@ -117,7 +105,7 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
         ) : (
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.trafficSources} layout="horizontal">
+              <BarChart data={marketingData.trafficSources} layout="horizontal">
                 <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
                 <XAxis
                   dataKey="source"
@@ -136,7 +124,7 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
                   }}
                 />
                 <Bar dataKey="leads" radius={[8, 8, 0, 0]}>
-                  {data.trafficSources.map((entry, index) => (
+                  {marketingData.trafficSources.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>
@@ -158,7 +146,7 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
           </div>
         </div>
 
-        {data.topCampaigns.length === 0 ? (
+        {marketingData.topCampaigns.length === 0 ? (
           <div className="text-center py-12 text-gray-500 dark:text-gray-400">
             <p>No campaign data available yet.</p>
             <p className="text-sm mt-2">Campaign tracking will appear here once UTM parameters are captured.</p>
@@ -175,7 +163,7 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
                 </tr>
               </thead>
               <tbody>
-                {data.topCampaigns.map((campaign, index) => (
+                {marketingData.topCampaigns.map((campaign, index) => (
                   <tr
                     key={index}
                     className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
