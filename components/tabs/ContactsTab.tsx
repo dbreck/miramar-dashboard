@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import LoadingProgress from '../LoadingProgress';
 import {
   PieChart,
   Pie,
@@ -27,6 +27,7 @@ interface ContactsTabProps {
 export default function ContactsTab({ dateRange }: ContactsTabProps) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [loadStartTime, setLoadStartTime] = useState<number>(Date.now());
 
   useEffect(() => {
     fetchData();
@@ -34,6 +35,7 @@ export default function ContactsTab({ dateRange }: ContactsTabProps) {
 
   const fetchData = async () => {
     try {
+      setLoadStartTime(Date.now());
       const params = new URLSearchParams({
         start: dateRange.start.toISOString(),
         end: dateRange.end.toISOString(),
@@ -49,11 +51,7 @@ export default function ContactsTab({ dateRange }: ContactsTabProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
-      </div>
-    );
+    return <LoadingProgress startTime={loadStartTime} />;
   }
 
   if (!data) return null;

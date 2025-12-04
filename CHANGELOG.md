@@ -5,6 +5,59 @@ All notable changes to the Mira Mar Dashboard will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2025-12-04
+
+### Added
+
+- **Loading Progress Component**: New animated loading indicator showing fetch stages
+  - 6 distinct stages with icons: Connecting, Fetching sources, Loading contacts, Details, Aggregating, Preparing
+  - Elapsed time counter, contextual messages, and animated progress dots
+  - Replaces generic spinner across all dashboard tabs
+
+### Changed
+
+- **Default Date Range**: Changed from 30 days to 7 days to reduce initial API load
+- **Cache TTL**: Extended from 5 minutes to 30 minutes for better performance on repeated views
+- **Batch Size**: Increased from 20 to 50 concurrent requests for faster contact fetching
+- **Chart Label Brightness**: Improved readability of chart axis labels and data labels
+  - Changed stroke colors from `#6b7280` to `#9ca3af` (lighter gray)
+  - Updated across Overview, Pipeline, Team, Engagement, and Marketing tabs
+- **Agent Import Exclusion**: Now hardcoded at query level - always excluded from all API requests
+  - Prevents 6,000+ Agent Import contacts from overwhelming the API
+  - Removed "Exclude Agent Imports" filter option (no longer needed)
+  - Agent Import source hidden from available sources list
+
+### Removed
+
+- **SPARK_API_FIX.md**: Deleted redundant historical documentation (info preserved in CLAUDE.md)
+- **Agent Import Filter Button**: Removed from FilterPanel quick filters (now automatic)
+
+### Documentation
+
+- **About Page**: Added "Agent Import Data" section explaining automatic exclusion
+- **README.md**: Updated to v1.5.1 with current features, tech stack, and project structure
+- **SPARK_API_REQUEST.md**: Added `id_in` endpoint testing results documenting API limitations
+
+### Technical Details
+
+- **API Testing Results**: Confirmed `id_in` endpoint returns 38 fields (list-level), not 56 fields (individual-level)
+  - Cannot use `id_in` to eliminate N+1 pattern - individual fetches required for `projects` and `custom_field_values`
+  - Documented in SPARK_API_REQUEST.md for future reference
+
+- **Performance Impact**:
+  | Change | Before | After | Impact |
+  |--------|--------|-------|--------|
+  | Default date range | 30 days | 7 days | ~75% fewer contacts on initial load |
+  | Cache TTL | 5 min | 30 min | 6x fewer API calls for repeated views |
+  | Batch size | 20 | 50 | ~2.5x faster contact fetching |
+
+### Files Modified
+
+- `app/page.tsx` - Default date range: 30 → 7 days
+- `app/api/dashboard/route.ts` - Cache TTL: 5 → 30 min, batch size: 20 → 50
+- `README.md` - Complete rewrite for v1.5.1
+- `SPARK_API_REQUEST.md` - Added API limitation documentation
+
 ## [1.5.0] - 2025-12-04
 
 ### Added

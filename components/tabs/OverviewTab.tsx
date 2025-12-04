@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, Loader2, TrendingUp, TrendingDown, MapPin, Filter } from 'lucide-react';
+import { Users, TrendingUp, TrendingDown, MapPin, Filter } from 'lucide-react';
+import LoadingProgress from '../LoadingProgress';
 import {
   LineChart,
   Line,
@@ -48,6 +49,7 @@ interface OverviewTabProps {
 export default function OverviewTab({ dateRange }: OverviewTabProps) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadStartTime, setLoadStartTime] = useState<number>(Date.now());
   const [error, setError] = useState<string | null>(null);
   const [selectedSource, setSelectedSource] = useState<string>('All');
 
@@ -69,6 +71,7 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
 
   const fetchDashboardData = async () => {
     try {
+      setLoadStartTime(Date.now());
       setLoading(true);
       const params = new URLSearchParams({
         start: dateRange.start.toISOString(),
@@ -105,14 +108,7 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto" />
-          <p className="text-gray-600 dark:text-gray-400">Loading dashboard data...</p>
-        </div>
-      </div>
-    );
+    return <LoadingProgress startTime={loadStartTime} />;
   }
 
   if (error) {
@@ -216,11 +212,11 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data.leadSources} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis type="number" stroke="#6b7280" />
+              <XAxis type="number" stroke="#9ca3af" />
               <YAxis
                 type="category"
                 dataKey="name"
-                stroke="#6b7280"
+                stroke="#9ca3af"
                 width={200}
                 style={{ fontSize: '12px' }}
               />
@@ -250,8 +246,8 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data.agentDistribution}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="category" stroke="#6b7280" />
-              <YAxis stroke="#6b7280" />
+              <XAxis dataKey="category" stroke="#9ca3af" />
+              <YAxis stroke="#9ca3af" />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#fff',
@@ -294,8 +290,8 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={selectedSource === 'All' ? data.leadGrowth : (data.leadGrowthBySource[selectedSource] || [])}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
-            <XAxis dataKey="date" stroke="#6b7280" />
-            <YAxis stroke="#6b7280" />
+            <XAxis dataKey="date" stroke="#9ca3af" />
+            <YAxis stroke="#9ca3af" />
             <Tooltip
               contentStyle={{
                 backgroundColor: '#fff',
@@ -323,11 +319,11 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
           <ResponsiveContainer width="100%" height={500}>
             <BarChart data={data.leadsByLocation.slice(0, 15)} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis type="number" stroke="#6b7280" />
+              <XAxis type="number" stroke="#9ca3af" />
               <YAxis
                 type="category"
                 dataKey="location"
-                stroke="#6b7280"
+                stroke="#9ca3af"
                 width={160}
                 style={{ fontSize: '12px' }}
               />
@@ -356,11 +352,11 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
           <ResponsiveContainer width="100%" height={500}>
             <BarChart data={data.leadsByZipCode.slice(0, 15)} layout="vertical">
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis type="number" stroke="#6b7280" />
+              <XAxis type="number" stroke="#9ca3af" />
               <YAxis
                 type="category"
                 dataKey="zipCode"
-                stroke="#6b7280"
+                stroke="#9ca3af"
                 width={160}
                 style={{ fontSize: '12px' }}
               />

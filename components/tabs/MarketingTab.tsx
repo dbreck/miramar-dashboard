@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { BarChart3, TrendingUp, Filter } from 'lucide-react';
+import LoadingProgress from '../LoadingProgress';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { DateRange } from '@/components/DateRangePicker';
 import { TrafficSource, Campaign } from '@/lib/types';
@@ -18,6 +19,7 @@ interface MarketingData {
 export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
   const [data, setData] = useState<MarketingData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadStartTime, setLoadStartTime] = useState<number>(Date.now());
 
   const {
     excludedSources,
@@ -32,6 +34,7 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoadStartTime(Date.now());
       setLoading(true);
       try {
         const params = new URLSearchParams({
@@ -70,12 +73,7 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
   }, [dateRange, excludedSourcesKey, excludeAgents, excludeNoSource]);
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <div className="text-gray-500 dark:text-gray-400">Loading marketing data...</div>
-      </div>
-    );
+    return <LoadingProgress startTime={loadStartTime} />;
   }
 
   if (!data) {
@@ -123,12 +121,12 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200 dark:stroke-gray-700" />
                 <XAxis
                   dataKey="source"
-                  className="text-xs fill-gray-600 dark:fill-gray-400"
+                  className="text-xs fill-gray-500 dark:fill-gray-300"
                   angle={-45}
                   textAnchor="end"
                   height={100}
                 />
-                <YAxis className="text-xs fill-gray-600 dark:fill-gray-400" />
+                <YAxis className="text-xs fill-gray-500 dark:fill-gray-300" />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',

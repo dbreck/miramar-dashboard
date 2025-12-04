@@ -5,7 +5,7 @@ const PROJECT_ID = 2855; // Mira Mar project ID
 
 // Simple in-memory cache with TTL
 const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes (extended to reduce API load)
 
 // Clear cache on server restart (helps with development)
 console.log('[Dashboard API] Cache cleared on startup');
@@ -321,6 +321,29 @@ export async function GET(request: Request) {
 
     console.log(`Found ${sourceMap.size} registration sources`);
 
+    // Build excluded source IDs BEFORE fetching to skip excluded sources entirely
+    const excludedSourceIds = new Set<number>();
+    excludedSourceNames.forEach((name: string) => {
+      for (const [id, sourceName] of sourceMap.entries()) {
+        if (sourceName === name) {
+          excludedSourceIds.add(id);
+          break;
+        }
+      }
+    });
+
+    // ALWAYS exclude "Agent Import" - hardcoded exclusion (6,000+ records that would overwhelm API)
+    for (const [id, sourceName] of sourceMap.entries()) {
+      if (sourceName.toLowerCase().includes('agent import')) {
+        excludedSourceIds.add(id);
+        console.log(`🚫 Auto-excluding "Agent Import" source (ID: ${id}) - hardcoded exclusion`);
+      }
+    }
+
+    if (excludedSourceIds.size > 0) {
+      console.log(`⏭️ Will skip ${excludedSourceIds.size} excluded sources`);
+    }
+
     // Fetch custom field definitions to map IDs to names
     const customFields = await client.listCustomFields({
       project_id_eq: PROJECT_ID,
@@ -353,6 +376,12 @@ export async function GET(request: Request) {
       const sourceId = source.id;
       const sourceName = source.name;
 
+      // OPTIMIZATION: Skip excluded sources entirely - don't waste API calls!
+      if (excludedSourceIds.has(sourceId)) {
+        console.log(`  ⏭️ Skipping excluded source: ${sourceName}`);
+        continue;
+      }
+
       console.log(`  Fetching contacts for source: ${sourceName}...`);
 
       // Fetch ALL contacts with this registration_source_id (with pagination)
@@ -365,7 +394,7 @@ export async function GET(request: Request) {
       console.log(`    Found ${contactsForSource.length} contacts, filtering by project...`);
 
       // Batch fetch individual contacts to check project membership
-      const BATCH_SIZE = 20;
+      const BATCH_SIZE = 50; // Increased for faster fetching
       for (let i = 0; i < contactsForSource.length; i += BATCH_SIZE) {
         const batch = contactsForSource.slice(i, i + BATCH_SIZE);
         const batchPromises = batch.map((c: any) =>
@@ -417,36 +446,41 @@ export async function GET(request: Request) {
     // ========================================
     // FETCH CONTACTS WITH NO REGISTRATION SOURCE
     // ========================================
-    console.log('\nFetching contacts with no registration source...');
+    // OPTIMIZATION: Skip if excludeNoSource is enabled
+    if (excludeNoSource) {
+      console.log('\n⏭️ Skipping contacts with no registration source (filter enabled)');
+    } else {
+      console.log('\nFetching contacts with no registration source...');
 
-    const contactsWithNoSource = await client.listAllContacts({
-      registration_source_id_null: true,
-    });
-
-    console.log(`  Found ${contactsWithNoSource.length} contacts with no source, filtering by project...`);
-
-    // Batch fetch individual contacts to check project membership
-    const BATCH_SIZE = 20;
-    for (let i = 0; i < contactsWithNoSource.length; i += BATCH_SIZE) {
-      const batch = contactsWithNoSource.slice(i, i + BATCH_SIZE);
-      const batchPromises = batch.map((c: any) =>
-        client.getContact(c.id).catch((err: any) => {
-          console.error(`      Failed to fetch contact ${c.id}:`, err);
-          return null;
-        })
-      );
-
-      const detailedContacts = await Promise.all(batchPromises);
-
-      // Filter to contacts in this project
-      detailedContacts.forEach((contact: any) => {
-        if (!contact) return;
-        const projects = contact.projects || [];
-        const inProject = projects.some((p: any) => p.project_id === PROJECT_ID);
-        if (inProject) {
-          allContactsForProject.push(contact);
-        }
+      const contactsWithNoSource = await client.listAllContacts({
+        registration_source_id_null: true,
       });
+
+      console.log(`  Found ${contactsWithNoSource.length} contacts with no source, filtering by project...`);
+
+      // Batch fetch individual contacts to check project membership
+      const BATCH_SIZE_NO_SOURCE = 50;
+      for (let i = 0; i < contactsWithNoSource.length; i += BATCH_SIZE_NO_SOURCE) {
+        const batch = contactsWithNoSource.slice(i, i + BATCH_SIZE_NO_SOURCE);
+        const batchPromises = batch.map((c: any) =>
+          client.getContact(c.id).catch((err: any) => {
+            console.error(`      Failed to fetch contact ${c.id}:`, err);
+            return null;
+          })
+        );
+
+        const detailedContacts = await Promise.all(batchPromises);
+
+        // Filter to contacts in this project
+        detailedContacts.forEach((contact: any) => {
+          if (!contact) return;
+          const projects = contact.projects || [];
+          const inProject = projects.some((p: any) => p.project_id === PROJECT_ID);
+          if (inProject) {
+            allContactsForProject.push(contact);
+          }
+        });
+      }
     }
 
     console.log(`✓ Total contacts in project (including no source): ${allContactsForProject.length}`);
@@ -460,16 +494,8 @@ export async function GET(request: Request) {
 
     console.log(`✓ Filtered to ${dateFilteredContacts.length} contacts created in date range`);
 
-    // Build set of excluded source IDs from names
-    const excludedSourceIds = new Set<number>();
-    excludedSourceNames.forEach((name: string) => {
-      for (const [id, sourceName] of sourceMap.entries()) {
-        if (sourceName === name) {
-          excludedSourceIds.add(id);
-          break;
-        }
-      }
-    });
+    // Note: excludedSourceIds was built earlier to skip fetching excluded sources
+    // Now apply remaining filters (agent status, etc.)
 
     // Apply user-specified filters
     const allContacts = dateFilteredContacts.filter((contact: any) => {
@@ -924,9 +950,10 @@ export async function GET(request: Request) {
     // ========================================
 
     // Build available sources list for filter UI (sorted alphabetically)
-    const availableSources = Array.from(sourceMap.values()).sort((a, b) =>
-      a.localeCompare(b)
-    );
+    // Exclude "Agent Import" from the list - it's always excluded at query level
+    const availableSources = Array.from(sourceMap.values())
+      .filter(name => !name.toLowerCase().includes('agent import'))
+      .sort((a, b) => a.localeCompare(b));
 
     // Add "No Source" to available sources if there are contacts without sources
     const hasNoSourceContacts = dateFilteredContacts.some((c: any) =>

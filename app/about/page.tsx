@@ -226,11 +226,32 @@ export default function AboutPage() {
             </div>
           </div>
 
-          {/* Known Limitations */}
+          {/* Agent Import Exclusion */}
           <div className="bg-gray-800 rounded-xl shadow-lg p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-lg bg-red-900/30 flex items-center justify-center">
-                <AlertCircle className="w-6 h-6 text-red-400" />
+                <Users className="w-6 h-6 text-red-400" />
+              </div>
+              <h2 className="text-2xl font-bold text-white">Agent Import Data</h2>
+            </div>
+            <div className="border-l-4 border-red-500 bg-red-900/20 p-4 rounded-r-lg">
+              <h3 className="font-semibold text-red-300 mb-2">Automatically Excluded</h3>
+              <p className="text-sm text-red-300 mb-3">
+                Contacts with registration source &quot;Agent Import&quot; are automatically excluded from all dashboard queries and analytics.
+                This includes 6,000+ imported agent records that would otherwise overwhelm the Spark API and skew lead generation metrics.
+              </p>
+              <p className="text-sm text-red-300">
+                <strong>Why:</strong> These bulk-imported records represent agent contact information, not actual leads generated through marketing efforts.
+                Including them would misrepresent true lead generation performance.
+              </p>
+            </div>
+          </div>
+
+          {/* Known Limitations */}
+          <div className="bg-gray-800 rounded-xl shadow-lg p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-amber-900/30 flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-amber-400" />
               </div>
               <h2 className="text-2xl font-bold text-white">Known Limitations</h2>
             </div>
