@@ -503,6 +503,73 @@ export async function GET(request: Request) {
           .sort((a, b) => b.leads - a.leads)
           .slice(0, 20);
 
+        sendEvent({ stage: 'aggregate', message: 'Calculating rating distribution...' });
+
+        // Rating definitions for project 2855 with Spark colors
+        const ratingColors: Record<string, string> = {
+          'New': '#C0D7B1', 'Agent': '#D3C9EC', 'Legal': '#FFDD90',
+          'Hot': '#C33A32', 'Warm': '#FFBBAA', 'Cold': '#C0E1F4',
+          'Not Interested': '#DBDBDB', 'Team': '#e4a02c',
+          'Reservation Holder': '#2380c4', 'Contract Holder': '#a038cc',
+          'Influencer': '#000000', 'CB Global Luxury Agent': '#f5e8e8',
+          'Not A Buyer': '#055707', 'Referral': '#e759a0',
+          'Unrated': '#999999',
+        };
+
+        // Extract rating for each contact (find the rating matching project 2855)
+        const ratingCounts = new Map<string, number>();
+        const ratingsBySourceMap = new Map<string, Map<string, number>>();
+
+        allContacts.forEach((contact: any) => {
+          const ratings = contact.ratings || [];
+          const projectRating = ratings.find((r: any) => r.id === 58245 || r.id === 58246 || r.id === 58247 || r.id === 58248 || r.id === 58249 || r.id === 58250 || r.id === 58251 || r.id === 58627 || r.id === 58755 || r.id === 58756 || r.id === 58866 || r.id === 59334 || r.id === 59364 || r.id === 59733);
+          const ratingName = projectRating ? (projectRating.value || 'Unrated') : 'Unrated';
+
+          ratingCounts.set(ratingName, (ratingCounts.get(ratingName) || 0) + 1);
+
+          // Track rating by registration source
+          const sources = contact.registration_sources || [];
+          const sourceName = sources.length > 0
+            ? (sourceMap.get(sources[0].id) || `Source ${sources[0].id}`)
+            : 'No Source';
+
+          if (!ratingsBySourceMap.has(sourceName)) {
+            ratingsBySourceMap.set(sourceName, new Map());
+          }
+          const sourceRatings = ratingsBySourceMap.get(sourceName)!;
+          sourceRatings.set(ratingName, (sourceRatings.get(ratingName) || 0) + 1);
+        });
+
+        const totalForPercentage = allContacts.length || 1;
+        const ratingDistribution = Array.from(ratingCounts.entries())
+          .map(([rating, count]) => ({
+            rating,
+            count,
+            color: ratingColors[rating] || '#999999',
+            percentage: Math.round((count / totalForPercentage) * 1000) / 10,
+          }))
+          .sort((a, b) => b.count - a.count);
+
+        // Sales pipeline: ordered funnel stages
+        const pipelineStages = ['New', 'Warm', 'Hot', 'Reservation Holder', 'Contract Holder'];
+        const salesPipeline = pipelineStages.map(stage => ({
+          stage,
+          count: ratingCounts.get(stage) || 0,
+          color: ratingColors[stage] || '#999999',
+        }));
+
+        // Ratings by source
+        const ratingsBySource: Record<string, Array<{ rating: string; count: number; color: string }>> = {};
+        for (const [sourceName, ratingsMap] of ratingsBySourceMap.entries()) {
+          ratingsBySource[sourceName] = Array.from(ratingsMap.entries())
+            .map(([rating, count]) => ({
+              rating,
+              count,
+              color: ratingColors[rating] || '#999999',
+            }))
+            .sort((a, b) => b.count - a.count);
+        }
+
         sendEvent({ stage: 'aggregate', message: 'Calculating trends...' });
 
         // Trend calculation
@@ -548,6 +615,9 @@ export async function GET(request: Request) {
           agentDistribution,
           trafficSources,
           topCampaigns,
+          ratingDistribution,
+          salesPipeline,
+          ratingsBySource,
           availableSources,
           activeFilters: {
             excludedSources: excludedSourceNames,

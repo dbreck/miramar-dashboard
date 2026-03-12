@@ -10,8 +10,8 @@ import { useFilters } from '@/lib/filter-context';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  activeTab: 'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline' | 'marketing';
-  setActiveTab: (tab: 'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline' | 'marketing') => void;
+  activeTab: 'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline' | 'marketing' | 'ratings';
+  setActiveTab: (tab: 'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline' | 'marketing' | 'ratings') => void;
   dateRange: DateRange;
   setDateRange: (range: DateRange) => void;
 }
@@ -63,6 +63,7 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
   const tabs = [
     { id: 'overview' as const, label: 'Overview' },
     { id: 'marketing' as const, label: 'Marketing' },
+    { id: 'ratings' as const, label: 'Ratings' },
     // Hidden temporarily - will restore when ready to add interaction data
     // { id: 'contacts' as const, label: 'Contacts' },
     // { id: 'engagement' as const, label: 'Engagement' },
