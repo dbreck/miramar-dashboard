@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CallRail / Spark Reconciliation Report — 2026-03-24</title>
+<style>
+  :root {
+    --plum: #4B0108;
+    --plum-light: #A4515E;
+    --sand: #F3ECE7;
+    --green: #2e7d32;
+    --red: #c62828;
+    --orange: #e65100;
+    --gray: #666;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #333; background: #f5f5f5; padding: 2rem; line-height: 1.5;
+  }
+  .container { max-width: 1200px; margin: 0 auto; }
+  h1 { color: var(--plum); font-size: 1.8rem; margin-bottom: 0.25rem; }
+  h1 + p { color: var(--gray); margin-bottom: 2rem; }
+  h2 { color: var(--plum); font-size: 1.3rem; margin: 2rem 0 1rem; border-bottom: 2px solid var(--sand); padding-bottom: 0.5rem; }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .stat-card {
+    background: white; border-radius: 8px; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    text-align: center;
+  }
+  .stat-card .value { font-size: 2rem; font-weight: 700; }
+  .stat-card .label { font-size: 0.85rem; color: var(--gray); margin-top: 0.25rem; }
+  .stat-card.green .value { color: var(--green); }
+  .stat-card.red .value { color: var(--red); }
+  .stat-card.orange .value { color: var(--orange); }
+
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1.5rem; font-size: 0.9rem; }
+  th { background: var(--plum); color: white; padding: 0.75rem 1rem; text-align: left; font-weight: 600; white-space: nowrap; }
+  td { padding: 0.6rem 1rem; border-bottom: 1px solid #eee; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #faf8f6; }
+
+  .badge {
+    display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;
+  }
+  .badge-red { background: #fce4e4; color: var(--red); }
+  .badge-green { background: #e8f5e9; color: var(--green); }
+  .badge-orange { background: #fff3e0; color: var(--orange); }
+  .badge-gray { background: #eee; color: #555; }
+
+  .drop-bar { display: flex; align-items: center; gap: 0.5rem; }
+  .drop-bar-fill { height: 8px; border-radius: 4px; min-width: 4px; }
+  .drop-bar-fill.green { background: var(--green); }
+  .drop-bar-fill.red { background: var(--red); }
+
+  .tab-container { margin-bottom: 2rem; }
+  .tabs { display: flex; gap: 0; border-bottom: 2px solid var(--sand); margin-bottom: 0; }
+  .tab {
+    padding: 0.6rem 1.25rem; cursor: pointer; border: none; background: none;
+    font-size: 0.9rem; font-weight: 600; color: var(--gray); border-bottom: 2px solid transparent; margin-bottom: -2px;
+  }
+  .tab.active { color: var(--plum); border-bottom-color: var(--plum); }
+  .tab:hover { color: var(--plum-light); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .footer { text-align: center; color: var(--gray); font-size: 0.8rem; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #ddd; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>CallRail / Spark.re Reconciliation Report</h1>
+<p>Generated 2026-03-24 &mdash; Mira Mar Sarasota</p>
+
+<div class="stats">
+  <div class="stat-card">
+    <div class="value">57</div>
+    <div class="label">Total Contacts (CallRail)</div>
+  </div>
+  <div class="stat-card green">
+    <div class="value">40</div>
+    <div class="label">Found in Spark (70%)</div>
+  </div>
+  <div class="stat-card red">
+    <div class="value">17</div>
+    <div class="label">Missing from Spark (30%)</div>
+  </div>
+  <div class="stat-card orange">
+    <div class="value">6</div>
+    <div class="label">UTM Data Gaps</div>
+  </div>
+</div>
+
+<h2>Drop Rate by Source</h2>
+<table>
+<tr><th>Source</th><th>Total</th><th>In Spark</th><th>Missing</th><th>Drop Rate</th><th></th></tr>
+<tr>
+    <td><strong>Direct</strong></td>
+    <td>33</td>
+    <td>29</td>
+    <td>4</td>
+    <td><span class="badge badge-orange">12%</span></td>
+    <td><div class="drop-bar"><div class="drop-bar-fill green" style="width:88px"></div><div class="drop-bar-fill red" style="width:12px"></div></div></td>
+  </tr>
+<tr>
+    <td><strong>Facebook Ads</strong></td>
+    <td>8</td>
+    <td>1</td>
+    <td>7</td>
+    <td><span class="badge badge-red">88%</span></td>
+    <td><div class="drop-bar"><div class="drop-bar-fill green" style="width:13px"></div><div class="drop-bar-fill red" style="width:88px"></div></div></td>
+  </tr>
+<tr>
+    <td><strong>Google Ads</strong></td>
+    <td>6</td>
+    <td>3</td>
+    <td>3</td>
+    <td><span class="badge badge-red">50%</span></td>
+    <td><div class="drop-bar"><div class="drop-bar-fill green" style="width:50px"></div><div class="drop-bar-fill red" style="width:50px"></div></div></td>
+  </tr>
+<tr>
+    <td><strong>Google Organic</strong></td>
+    <td>2</td>
+    <td>1</td>
+    <td>1</td>
+    <td><span class="badge badge-red">50%</span></td>
+    <td><div class="drop-bar"><div class="drop-bar-fill green" style="width:50px"></div><div class="drop-bar-fill red" style="width:50px"></div></div></td>
+  </tr>
+<tr>
+    <td><strong>miramarsarasota.com</strong></td>
+    <td>2</td>
+    <td>1</td>
+    <td>1</td>
+    <td><span class="badge badge-red">50%</span></td>
+    <td><div class="drop-bar"><div class="drop-bar-fill green" style="width:50px"></div><div class="drop-bar-fill red" style="width:50px"></div></div></td>
+  </tr>
+<tr>
+    <td><strong>Instagram Ads</strong></td>
+    <td>1</td>
+    <td>0</td>
+    <td>1</td>
+    <td><span class="badge badge-red">100%</span></td>
+    <td><div class="drop-bar"><div class="drop-bar-fill green" style="width:0px"></div><div class="drop-bar-fill red" style="width:100px"></div></div></td>
+  </tr>
+<tr>
+    <td><strong>DuckDuckGo Organic</strong></td>
+    <td>1</td>
+    <td>1</td>
+    <td>0</td>
+    <td><span class="badge badge-green">0%</span></td>
+    <td><div class="drop-bar"><div class="drop-bar-fill green" style="width:100px"></div><div class="drop-bar-fill red" style="width:0px"></div></div></td>
+  </tr>
+<tr>
+    <td><strong>Unknown</strong></td>
+    <td>1</td>
+    <td>1</td>
+    <td>0</td>
+    <td><span class="badge badge-green">0%</span></td>
+    <td><div class="drop-bar"><div class="drop-bar-fill green" style="width:100px"></div><div class="drop-bar-fill red" style="width:0px"></div></div></td>
+  </tr>
+<tr>
+    <td><strong>yourobserver</strong></td>
+    <td>1</td>
+    <td>1</td>
+    <td>0</td>
+    <td><span class="badge badge-green">0%</span></td>
+    <td><div class="drop-bar"><div class="drop-bar-fill green" style="width:100px"></div><div class="drop-bar-fill red" style="width:0px"></div></div></td>
+  </tr>
+<tr>
+    <td><strong>IAS</strong></td>
+    <td>1</td>
+    <td>1</td>
+    <td>0</td>
+    <td><span class="badge badge-green">0%</span></td>
+    <td><div class="drop-bar"><div class="drop-bar-fill green" style="width:100px"></div><div class="drop-bar-fill red" style="width:0px"></div></div></td>
+  </tr>
+<tr>
+    <td><strong>Instagram Organic</strong></td>
+    <td>1</td>
+    <td>1</td>
+    <td>0</td>
+    <td><span class="badge badge-green">0%</span></td>
+    <td><div class="drop-bar"><div class="drop-bar-fill green" style="width:100px"></div><div class="drop-bar-fill red" style="width:0px"></div></div></td>
+  </tr>
+</table>
+
+<div class="tab-container">
+<div class="tabs">
+  <button class="tab active" onclick="showTab('missing')">Missing from Spark (17)</button>
+  <button class="tab" onclick="showTab('utm')">UTM Gaps (6)</button>
+  <button class="tab" onclick="showTab('all')">All Contacts (57)</button>
+</div>
+
+<div id="tab-missing" class="tab-panel active">
+<table>
+<tr><th>#</th><th>Name</th><th>Email</th><th>Phone</th><th>Source</th><th>utm_source</th><th>utm_medium</th><th>utm_campaign</th><th>Submitted</th><th>Form</th><th>Likely Cause</th></tr>
+<tr>
+    <td>1</td>
+    <td>Patty Lance</td>
+    <td>patty@pattylancr.com</td>
+    <td>949-933-4742</td>
+    <td>Direct</td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-gray">Workshop</span></td>
+    <td>Workshop endpoint (Spark 500 error)</td>
+  </tr>
+<tr>
+    <td>2</td>
+    <td>Steve Landry</td>
+    <td>steven.landry@comcast.ne</td>
+    <td>248-613-8740</td>
+    <td>Direct</td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-gray">Workshop</span></td>
+    <td>Email typo</td>
+  </tr>
+<tr>
+    <td>3</td>
+    <td>Rowland Rowland</td>
+    <td>luciusrowland@gmail.com</td>
+    <td>773-576-2222</td>
+    <td>Facebook Ads</td>
+    <td>meta</td>
+    <td>cpc</td>
+    <td>feeder</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-gray">Contact</span></td>
+    <td>Meta in-app browser (cross-origin POST blocked)</td>
+  </tr>
+<tr>
+    <td>4</td>
+    <td>Sally Sweeney</td>
+    <td>sally.sweeney@premiersir.com</td>
+    <td>941-928-0172</td>
+    <td>Direct</td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-gray">Other</span></td>
+    <td>Unknown (likely reCAPTCHA or form submission failure)</td>
+  </tr>
+<tr>
+    <td>5</td>
+    <td>Lisa Mannino</td>
+    <td>lisa@lisamannino.com</td>
+    <td>727-430-2122</td>
+    <td>Direct</td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-gray">Other</span></td>
+    <td>Unknown (likely reCAPTCHA or form submission failure)</td>
+  </tr>
+<tr>
+    <td>6</td>
+    <td>Valerie Partee</td>
+    <td>drvpartee@yahoo.com</td>
+    <td>312-388-1777</td>
+    <td>Facebook Ads</td>
+    <td>meta</td>
+    <td>cpc</td>
+    <td>feeder</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-gray">Contact</span></td>
+    <td>Meta in-app browser (cross-origin POST blocked)</td>
+  </tr>
+<tr>
+    <td>7</td>
+    <td>Diana  Bridges</td>
+    <td>bridgesdiana13@gmail.com</td>
+    <td>708-476-6565</td>
+    <td>miramarsarasota.com</td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-gray">Other</span></td>
+    <td>Unknown (likely reCAPTCHA or form submission failure)</td>
+  </tr>
+<tr>
+    <td>8</td>
+    <td>Lauren Antonelli </td>
+    <td>laurentaylor99@hotmail.com</td>
+    <td>201-240-4142</td>
+    <td>Google Ads</td>
+    <td>google</td>
+    <td>cpc</td>
+    <td>search_branded</td>
+    <td>2026-03-19</td>
+    <td><span class="badge badge-gray">Contact</span></td>
+    <td>Google Ads (popup reCAPTCHA issue)</td>
+  </tr>
+<tr>
+    <td>9</td>
+    <td>Melva M</td>
+    <td>melpeach72@gmail.com</td>
+    <td>708-663-3511</td>
+    <td>Facebook Ads</td>
+    <td>meta</td>
+    <td>cpc</td>
+    <td>feeder</td>
+    <td>2026-03-20</td>
+    <td><span class="badge badge-gray">Contact</span></td>
+    <td>Meta in-app browser (cross-origin POST blocked)</td>
+  </tr>
+<tr>
+    <td>10</td>
+    <td>Mary Beth George</td>
+    <td>mbg228@gmail.com</td>
+    <td>315-521-3535</td>
+    <td>Facebook Ads</td>
+    <td>meta</td>
+    <td>cpc</td>
+    <td>sarasota</td>
+    <td>2026-03-21</td>
+    <td><span class="badge badge-gray">Contact</span></td>
+    <td>Meta in-app browser (cross-origin POST blocked)</td>
+  </tr>
+<tr>
+    <td>11</td>
+    <td>George H. Mackin</td>
+    <td>george@mackinmedia.com</td>
+    <td>310-994-8336</td>
+    <td>Google Organic</td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td>2026-03-21</td>
+    <td><span class="badge badge-gray">Other</span></td>
+    <td>Unknown (likely reCAPTCHA or form submission failure)</td>
+  </tr>
+<tr>
+    <td>12</td>
+    <td>Amanda  Parrish </td>
+    <td>amanda@thatgirlknows.com</td>
+    <td>615-496-1904</td>
+    <td>Instagram Ads</td>
+    <td>meta</td>
+    <td>cpc</td>
+    <td>sarasota</td>
+    <td>2026-03-21</td>
+    <td><span class="badge badge-gray">Contact</span></td>
+    <td>Meta in-app browser (cross-origin POST blocked)</td>
+  </tr>
+<tr>
+    <td>13</td>
+    <td>Shelley Kusman</td>
+    <td>bankerdaughter@aol.com</td>
+    <td>502-781-1269</td>
+    <td>Facebook Ads</td>
+    <td>meta</td>
+    <td>cpc</td>
+    <td>sarasota</td>
+    <td>2026-03-22</td>
+    <td><span class="badge badge-gray">Contact</span></td>
+    <td>Meta in-app browser (cross-origin POST blocked)</td>
+  </tr>
+<tr>
+    <td>14</td>
+    <td>Tracey De Largy</td>
+    <td>tradelargy@gmail.com</td>
+    <td>727-324-8499</td>
+    <td>Facebook Ads</td>
+    <td>meta</td>
+    <td>cpc</td>
+    <td>sarasota</td>
+    <td>2026-03-22</td>
+    <td><span class="badge badge-gray">Contact</span></td>
+    <td>Meta in-app browser (cross-origin POST blocked)</td>
+  </tr>
+<tr>
+    <td>15</td>
+    <td>Gary Beltrani</td>
+    <td>beltrani.gary@gmail.com</td>
+    <td>631-804-6604</td>
+    <td>Google Ads</td>
+    <td>google</td>
+    <td>cpc</td>
+    <td>search_branded</td>
+    <td>2026-03-23</td>
+    <td><span class="badge badge-gray">Contact</span></td>
+    <td>Google Ads (popup reCAPTCHA issue)</td>
+  </tr>
+<tr>
+    <td>16</td>
+    <td>Ana Maria Reano</td>
+    <td>anamaria0223@gmail.com</td>
+    <td>954-859-8403</td>
+    <td>Facebook Ads</td>
+    <td>meta</td>
+    <td>cpc</td>
+    <td>feeder</td>
+    <td>2026-03-23</td>
+    <td><span class="badge badge-gray">Contact</span></td>
+    <td>Meta in-app browser (cross-origin POST blocked)</td>
+  </tr>
+<tr>
+    <td>17</td>
+    <td>Elizabeth Giuliani</td>
+    <td>egiuls77@gmail.com</td>
+    <td>941-812-8558</td>
+    <td>Google Ads</td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td>2026-03-24</td>
+    <td><span class="badge badge-gray">Other</span></td>
+    <td>Google Ads (popup reCAPTCHA issue)</td>
+  </tr>
+</table>
+</div>
+
+<div id="tab-utm" class="tab-panel">
+<p style="margin-bottom:1rem;color:var(--gray);">Contacts in Spark with empty/default UTM fields despite CallRail showing paid or tracked attribution.</p>
+<table>
+<tr><th>#</th><th>Name</th><th>Email</th><th>Spark Rating</th><th>CR Source</th><th>utm_source</th><th>utm_medium</th><th>utm_campaign</th><th>Spark UTMs</th></tr>
+<tr>
+    <td>1</td>
+    <td>Mario Romero</td>
+    <td>mario@arvastudio.co</td>
+    <td>Agent</td>
+    <td>Instagram Organic</td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span style="color:#aaa">—</span></td>
+    <td><span class="badge badge-red">(empty)</span></td>
+  </tr>
+<tr>
+    <td>2</td>
+    <td>Richard  Habersham </td>
+    <td>richard@habershamre.com</td>
+    <td>Agent</td>
+    <td>Google Ads</td>
+    <td>google</td>
+    <td>cpc</td>
+    <td>search_non-branded</td>
+    <td><span class="badge badge-red">(empty)</span></td>
+  </tr>
+<tr>
+    <td>3</td>
+    <td>Dyrk Dahl</td>
+    <td>dyrk.dahl@coldwellbanker.com</td>
+    <td>Agent</td>
+    <td>IAS</td>
+    <td>IAS</td>
+    <td>email</td>
+    <td>november</td>
+    <td><span class="badge badge-red">(empty)</span></td>
+  </tr>
+<tr>
+    <td>4</td>
+    <td>Cassie Yeager</td>
+    <td>cassieyeager@michaelsaunders.com</td>
+    <td>Agent</td>
+    <td>Google Ads</td>
+    <td>google</td>
+    <td>cpc</td>
+    <td>search_branded</td>
+    <td><span class="badge badge-red">(empty)</span></td>
+  </tr>
+<tr>
+    <td>5</td>
+    <td>Patrick  Finke</td>
+    <td>patrick.finke@theagencyre.com</td>
+    <td>Agent</td>
+    <td>Facebook Ads</td>
+    <td>meta</td>
+    <td>cpc</td>
+    <td>sarasota</td>
+    <td><span class="badge badge-red">(empty)</span></td>
+  </tr>
+<tr>
+    <td>6</td>
+    <td>Crete  Carey </td>
+    <td>cretecarey@gmail.com</td>
+    <td>Agent</td>
+    <td>yourobserver</td>
+    <td>yourobserver</td>
+    <td>web</td>
+    <td>desktop_footer</td>
+    <td><span class="badge badge-red">(empty)</span></td>
+  </tr>
+</table>
+</div>
+
+<div id="tab-all" class="tab-panel">
+<table>
+<tr><th>#</th><th>Name</th><th>Email</th><th>Source</th><th>Submitted</th><th>In Spark</th><th>UTM Gap</th></tr>
+<tr>
+    <td>1</td>
+    <td>Kateryna Polishchuk</td>
+    <td>kateryna.flrealtor@gmail.com</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>2</td>
+    <td>Daniel Daniel</td>
+    <td>daniel.jittu@g2internationalrealty.com</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>3</td>
+    <td>Mareisa Madden</td>
+    <td>mmadden@clivedaniel.com</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>4</td>
+    <td>Paulina Jimenez</td>
+    <td>angiejimenez@michaelsaunders.com</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>5</td>
+    <td>Mario Romero</td>
+    <td>mario@arvastudio.co</td>
+    <td>Instagram Organic</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-orange">Gap</span></td>
+  </tr>
+<tr>
+    <td>6</td>
+    <td>Richard  Habersham </td>
+    <td>richard@habershamre.com</td>
+    <td>Google Ads</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-orange">Gap</span></td>
+  </tr>
+<tr>
+    <td>7</td>
+    <td>Dyrk Dahl</td>
+    <td>dyrk.dahl@coldwellbanker.com</td>
+    <td>IAS</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-orange">Gap</span></td>
+  </tr>
+<tr>
+    <td>8</td>
+    <td>Jillian Augustine</td>
+    <td>jillianaugustine@michaelsaunders.com</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>9</td>
+    <td>Patty Lance</td>
+    <td>patty@pattylancr.com</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>10</td>
+    <td>Steve Landry</td>
+    <td>steven.landry@comcast.ne</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>11</td>
+    <td>Shane Silloway</td>
+    <td>shane.silloway@daisyco.com</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>12</td>
+    <td>Rowland Rowland</td>
+    <td>luciusrowland@gmail.com</td>
+    <td>Facebook Ads</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>13</td>
+    <td>Sally Sweeney</td>
+    <td>sally.sweeney@premiersir.com</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>14</td>
+    <td>Elizabeth Williams</td>
+    <td>elizabeth.williams@cbrealty.com</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>15</td>
+    <td>Lisa Mannino</td>
+    <td>lisa@lisamannino.com</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>16</td>
+    <td>Keiko Donnelly</td>
+    <td>keiko.donnelly@cbrealty.com</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>17</td>
+    <td>Doreen Derman</td>
+    <td>dderman@comcast.net</td>
+    <td>Direct</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>18</td>
+    <td>Valerie Partee</td>
+    <td>drvpartee@yahoo.com</td>
+    <td>Facebook Ads</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>19</td>
+    <td>Diana  Bridges</td>
+    <td>bridgesdiana13@gmail.com</td>
+    <td>miramarsarasota.com</td>
+    <td>2026-03-17</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>20</td>
+    <td>Chuck Loving</td>
+    <td>chuck.loving.3rd@gmail.com</td>
+    <td>Direct</td>
+    <td>2026-03-18</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>21</td>
+    <td>Lucia Giusfredi</td>
+    <td>lucia.brida@cbrealty.com</td>
+    <td>Direct</td>
+    <td>2026-03-18</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>22</td>
+    <td>Tami Mc Dermott</td>
+    <td>tlmcd5188@gmail.com</td>
+    <td>Direct</td>
+    <td>2026-03-18</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>23</td>
+    <td>Cassie Yeager</td>
+    <td>cassieyeager@michaelsaunders.com</td>
+    <td>Google Ads</td>
+    <td>2026-03-18</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-orange">Gap</span></td>
+  </tr>
+<tr>
+    <td>24</td>
+    <td>Karen Diamond</td>
+    <td>karendiamondmba@yahoo.com</td>
+    <td>Direct</td>
+    <td>2026-03-18</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>25</td>
+    <td>Patrick  Finke</td>
+    <td>patrick.finke@theagencyre.com</td>
+    <td>Facebook Ads</td>
+    <td>2026-03-18</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-orange">Gap</span></td>
+  </tr>
+<tr>
+    <td>26</td>
+    <td>Carolyn Perrone</td>
+    <td>carolyn.perrone@raymondjames.com</td>
+    <td>Direct</td>
+    <td>2026-03-18</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>27</td>
+    <td>Derek Paquin</td>
+    <td>dpaquin@onediversified.com</td>
+    <td>Direct</td>
+    <td>2026-03-18</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>28</td>
+    <td>Wendy Merriman </td>
+    <td>wendy.merriman@floridamoves.com</td>
+    <td>Direct</td>
+    <td>2026-03-18</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>29</td>
+    <td>Crete  Carey </td>
+    <td>cretecarey@gmail.com</td>
+    <td>yourobserver</td>
+    <td>2026-03-18</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-orange">Gap</span></td>
+  </tr>
+<tr>
+    <td>30</td>
+    <td>Lisa Brandy</td>
+    <td>lisa.brandy@cbrealty.com</td>
+    <td>Direct</td>
+    <td>2026-03-19</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>31</td>
+    <td>Sony Martinez</td>
+    <td>martinezsony387@gmail.com</td>
+    <td>Direct</td>
+    <td>2026-03-19</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>32</td>
+    <td>Angie Angie Ramos</td>
+    <td>angie.ramos@cbrealty.com</td>
+    <td>Direct</td>
+    <td>2026-03-19</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>33</td>
+    <td>Karen Mac Kinnon</td>
+    <td>karenmackinnonsells@gmail.com</td>
+    <td>Direct</td>
+    <td>2026-03-19</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>34</td>
+    <td>Lisa Bradford</td>
+    <td>lisa.l.bradford@gmail.com</td>
+    <td>Direct</td>
+    <td>2026-03-19</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>35</td>
+    <td>Lauren Antonelli </td>
+    <td>laurentaylor99@hotmail.com</td>
+    <td>Google Ads</td>
+    <td>2026-03-19</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>36</td>
+    <td>Melva M</td>
+    <td>melpeach72@gmail.com</td>
+    <td>Facebook Ads</td>
+    <td>2026-03-20</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>37</td>
+    <td>Nelia Rivera</td>
+    <td>nelia164@yahoo.com</td>
+    <td>Unknown</td>
+    <td>2026-03-20</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>38</td>
+    <td>Brianna Smith</td>
+    <td>brianna.smith@cbrealty.com</td>
+    <td>Direct</td>
+    <td>2026-03-20</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>39</td>
+    <td>Jules Mackie</td>
+    <td>julesmackiere@gmail.com</td>
+    <td>Direct</td>
+    <td>2026-03-20</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>40</td>
+    <td>Wayne  Fastzkie </td>
+    <td>waynefastzkie@michaelsaunders.com</td>
+    <td>Direct</td>
+    <td>2026-03-20</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>41</td>
+    <td>Billie Chipain</td>
+    <td>thomas.chipain@floridamoves.com</td>
+    <td>Direct</td>
+    <td>2026-03-21</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>42</td>
+    <td>Mary Beth George</td>
+    <td>mbg228@gmail.com</td>
+    <td>Facebook Ads</td>
+    <td>2026-03-21</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>43</td>
+    <td>Phyllis  Coviello</td>
+    <td>phyllis.coviello@cbrealty.com</td>
+    <td>Direct</td>
+    <td>2026-03-21</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>44</td>
+    <td>Don Zimmerman</td>
+    <td>dpzcpa@gmail.com</td>
+    <td>DuckDuckGo Organic</td>
+    <td>2026-03-21</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>45</td>
+    <td>Paige Bernacchi</td>
+    <td>paigebernacchi@gmail.com</td>
+    <td>Google Ads</td>
+    <td>2026-03-21</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-green">OK</span></td>
+  </tr>
+<tr>
+    <td>46</td>
+    <td>George H. Mackin</td>
+    <td>george@mackinmedia.com</td>
+    <td>Google Organic</td>
+    <td>2026-03-21</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>47</td>
+    <td>Amanda  Parrish </td>
+    <td>amanda@thatgirlknows.com</td>
+    <td>Instagram Ads</td>
+    <td>2026-03-21</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>48</td>
+    <td>Shelley Kusman</td>
+    <td>bankerdaughter@aol.com</td>
+    <td>Facebook Ads</td>
+    <td>2026-03-22</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>49</td>
+    <td>Leidy Vizcaino</td>
+    <td>leidyvizcaino@michaelsaunders.com</td>
+    <td>Direct</td>
+    <td>2026-03-22</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>50</td>
+    <td>Tracey De Largy</td>
+    <td>tradelargy@gmail.com</td>
+    <td>Facebook Ads</td>
+    <td>2026-03-22</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>51</td>
+    <td>Jo Ann Tobias</td>
+    <td>joann@expresstitle.com</td>
+    <td>Direct</td>
+    <td>2026-03-22</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>52</td>
+    <td>Ivone De Oliveira</td>
+    <td>ivone.deoliveira7@gmail.com</td>
+    <td>Direct</td>
+    <td>2026-03-22</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>53</td>
+    <td>Jade Eller</td>
+    <td>jade@preferredshore.com</td>
+    <td>Google Organic</td>
+    <td>2026-03-23</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>54</td>
+    <td>Jacob Broadway</td>
+    <td>jacob@wickedsmarthomes.com</td>
+    <td>miramarsarasota.com</td>
+    <td>2026-03-23</td>
+    <td><span class="badge badge-green">Yes</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>55</td>
+    <td>Gary Beltrani</td>
+    <td>beltrani.gary@gmail.com</td>
+    <td>Google Ads</td>
+    <td>2026-03-23</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>56</td>
+    <td>Ana Maria Reano</td>
+    <td>anamaria0223@gmail.com</td>
+    <td>Facebook Ads</td>
+    <td>2026-03-23</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+<tr>
+    <td>57</td>
+    <td>Elizabeth Giuliani</td>
+    <td>egiuls77@gmail.com</td>
+    <td>Google Ads</td>
+    <td>2026-03-24</td>
+    <td><span class="badge badge-red">No</span></td>
+    <td><span class="badge badge-gray">N/A</span></td>
+  </tr>
+</table>
+</div>
+
+</div>
+
+<h2>Source Breakdown</h2>
+<table>
+<tr><th>Source</th><th>Submissions</th><th>In Spark</th><th>Missing</th><th>UTM in Spark</th><th>UTM Missing</th></tr>
+<tr>
+  <td>Direct</td><td>33</td><td>29</td><td>4</td><td>0</td><td>0</td>
+</tr>
+<tr>
+  <td>Facebook Ads</td><td>8</td><td>1</td><td>7</td><td>0</td><td>1</td>
+</tr>
+<tr>
+  <td>Google Ads</td><td>6</td><td>3</td><td>3</td><td>1</td><td>2</td>
+</tr>
+<tr>
+  <td>Google Organic</td><td>2</td><td>1</td><td>1</td><td>0</td><td>0</td>
+</tr>
+<tr>
+  <td>miramarsarasota.com</td><td>2</td><td>1</td><td>1</td><td>0</td><td>0</td>
+</tr>
+<tr>
+  <td>Instagram Ads</td><td>1</td><td>0</td><td>1</td><td>0</td><td>0</td>
+</tr>
+<tr>
+  <td>DuckDuckGo Organic</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td>
+</tr>
+<tr>
+  <td>Unknown</td><td>1</td><td>1</td><td>0</td><td>0</td><td>0</td>
+</tr>
+<tr>
+  <td>yourobserver</td><td>1</td><td>1</td><td>0</td><td>0</td><td>1</td>
+</tr>
+<tr>
+  <td>IAS</td><td>1</td><td>1</td><td>0</td><td>0</td><td>1</td>
+</tr>
+<tr>
+  <td>Instagram Organic</td><td>1</td><td>1</td><td>0</td><td>0</td><td>1</td>
+</tr>
+</table>
+
+<div class="footer">
+  Report generated by <code>scripts/reconciliation-report.ts</code><br>
+  Re-run with: <code>npm run reconcile</code>
+</div>
+
+</div>
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

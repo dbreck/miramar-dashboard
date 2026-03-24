@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Mira Mar Dashboard is a Next.js 15.5.7 real estate CRM analytics dashboard powered by the Spark.re API. It displays sales metrics, lead sources, team performance, and pipeline data for a single real estate project.
 
-**Current Version**: 1.5.0
+**Current Version**: 1.6.0
 
 ## Common Commands
 
@@ -36,13 +36,14 @@ npm start                # Start production server
 
 ### Dashboard Structure
 
-**6 Main Tabs** (all use same `/api/dashboard` endpoint):
+**7 Main Tabs** (all use same `/api/dashboard` endpoint):
 1. **Overview** - Key metrics, recent activity, team performance, lead sources
-2. **Pipeline** - Deal stages, stage velocity, stage conversion rates
-3. **Contacts** - Contact growth, activity timeline
-4. **Engagement** - Interaction type details, team performance
-5. **Marketing** - UTM tracking (source, medium, campaign), traffic sources, top campaigns
-6. **Team** - Individual team member performance
+2. **Marketing** - UTM tracking (source, medium, campaign), traffic sources, top campaigns
+3. **Ratings** - Contact rating distribution, sales pipeline funnel, ratings by lead source
+4. **Pipeline** - Deal stages, stage velocity, stage conversion rates (hidden)
+5. **Contacts** - Contact growth, activity timeline (hidden)
+6. **Engagement** - Interaction type details, team performance (hidden)
+7. **Team** - Individual team member performance (hidden)
 
 **Data Flow**:
 ```
@@ -71,7 +72,7 @@ FilterContext (lib/filter-context.tsx) - Global state with localStorage persiste
     ↓
 DashboardLayout - Filter button + FilterPanel component
     ↓
-Tabs (OverviewTab, MarketingTab) - Send filter params to API, update availableSources
+Tabs (OverviewTab, MarketingTab, RatingsTab) - Send filter params to API, update availableSources
     ↓
 API Route - Server-side filtering before aggregation
 ```
@@ -250,6 +251,10 @@ allContacts.forEach((contact: any) => {
 
 4. **Date Filtering**: Only filter interactions by date, NOT contacts. A contact created 6 months ago may have interactions today.
 
+5. **No Rating Change History**: The Spark UI shows "Rating changed from Hot to Warm" in the contact activity log, but **this data is NOT accessible via the API**. Tested endpoints: `/activities`, `/audit-logs`, `/contact-histories`, `/rating-changes`, `/contact-events`, `/contact-logs`, plus all contact sub-resources — all return 404. The `/contacts/{id}` response only includes the **current** rating. Workaround: snapshot-based tracking (see Rating Snapshot System below).
+
+6. **Actual Project ID**: The Spark project for Mira Mar is **2855** (not 1661 as referenced elsewhere in the dashboard code). The dashboard route uses 1661 which may be a project-contact join ID. The `/contact-ratings` and contact detail endpoints use `project_id: 2855`.
+
 ## Data Aggregation Architecture
 
 **Server-Side Aggregation** (`app/api/dashboard/route.ts`):
@@ -297,6 +302,60 @@ const dashboardCache = new Map<string, { data: any; timestamp: number }>();
 // Cache key includes date range for proper invalidation
 const cacheKey = `${start.getTime()}-${end.getTime()}`;
 ```
+
+## Rating Snapshot System (v1.6.0-dev)
+
+Tracks contact rating changes over time by periodically snapshotting all contacts and diffing.
+
+**Endpoints:**
+- `POST /api/rating-snapshot` — Takes a new snapshot, compares against previous, logs changes
+- `GET /api/rating-snapshot` — Returns latest snapshot info (rating distribution)
+- `GET /api/rating-changes` — Returns accumulated change history with filters: `start`, `end`, `rating`, `from_rating`, `source`, `limit`, `offset`
+
+**Key Files:**
+- `lib/rating-types.ts` — Type definitions, rating ID-to-name map for project 2855
+- `lib/snapshot-storage.ts` — Filesystem storage in `/data/snapshots/` and `/data/rating-changes.json`
+- `app/api/rating-snapshot/route.ts` — Snapshot capture endpoint
+- `app/api/rating-changes/route.ts` — Change history query endpoint
+
+**Rating Definitions (project 2855):**
+| ID | Value |
+|----|-------|
+| 58248 | Hot |
+| 58249 | Warm |
+| 58755 | Reservation Holder |
+| 58250 | Cold |
+| 58251 | Not Interested |
+| 58245 | New |
+| 58246 | Agent |
+| 58247 | Legal |
+| 58627 | Team |
+| 58866 | Influencer |
+| 58756 | Contract Holder |
+| 59334 | CB Global Luxury Agent |
+| 59364 | Not A Buyer |
+| 59733 | Referral |
+
+**Important:** The `ratings` array on a contact uses `id` as the rating definition ID (not `rating_id`). The `value` field contains the human-readable name.
+
+**Status:** Backend complete, NOT yet deployed. No first snapshot taken. No cron job configured. No UI tab built yet.
+
+## Ratings Tab (v1.6.0)
+
+The Ratings tab shows contact rating distribution and sales pipeline metrics. It extracts rating data from contacts already being fetched (no additional API calls).
+
+**3 new fields in the dashboard API response:**
+- `ratingDistribution` - `{ rating, count, color, percentage }[]` sorted by count desc
+- `salesPipeline` - `{ stage, count, color }[]` in funnel order: New → Warm → Hot → Reservation Holder → Contract Holder
+- `ratingsBySource` - `Record<sourceName, { rating, count, color }[]>` mapping each source to its rating breakdown
+
+**How ratings are extracted:**
+- Each contact from `getContact()` has a `ratings` array
+- Items have `id` (rating definition ID) and `value` (human-readable name)
+- The code checks against all 14 known rating IDs for project 2855
+- Contacts with no matching rating are categorized as "Unrated"
+
+**Key file:** `components/tabs/RatingsTab.tsx`
 
 ## Key Files and Their Roles
 
@@ -397,6 +456,55 @@ Hosted on Vercel. Push to `main` branch triggers auto-deployment.
 - `DASHBOARD_PASSWORD` - Login password
 - `SESSION_SECRET` - 32+ random characters for cookie signing
 
+## CallRail Integration (2026-03-23)
+
+### The Problem: Missing Leads
+
+Cross-referencing CallRail (all-time, 71 Mira Mar form submissions) against Spark found **32% of leads never reach Spark**:
+- Facebook/Instagram Ads: **82% drop rate** (9 of 11 missing)
+- Google Ads: 44% drop rate (4 of 9)
+- Direct: 8% drop rate (3 of 36)
+
+**Root cause:** The Spark contact form (`~/Sites/miramarsarasota/.../salient-child/partials/spark-contact-form.php`) POSTs directly to `https://spark.re/.../register/inquire-form`. Meta in-app browsers interfere with cross-origin POST, cookies, JS execution, and/or reCAPTCHA — killing submissions before they reach Spark.
+
+### CallRail Setup
+
+- **Account:** `ACC2fd0a83431e1451cba08cdc21d851925` (Clear ph Design)
+- **API (v3):** Key stored in `~/mcp-servers/callrail-mcp/start.sh`
+- **MCP Server:** `~/mcp-servers/callrail-mcp/` (cloned from Blue-Interactive-Dev/CallRail-MCP)
+  - HTTP transport on port 3001, connected via `mcp-remote` in `~/.claude.json`
+  - Start: `~/mcp-servers/callrail-mcp/start.sh`
+  - 68 tools: calls, form submissions, trackers, companies, SMS, tags, etc.
+- **WordPress plugin** installed on Mira Mar site (DNI/number swapping only — form tracking configured separately in CallRail dashboard)
+- **CallRail gets Meta/Google ad data** via direct platform integrations, NOT via the website — this is why it captures leads the website form misses
+
+### Key Files (Mira Mar WordPress site)
+
+- `salient-child/partials/spark-contact-form.php` — Form that POSTs to Spark.re with UTM hidden fields (IDs 22408/22409/22410)
+- `salient-child/js/utm-tracker.js` — Captures UTMs from URL/referrer, stores in cookie, first-touch attribution
+- `salient-child/js/spark-contact-form.js` — Populates UTM hidden fields from cookie on form load, handles validation + Clarity tracking
+
+### Data Notes
+
+- CallRail API form submissions endpoint returns only 96 records all-time (vs 171 in CSV export — CSV likely includes call tracking data)
+- CallRail tracks 3 sites: miramarsarasota.com (71), residences400central.com (24), reflectionstpete.com (1)
+- All-time analysis CSV saved to `data/callrail-all-time-forms.csv`
+
+### Form Relay Fix (2026-03-23)
+
+The cross-origin POST problem has been **fixed** with a server-side relay:
+- **File:** `~/Sites/miramarsarasota/.../salient-child/includes/spark-form-relay.php`
+- All 3 forms now POST same-origin to `admin-post.php`, which relays server-side to Spark via `wp_remote_post()`
+- UTM cookie fallback: server reads `miramar_utm_data` cookie when JS fails to populate UTM fields
+- **Status:** Code complete, needs testing on Local WP then deploy to staging/production
+
+### Remaining Work
+
+1. **Test the form relay** on Local WP, then staging, then production
+2. **Recover ~20 missing leads** into Spark from CallRail data (waiting for client conversation)
+3. **Ongoing reconciliation** — consider automated CallRail↔Spark sync
+4. **Monitor reCAPTCHA** — token is forwarded to Spark; verify Spark still validates it correctly through the relay
+
 ## References
 
 - **Spark API Documentation**: Reference the `spark-api` Claude Code skill
@@ -406,4 +514,4 @@ Hosted on Vercel. Push to `main` branch triggers auto-deployment.
 
 ---
 
-**Last Updated**: 2025-12-04 (v1.5.0)
+**Last Updated**: 2026-03-23 (CallRail integration investigation + MCP server setup)
