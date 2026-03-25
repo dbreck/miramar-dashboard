@@ -138,6 +138,9 @@ export default function ReconciliationPage() {
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [pushing, setPushing] = useState(false);
   const [pushResults, setPushResults] = useState<{ succeeded: number; failed: number; results: any[] } | null>(null);
+  const [selectedUtmEmails, setSelectedUtmEmails] = useState<Set<string>>(new Set());
+  const [pushingUtm, setPushingUtm] = useState(false);
+  const [pushUtmResults, setPushUtmResults] = useState<{ succeeded: number; failed: number; results: any[] } | null>(null);
 
   const fetchData = useCallback(async (preset?: string) => {
     setLoading(true);
@@ -257,6 +260,62 @@ export default function ReconciliationPage() {
       setPushResults({ succeeded: 0, failed: contactsToPush.length, results: [] });
     } finally {
       setPushing(false);
+    }
+  };
+
+  // UTM Gap selection helpers
+  const utmGapContacts = (data?.contacts || []).filter(c => c.hasUtmGap && c.inSpark && c.sparkContactId);
+  const visibleUtmGaps = filteredContacts.filter(c => c.hasUtmGap && c.inSpark && c.sparkContactId);
+  const allVisibleUtmGapsSelected = visibleUtmGaps.length > 0 && visibleUtmGaps.every(c => selectedUtmEmails.has(c.email));
+
+  const toggleUtmSelect = (email: string) => {
+    setSelectedUtmEmails(prev => {
+      const next = new Set(prev);
+      if (next.has(email)) next.delete(email);
+      else next.add(email);
+      return next;
+    });
+  };
+
+  const toggleUtmSelectAll = () => {
+    if (allVisibleUtmGapsSelected) {
+      setSelectedUtmEmails(new Set());
+    } else {
+      setSelectedUtmEmails(new Set(visibleUtmGaps.map(c => c.email)));
+    }
+  };
+
+  const pushUtmToSpark = async () => {
+    if (selectedUtmEmails.size === 0) return;
+    setPushingUtm(true);
+    setPushUtmResults(null);
+
+    const contactsToPush = utmGapContacts
+      .filter(c => selectedUtmEmails.has(c.email))
+      .map(c => ({
+        sparkContactId: c.sparkContactId!,
+        name: c.name,
+        email: c.email,
+        utmSource: c.callrailUtmSource,
+        utmMedium: c.callrailUtmMedium,
+        utmCampaign: c.callrailUtmCampaign,
+      }));
+
+    try {
+      const res = await fetch('/api/reconciliation/push-utm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacts: contactsToPush }),
+      });
+      const result = await res.json();
+      setPushUtmResults({ succeeded: result.summary.succeeded, failed: result.summary.failed, results: result.results });
+      setSelectedUtmEmails(new Set());
+      // Refresh data after push
+      setTimeout(() => fetchData(), 1500);
+    } catch (err: any) {
+      setPushUtmResults({ succeeded: 0, failed: contactsToPush.length, results: [] });
+    } finally {
+      setPushingUtm(false);
     }
   };
 
@@ -532,6 +591,38 @@ export default function ReconciliationPage() {
                     )}
                   </div>
                 )}
+
+                {/* Push UTM controls - shown when viewing UTM gaps or when UTM items selected */}
+                {(filterView === 'utm-gaps' || selectedUtmEmails.size > 0) && visibleUtmGaps.length > 0 && (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <button
+                      onClick={toggleUtmSelectAll}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ring-1 ${
+                        allVisibleUtmGapsSelected
+                          ? 'bg-amber-500/15 text-amber-400 ring-amber-500/30'
+                          : 'text-gray-400 ring-gray-700 hover:ring-gray-600'
+                      }`}
+                    >
+                      <Check className="w-3 h-3" />
+                      {allVisibleUtmGapsSelected ? 'Deselect All' : `Select All (${visibleUtmGaps.length})`}
+                    </button>
+
+                    {selectedUtmEmails.size > 0 && (
+                      <button
+                        onClick={pushUtmToSpark}
+                        disabled={pushingUtm}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-amber-500 text-white hover:bg-amber-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {pushingUtm ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Upload className="w-3 h-3" />
+                        )}
+                        {pushingUtm ? 'Updating...' : `Push UTM to ${selectedUtmEmails.size} contacts`}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Push Results Banner */}
@@ -560,6 +651,32 @@ export default function ReconciliationPage() {
                 </div>
               )}
 
+              {/* Push UTM Results Banner */}
+              {pushUtmResults && (
+                <div className={`px-4 py-3 border-b border-gray-800 flex items-center gap-3 ${
+                  pushUtmResults.failed > 0 ? 'bg-amber-500/10' : 'bg-emerald-500/10'
+                }`}>
+                  {pushUtmResults.failed > 0 ? (
+                    <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  )}
+                  <p className="text-sm">
+                    <span className="text-emerald-400 font-medium">{pushUtmResults.succeeded} UTM fields updated</span>
+                    {pushUtmResults.failed > 0 && (
+                      <span className="text-amber-400 font-medium ml-2">{pushUtmResults.failed} failed</span>
+                    )}
+                    <span className="text-gray-500 ml-2">— refreshing data...</span>
+                  </p>
+                  <button
+                    onClick={() => setPushUtmResults(null)}
+                    className="ml-auto text-gray-500 hover:text-gray-300 text-xs"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
+
               {/* Table Header */}
               <div className="hidden lg:grid grid-cols-[2rem_1fr_1.2fr_0.8fr_0.8fr_0.6fr_0.5fr] gap-4 px-5 py-2.5 border-b border-gray-800 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 <span />
@@ -581,6 +698,9 @@ export default function ReconciliationPage() {
                     onToggle={() => setExpandedContact(expandedContact === c.email ? null : c.email)}
                     selected={selectedEmails.has(c.email)}
                     onSelect={() => toggleSelect(c.email)}
+                    utmSelected={selectedUtmEmails.has(c.email)}
+                    onUtmSelect={() => toggleUtmSelect(c.email)}
+                    showUtmCheckbox={filterView === 'utm-gaps' || selectedUtmEmails.size > 0}
                   />
                 ))}
               </div>
@@ -646,27 +766,35 @@ function SortHeader({
   );
 }
 
-function ContactRow({ contact: c, expanded, onToggle, selected, onSelect }: {
+function ContactRow({ contact: c, expanded, onToggle, selected, onSelect, utmSelected, onUtmSelect, showUtmCheckbox }: {
   contact: ReconContact; expanded: boolean; onToggle: () => void;
   selected: boolean; onSelect: () => void;
+  utmSelected: boolean; onUtmSelect: () => void;
+  showUtmCheckbox: boolean;
 }) {
+  const isUtmGapSelectable = c.hasUtmGap && c.inSpark && c.sparkContactId;
+  const showCheckbox = !c.inSpark || (showUtmCheckbox && isUtmGapSelectable);
+  const isChecked = !c.inSpark ? selected : utmSelected;
+  const handleCheck = !c.inSpark ? onSelect : onUtmSelect;
+  const checkColor = !c.inSpark ? 'bg-blue-500 border-blue-500' : 'bg-amber-500 border-amber-500';
+
   return (
     <div className="group">
       <div
         className={`w-full grid grid-cols-1 lg:grid-cols-[2rem_1fr_1.2fr_0.8fr_0.8fr_0.6fr_0.5fr] gap-2 lg:gap-4 px-5 py-3.5 text-left hover:bg-gray-800/30 transition-colors cursor-pointer ${
-          selected ? 'bg-blue-500/5' : ''
+          selected ? 'bg-blue-500/5' : utmSelected ? 'bg-amber-500/5' : ''
         }`}
         onClick={onToggle}
       >
         {/* Checkbox */}
-        <div className="flex items-center" onClick={e => { e.stopPropagation(); onSelect(); }}>
-          {!c.inSpark ? (
+        <div className="flex items-center" onClick={e => { e.stopPropagation(); handleCheck(); }}>
+          {showCheckbox ? (
             <div className={`w-4 h-4 rounded border transition-all flex items-center justify-center cursor-pointer ${
-              selected
-                ? 'bg-blue-500 border-blue-500'
+              isChecked
+                ? checkColor
                 : 'border-gray-600 hover:border-gray-400'
             }`}>
-              {selected && <Check className="w-3 h-3 text-white" />}
+              {isChecked && <Check className="w-3 h-3 text-white" />}
             </div>
           ) : (
             <span />
