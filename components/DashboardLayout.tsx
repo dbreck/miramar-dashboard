@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Sun, Moon, LogOut, Info, Filter } from 'lucide-react';
+import { Sun, Moon, LogOut, Info, Filter, GitCompareArrows } from 'lucide-react';
 import DateRangePicker, { DateRange } from './DateRangePicker';
 import FilterPanel from './FilterPanel';
 import { useFilters } from '@/lib/filter-context';
@@ -96,6 +96,15 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Reconciliation Link */}
+              <button
+                onClick={() => router.push('/reconciliation')}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all text-gray-700 dark:text-gray-300 cursor-pointer"
+                title="CallRail / Spark Reconciliation"
+              >
+                <GitCompareArrows className="w-4 h-4" />
+                <span className="hidden sm:inline">Reconcile</span>
+              </button>
               {/* Filter Button */}
               <button
                 onClick={() => setFilterPanelOpen(true)}

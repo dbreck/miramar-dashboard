@@ -34,3 +34,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# rating snapshot data (runtime-generated)
+/data/snapshots/
+/data/rating-changes.json
