@@ -490,20 +490,79 @@ Cross-referencing CallRail (all-time, 71 Mira Mar form submissions) against Spar
 - CallRail tracks 3 sites: miramarsarasota.com (71), residences400central.com (24), reflectionstpete.com (1)
 - All-time analysis CSV saved to `data/callrail-all-time-forms.csv`
 
-### Form Relay Fix (2026-03-23)
+### Form Relay Fix (2026-03-24) — DEPLOYED TO PRODUCTION
 
 The cross-origin POST problem has been **fixed** with a server-side relay:
 - **File:** `~/Sites/miramarsarasota/.../salient-child/includes/spark-form-relay.php`
 - All 3 forms now POST same-origin to `admin-post.php`, which relays server-side to Spark via `wp_remote_post()`
 - UTM cookie fallback: server reads `miramar_utm_data` cookie when JS fails to populate UTM fields
-- **Status:** Code complete, needs testing on Local WP then deploy to staging/production
+- **Status:** DEPLOYED and tested in production. Contact form + popup form + workshop form all confirmed working.
+
+**Bugs found and fixed during deployment:**
+1. **reCAPTCHA required** — Spark rejects submissions without valid reCAPTCHA tokens. Relay forwards browser-generated tokens.
+2. **Double-submit** — Form fires twice (inline reCAPTCHA script + external JS). Fixed with transient-based dedup guard (10-second window).
+3. **Popup reCAPTCHA** — Duplicate form IDs (`#spark-contact-form`) caused popup's reCAPTCHA token to be set on the wrong form. Fixed inline script to use `document.currentScript.previousElementSibling` instead of `getElementById`.
+4. **Array encoding** — PHP's `http_build_query()` converts `[value][]` to `[value][0]`, which Spark receives as an object instead of array → 500 error on workshop form. Fixed with regex replacement in encoded body.
+5. **User-Agent** — Spark returns "Form not found" for WordPress UA. Fixed by sending Chrome browser UA in relay.
+6. **Log file locking** — `LOCK_EX` on debug log caused cascading delays from concurrent requests. Removed.
+7. **Success detection** — Relay initially treated all 302s as success. Fixed to check Location header against success/error redirect URLs.
+
+**Debug log:** `/www/wp-content/themes/salient-child/spark-relay-debug.log` on Flywheel production. TODO: Remove debug logging once stable.
+
+**Files deployed to production (via SSH pipe, not git):**
+- `includes/spark-form-relay.php` — the relay handler
+- `functions.php` — added require_once
+- `partials/spark-contact-form.php` — changed action + hidden fields + fixed inline script
+- `partials/community-workshop-form.php` — changed action + hidden fields
+- `partials/spark-form.php` — changed action + hidden fields
+- `js/spark-contact-form.js` — multi-form support (querySelectorAll + MutationObserver)
+
+**reCAPTCHA keys (from Spark settings):**
+- Site key: `6LfqnOErAAAAALcWX6q1VKVJ4zvvS5XxsCNPzuWu`
+- Secret key: `6LfqnOErAAAALL5m2aKobtGkichuOKqkfLDoSYq`
+
+### Reconciliation Report (2026-03-24)
+
+Script at `scripts/reconciliation-report.ts` cross-references CallRail form submissions against Spark contacts.
+- Run: `npm run reconcile`
+- Output: `data/reconciliation-report.html` and `data/reconciliation-report.md`
+- Served at `/api/reconciliation` on the dashboard (behind auth)
+- **Results:** 57 unique contacts, 40 in Spark (70%), 17 missing (30%), 6 with UTM gaps
+
+### Live Reconciliation Dashboard (2026-03-24)
+
+Real-time CallRail vs Spark cross-reference at `/reconciliation`. Accessible via "Reconcile" button in dashboard header.
+
+**Features:**
+- Date range presets (7d/14d/30d/60d/90d/All) + custom range
+- Summary cards: total, in Spark, missing, UTM gaps
+- Drop rate by source visualization
+- Contact list with filter tabs (All/Missing/Matched/UTM Gaps)
+- Expandable rows showing side-by-side CallRail data vs Spark status
+- **Smart matching (3-tier):** email → phone number → first+last name
+- **Email typo detection:** `.com.com`, `.ne`→`.net`, `.co`→`.com`, double `@`
+- **Push to Spark:** Select all / individual checkboxes → create contacts via Spark API with marketing source + UTM fields
+- Warning flags on contacts with typo emails or non-email matches
+
+**Key files:**
+- `app/reconciliation/page.tsx` — UI
+- `app/api/reconciliation/live/route.ts` — Smart matching API
+- `app/api/reconciliation/push/route.ts` — Push contacts to Spark API
+
+**Performance:** ~60-80s for 30-day range (156 contacts × 2-3 Spark API calls each). Faster with shorter date ranges.
 
 ### Remaining Work
 
-1. **Test the form relay** on Local WP, then staging, then production
-2. **Recover ~20 missing leads** into Spark from CallRail data (waiting for client conversation)
-3. **Ongoing reconciliation** — consider automated CallRail↔Spark sync
-4. **Monitor reCAPTCHA** — token is forwarded to Spark; verify Spark still validates it correctly through the relay
+1. ~~**Recover missing leads**~~ **DONE (2026-03-24)** — All missing contacts pushed to Spark via API and dashboard Push feature. Marketing source + UTM custom fields populated.
+2. **Monitor relay effectiveness** — Use reconciliation dashboard to verify Meta in-app browser submissions now reach Spark
+3. **Remove debug logging** from relay once stable (spark-relay-debug.log on production)
+4. **Clean up 3 test contacts** in Spark (test-import-delete-me@, test-utm-delete-me@, test-fullutm-delete-me@example.com)
+5. **Refine client email** — Draft at `drafts/callrail-spark-gap-email.md`
+4. **Fix double-submit root cause** — dedup guard catches it but two requests still fire. Need to fix the inline reCAPTCHA script to prevent the second submit
+5. **Spark API writes WORK** — Direct HTTP POST to `https://api.spark.re/v2/contacts` works with our key (Bearer token). The Spark MCP tool (`mcp__spark-re__create_update_contact`) fails due to MCP tool limitations, NOT the API key. Always use direct `curl`/`fetch` for writes. Supports `marketing_source`, `custom_field_values` (UTM fields: 22408=utm_source, 22409=utm_medium, 22410=utm_campaign), and all standard fields. See `/sparkre-crm-api` skill for full POST body reference.
+6. **Monitor Meta in-app submissions** — the relay + popup fix should now capture these, but needs real-world validation with actual Meta ad clicks
+7. **Spark workshop endpoint** — intermittently returns 500 errors. Array encoding fix resolved the relay-caused 500s, but original pre-relay failures suggest deeper Spark-side issues
+8. **Clean up 3 test contacts** — test-import-delete-me@example.com, test-utm-delete-me@example.com, test-fullutm-delete-me@example.com created during API write testing (2026-03-24). Delete manually in Spark UI.
 
 ## References
 
@@ -514,4 +573,4 @@ The cross-origin POST problem has been **fixed** with a server-side relay:
 
 ---
 
-**Last Updated**: 2026-03-23 (CallRail integration investigation + MCP server setup)
+**Last Updated**: 2026-03-24 (Live reconciliation dashboard, Spark API writes, smart matching, Push to Spark)
