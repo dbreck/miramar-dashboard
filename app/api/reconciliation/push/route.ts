@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logPush } from '@/lib/push-logger';
 
 const SPARK_API_KEY = process.env.SPARK_API_KEY!;
 
@@ -146,6 +147,24 @@ export async function POST(request: NextRequest) {
 
     const succeeded = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
+
+    // Log the push for audit trail
+    await logPush({
+      action: 'create_contact',
+      timestamp: new Date().toISOString(),
+      contacts: results.map((r, i) => ({
+        name: r.name,
+        email: r.email,
+        sparkContactId: r.sparkId,
+        success: r.success,
+        error: r.error,
+        utmSource: contacts[i]?.utmSource,
+        utmMedium: contacts[i]?.utmMedium,
+        utmCampaign: contacts[i]?.utmCampaign,
+        callrailSource: contacts[i]?.callrailSource,
+      })),
+      summary: { total: results.length, succeeded, failed },
+    });
 
     return NextResponse.json({
       summary: { total: results.length, succeeded, failed },
