@@ -8,6 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logPush } from '@/lib/push-logger';
 
+export const maxDuration = 60;
+
 const SPARK_API_KEY = process.env.SPARK_API_KEY!;
 
 const UTM_FIELD_IDS = {
