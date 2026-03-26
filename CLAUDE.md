@@ -455,6 +455,8 @@ Hosted on Vercel. Push to `main` branch triggers auto-deployment.
 - `SPARK_API_KEY` - Spark.re API token
 - `DASHBOARD_PASSWORD` - Login password
 - `SESSION_SECRET` - 32+ random characters for cookie signing
+- `UTM_COOKIE_LOG_SECRET` - Bearer token for WP utm-cookie-log endpoint (`miramar-utm-log-2026-x9k4m`)
+- `SPARK_RELAY_LOG_SECRET` - Bearer token for WP spark-relay-log endpoint (`miramar-relay-log-2026-r7m3k`)
 
 ## CallRail Integration (2026-03-23)
 
@@ -547,22 +549,124 @@ Real-time CallRail vs Spark cross-reference at `/reconciliation`. Accessible via
 **Key files:**
 - `app/reconciliation/page.tsx` — UI
 - `app/api/reconciliation/live/route.ts` — Smart matching API
-- `app/api/reconciliation/push/route.ts` — Push contacts to Spark API
+- `app/api/reconciliation/push/route.ts` — Push contacts to Spark API (maxDuration=60s)
+- `app/api/reconciliation/push-utm/route.ts` — Push UTM fields to existing contacts (maxDuration=60s)
+- `lib/push-logger.ts` — Audit logging for all push actions → `data/push-log.jsonl`
+
+**Push UTM Feature (2026-03-26):**
+- UTM Gaps tab shows contacts in Spark with missing UTM data that CallRail has
+- Select all / individual checkboxes (amber-colored) to push UTM fields
+- Uses PUT to `https://api.spark.re/v2/contacts/{id}` with `custom_field_values`
+- Both push endpoints have `maxDuration = 60` to avoid Vercel timeouts on large batches
+
+**Push Audit Logging (2026-03-26):**
+- All push actions (create + UTM update) logged to `data/push-log.jsonl`
+- JSONL format with timestamp, contacts, success/failure, UTM values
 
 **Performance:** ~60-80s for 30-day range (156 contacts × 2-3 Spark API calls each). Faster with shorter date ranges.
+
+**Vercel Timeout Gotcha:** Default Vercel function timeout is 10s. Batch push operations (50+ contacts) need `maxDuration = 60`. On hobby plan the max is 10s — would need frontend chunking instead.
 
 ### Remaining Work
 
 1. ~~**Recover missing leads**~~ **DONE (2026-03-24)** — All missing contacts pushed to Spark via API and dashboard Push feature. Marketing source + UTM custom fields populated.
-2. **Monitor relay effectiveness** — Use reconciliation dashboard to verify Meta in-app browser submissions now reach Spark
-3. **Remove debug logging** from relay once stable (spark-relay-debug.log on production)
-4. **Clean up 3 test contacts** in Spark (test-import-delete-me@, test-utm-delete-me@, test-fullutm-delete-me@example.com)
-5. **Refine client email** — Draft at `drafts/callrail-spark-gap-email.md`
-4. **Fix double-submit root cause** — dedup guard catches it but two requests still fire. Need to fix the inline reCAPTCHA script to prevent the second submit
-5. **Spark API writes WORK** — Direct HTTP POST to `https://api.spark.re/v2/contacts` works with our key (Bearer token). The Spark MCP tool (`mcp__spark-re__create_update_contact`) fails due to MCP tool limitations, NOT the API key. Always use direct `curl`/`fetch` for writes. Supports `marketing_source`, `custom_field_values` (UTM fields: 22408=utm_source, 22409=utm_medium, 22410=utm_campaign), and all standard fields. See `/sparkre-crm-api` skill for full POST body reference.
-6. **Monitor Meta in-app submissions** — the relay + popup fix should now capture these, but needs real-world validation with actual Meta ad clicks
-7. **Spark workshop endpoint** — intermittently returns 500 errors. Array encoding fix resolved the relay-caused 500s, but original pre-relay failures suggest deeper Spark-side issues
-8. **Clean up 3 test contacts** — test-import-delete-me@example.com, test-utm-delete-me@example.com, test-fullutm-delete-me@example.com created during API write testing (2026-03-24). Delete manually in Spark UI.
+2. **Monitor UTM cookie logging** — `utm-tracker.js` now tags Clarity sessions with `utm_cookie` (set/failed/exists/no_utms) and `utm_browser` (facebook/instagram/chrome/safari/etc). Also logs to WordPress JSONL at `salient-child/utm-cookie-log.jsonl`. Deployed 2026-03-26. Check after a few days of traffic to diagnose Direct attribution loss.
+3. **Monitor relay effectiveness** — Use reconciliation dashboard to verify Meta in-app browser submissions now reach Spark
+4. **Remove debug logging** from relay once stable (spark-relay-debug.log on production)
+5. **Clean up 3 test contacts** in Spark (test-import-delete-me@, test-utm-delete-me@, test-fullutm-delete-me@example.com)
+6. **Fix double-submit root cause** — dedup guard catches it but two requests still fire. Need to fix the inline reCAPTCHA script to prevent the second submit
+7. **Spark API writes WORK** — Direct HTTP POST to `https://api.spark.re/v2/contacts` works with our key (Bearer token). The Spark MCP tool (`mcp__spark-re__create_update_contact`) fails due to MCP tool limitations, NOT the API key. Always use direct `curl`/`fetch` for writes. Supports `marketing_source`, `custom_field_values` (UTM fields: 22408=utm_source, 22409=utm_medium, 22410=utm_campaign), and all standard fields. See `/sparkre-crm-api` skill for full POST body reference.
+8. **Spark API does NOT support backdating** — `created_at` cannot be set on POST/PUT. Contacts pushed via API always get current timestamp.
+9. **Spark workshop endpoint** — intermittently returns 500 errors. Array encoding fix resolved the relay-caused 500s, but original pre-relay failures suggest deeper Spark-side issues
+10. **Verify Vercel plan supports maxDuration=60** — If on hobby plan (10s max), push-utm will still fail for large batches. Would need frontend-side chunking.
+11. **Client email drafts** — `drafts/client-response-lost-leads.md` (answers 3 questions about dates, UTM, team assignment) and `drafts/client-response-extra-contacts.md` (explains the 16 extra contacts from wider date range)
+
+### UTM Cookie Diagnostics (2026-03-26) — DEPLOYED TO PRODUCTION
+
+Lightweight logging to diagnose whether paid ad visitors lose UTM cookies before form submission.
+
+**WordPress files deployed:**
+- `js/utm-tracker.js` — Added cookie verification + Clarity custom tags + sendBeacon logging
+- `includes/utm-cookie-logger.php` — WordPress AJAX endpoint receiving beacons, writes to JSONL
+- `functions.php` — Added require_once for logger
+
+**Clarity Custom Tags (tagged on every page load):**
+- `utm_cookie` — `cookie_set` | `cookie_failed` | `cookie_exists` | `no_utms`
+- `utm_browser` — `facebook` | `instagram` | `chrome` | `safari` | `chrome-ios` | etc.
+- `utm_src` — the utm_source value when present
+
+**WordPress Log:** `salient-child/utm-cookie-log.jsonl` — JSONL, auto-rotates at 1MB (keeps last 500 entries)
+
+**How to analyze:**
+1. Filter Clarity sessions by `utm_cookie = cookie_failed` to watch replays where UTMs were lost
+2. SSH to Flywheel, read `utm-cookie-log.jsonl` to aggregate failure rates by browser type
+3. Cross-reference with "Direct" form submissions to confirm hypothesis
+
+**Dashboard access:** `/api/utm-cookie-log` — fetches from WP REST endpoint, caches in `/tmp/`, has Sync Now button + date range
+
+### Reconciliation Page Reports (2026-03-26)
+
+The reconciliation page header has 4 report buttons:
+
+| Button | Route | Description |
+|--------|-------|-------------|
+| **Lost Leads Report** | `/api/lost-leads-report` | Visual investigation: 32 leads from the original spreadsheet, with timeline + error codes |
+| **Contact Comparison** | `/api/contact-comparison` | Side-by-side CallRail vs Spark for 33 contacts with dates, UTMs, lag |
+| **UTM Cookies** | `/api/utm-cookie-log` | Live UTM cookie diagnostics from WordPress (sync from WP REST) |
+| **Relay Health** | `/api/spark-relay-log` | Form relay success/failure monitoring (sync from WP REST) |
+
+**All-time report** (not linked from UI): `/api/lost-leads-alltime` — 55 leads lost over 3 months (Dec 26 2025 - Mar 26 2026)
+
+### Relay Health Monitoring (2026-03-26) — DEPLOYED TO PRODUCTION
+
+Server-side form relay now logs every submission outcome for ongoing monitoring.
+
+**WordPress files deployed:**
+- `includes/spark-form-relay.php` — Updated with structured JSONL logging at all exit points
+- `includes/spark-relay-endpoint.php` — REST API at `GET /wp-json/miramar/v1/spark-relay-log` (Bearer auth)
+- `includes/spark-relay-dashboard-widget.php` — WP admin dashboard widget showing 24h/7d health stats
+- `functions.php` — Added require_once for both new files
+
+**Log file:** `salient-child/spark-relay-log.jsonl` — JSONL, auto-rotates at 1MB (keeps last 500 entries)
+
+**Log entry fields:** timestamp, form_type, outcome (success/failed/rejected/wp_error/invalid_form/honeypot/dedup), status_code, email, name, utm_source/medium/campaign, utm_fallback, has_recaptcha, error_detail
+
+**WordPress REST endpoints (both on miramarsarasota.com):**
+- `/wp-json/miramar/v1/utm-cookie-log` — Bearer: `miramar-utm-log-2026-x9k4m`
+- `/wp-json/miramar/v1/spark-relay-log` — Bearer: `miramar-relay-log-2026-r7m3k`
+
+**Vercel filesystem gotcha:** Cannot write to `data/` on Vercel (read-only). All cache files use `/tmp/` instead.
+
+**Flywheel REST endpoint gotcha:** New routes return 404 on first request due to Varnish cache. Flush with `wp cache flush && wp rewrite flush` via SSH, then hit the endpoint with a cache-buster query param. Subsequent requests work fine.
+
+### All-Time Lost Leads Investigation (2026-03-26)
+
+Full cross-reference of CallRail API (603 all-time Mira Mar submissions, back to Oct 2025) against Spark failed submissions log revealed:
+- **56 total lost leads** (55 real + 1 test) over **3 months** (Dec 26 2025 - Mar 26 2026)
+- 24 more than the original 32-contact spreadsheet
+- Problem existed since at least Dec 2025, not just March 2026
+- All 55 real leads now recovered in Spark
+- Spark's failed submission log (`/projects/2855/registration-request-logs?display=failed`) is **UI-only** — no API access (all endpoints return 404)
+
+**CallRail API notes:**
+- All-time endpoint: `GET /v3/a/{account}/form_submissions.json?start_date=2025-01-01T00:00:00Z&per_page=250&fields=form_data,source,referrer,landing_page_url,form_url`
+- 3,913 total submissions across all sites, 603 for Mira Mar
+- CallRail MCP server is configured in `~/.claude.json` but was not running this session; used REST API directly
+- Contact name/email available at top level: `customer_name`, `customer_email`, `formatted_customer_name`
+- Form data is a dict (not array): `form_data.contact.first_name`, etc.
+
+### Data Files (2026-03-26)
+
+| File | Description |
+|------|-------------|
+| `data/client-contact-comparison.csv` | Side-by-side CallRail vs Spark for 33 contacts |
+| `data/client-contact-comparison.html` | Styled HTML version (served at `/api/contact-comparison`) |
+| `data/lost-leads-report.html` | Visual investigation report: 32 leads (served at `/api/lost-leads-report`) |
+| `data/lost-leads-alltime-report.html` | All-time report: 55 leads (served at `/api/lost-leads-alltime`) |
+| `data/Lost Spark.xlsx` | Client spreadsheet with CallRail dates + rejection reasons added |
+| `data/Lost Spark (Conclusion).xlsx` | Client's 3-sheet workbook (Lost Sparks, failed submissions, Project Contact) |
+| `scripts/contact-comparison.mjs` | Fetches Spark contacts by name, cross-refs with CallRail CSV |
+| `scripts/generate-comparison-html.mjs` | Generates styled HTML from comparison CSV |
 
 ## References
 
@@ -573,4 +677,4 @@ Real-time CallRail vs Spark cross-reference at `/reconciliation`. Accessible via
 
 ---
 
-**Last Updated**: 2026-03-24 (Live reconciliation dashboard, Spark API writes, smart matching, Push to Spark)
+**Last Updated**: 2026-03-26 (Relay monitoring, all-time lost leads report, contact comparison, UTM cookie dashboard, client reports)
