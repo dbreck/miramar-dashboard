@@ -18,6 +18,7 @@ import {
   Check,
   Loader2,
   FileSpreadsheet,
+  Cookie,
 } from 'lucide-react';
 
 // --- Types ---
@@ -358,6 +359,15 @@ export default function ReconciliationPage() {
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Contact Comparison</span>
+            </a>
+            <a
+              href="/api/utm-cookie-log"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-all"
+            >
+              <Cookie className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">UTM Cookies</span>
             </a>
             <button
               onClick={() => fetchData()}
