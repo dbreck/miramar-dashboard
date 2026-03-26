@@ -180,30 +180,46 @@ async function main() {
 
   for (const fullName of TARGET_NAMES) {
     const parts = fullName.split(' ');
-    const firstName = parts[0];
-    const lastName = parts.slice(1).join(' ');
 
-    // Search by first_name and last_name
-    let searchUrl = `/contacts?first_name_cont=${encodeURIComponent(firstName)}&per_page=100`;
-    if (lastName) {
-      searchUrl += `&last_name_cont=${encodeURIComponent(lastName)}`;
+    // Try all possible first/last splits for multi-word names
+    // e.g. "Ana Maria Reano" -> try "Ana"/"Maria Reano", then "Ana Maria"/"Reano"
+    const splits = [];
+    for (let i = 1; i < parts.length; i++) {
+      splits.push({
+        first: parts.slice(0, i).join(' '),
+        last: parts.slice(i).join(' '),
+      });
+    }
+    // Also try first name only (single-word names)
+    if (parts.length === 1) {
+      splits.push({ first: parts[0], last: '' });
     }
 
-    try {
-      const data = await sparkGet(searchUrl);
-      const contacts = Array.isArray(data) ? data : data.data || [];
-
-      if (contacts.length > 0) {
-        // Get full details for first match
-        const detail = await getContactDetail(contacts[0].id);
-        sparkResults.set(fullName.toLowerCase(), detail);
-        console.log(`  Found: ${fullName} (ID: ${contacts[0].id})`);
-      } else {
-        console.log(`  NOT FOUND: ${fullName}`);
-        sparkResults.set(fullName.toLowerCase(), null);
+    let found = false;
+    for (const { first, last } of splits) {
+      let searchUrl = `/contacts?first_name_cont=${encodeURIComponent(first)}&per_page=100`;
+      if (last) {
+        searchUrl += `&last_name_cont=${encodeURIComponent(last)}`;
       }
-    } catch (err) {
-      console.error(`  Error searching ${fullName}: ${err.message}`);
+
+      try {
+        const data = await sparkGet(searchUrl);
+        const contacts = Array.isArray(data) ? data : data.data || [];
+
+        if (contacts.length > 0) {
+          const detail = await getContactDetail(contacts[0].id);
+          sparkResults.set(fullName.toLowerCase(), detail);
+          console.log(`  Found: ${fullName} (ID: ${contacts[0].id}) via "${first}" / "${last}"`);
+          found = true;
+          break;
+        }
+      } catch (err) {
+        console.error(`  Error searching ${fullName} as "${first}"/"${last}": ${err.message}`);
+      }
+    }
+
+    if (!found) {
+      console.log(`  NOT FOUND: ${fullName} (tried ${splits.length} name splits)`);
       sparkResults.set(fullName.toLowerCase(), null);
     }
   }
