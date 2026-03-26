@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mira Mar — CallRail vs Spark Contact Comparison</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f5f6f8;
+    color: #1a1a2e;
+    padding: 32px;
+    line-height: 1.5;
+  }
+  .header {
+    max-width: 1400px;
+    margin: 0 auto 24px;
+  }
+  .header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 4px;
+  }
+  .header .subtitle {
+    font-size: 14px;
+    color: #6b7280;
+  }
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    max-width: 1400px;
+    margin: 0 auto 24px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .card .label { font-size: 13px; color: #6b7280; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card .value { font-size: 32px; font-weight: 700; margin-top: 4px; }
+  .card.both .value { color: #059669; }
+  .card.spark .value { color: #2563eb; }
+  .card.cr .value { color: #d97706; }
+  .card.neither .value { color: #9ca3af; }
+
+  .legend {
+    max-width: 1400px;
+    margin: 0 auto 16px;
+    display: flex;
+    gap: 24px;
+    font-size: 13px;
+    color: #6b7280;
+    flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot {
+    width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0;
+  }
+  .dot-both { background: #d1fae5; border: 1px solid #6ee7b7; }
+  .dot-spark { background: #dbeafe; border: 1px solid #93c5fd; }
+  .dot-cr { background: #fef3c7; border: 1px solid #fcd34d; }
+  .dot-neither { background: #f3f4f6; border: 1px solid #d1d5db; }
+  .dot-callrail { background: #fef3c7; }
+  .dot-spark-col { background: #dbeafe; }
+
+  .table-wrap {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    overflow-x: auto;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 12px 14px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #e5e7eb;
+    white-space: nowrap;
+  }
+  th.col-name { background: #fff; min-width: 160px; }
+  th.col-cr { background: #fffbeb; color: #92400e; }
+  th.col-spark { background: #eff6ff; color: #1e40af; }
+  th.col-status { background: #fff; }
+  th.col-lag { background: #fff; }
+
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  tr:hover td { background: #fafbfc; }
+
+  /* Row status colors */
+  tr.row-both td:first-child { border-left: 4px solid #34d399; }
+  tr.row-spark td:first-child { border-left: 4px solid #60a5fa; }
+  tr.row-cr td:first-child { border-left: 4px solid #fbbf24; }
+  tr.row-neither td:first-child { border-left: 4px solid #d1d5db; }
+
+  /* Column group shading */
+  td.col-cr { background: #fffdf7; }
+  tr:hover td.col-cr { background: #fefcf0; }
+  td.col-spark { background: #f8fbff; }
+  tr:hover td.col-spark { background: #f0f6ff; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .badge-both { background: #d1fae5; color: #065f46; }
+  .badge-spark { background: #dbeafe; color: #1e40af; }
+  .badge-cr { background: #fef3c7; color: #92400e; }
+  .badge-neither { background: #f3f4f6; color: #6b7280; }
+  .badge-missing { background: #fee2e2; color: #991b1b; font-weight: 700; }
+
+  .lag-value { font-weight: 600; color: #6b7280; }
+  .lag-warn { color: #dc2626; font-weight: 700; }
+
+  .empty { color: #d1d5db; }
+
+  .section-header {
+    max-width: 1400px;
+    margin: 32px auto 12px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #374151;
+  }
+  .note-box {
+    max-width: 1400px;
+    margin: 24px auto;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-radius: 10px;
+    padding: 20px 24px;
+    font-size: 14px;
+    color: #78350f;
+    line-height: 1.7;
+  }
+  .note-box strong { color: #92400e; }
+  .note-box ul { margin: 8px 0 0 20px; }
+
+  .field-key {
+    max-width: 1400px;
+    margin: 24px auto;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    padding: 20px 24px;
+  }
+  .field-key h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #374151; }
+  .field-key table { font-size: 13px; }
+  .field-key td, .field-key th { padding: 6px 16px 6px 0; border: none; white-space: normal; }
+  .field-key th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; color: #6b7280; background: transparent; }
+  .field-key tr:hover td { background: transparent; }
+
+  @media print {
+    body { padding: 16px; background: #fff; }
+    .table-wrap { box-shadow: none; border: 1px solid #e5e7eb; }
+    thead th { position: static; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Mira Mar — Contact Comparison</h1>
+  <div class="subtitle">CallRail form submissions vs. Spark CRM registrations &bull; Generated March 26, 2026</div>
+</div>
+
+<div class="summary-cards">
+  <div class="card both">
+    <div class="label">In Both Systems</div>
+    <div class="value">16</div>
+  </div>
+  <div class="card spark">
+    <div class="label">Spark Only</div>
+    <div class="value">13</div>
+  </div>
+  <div class="card cr">
+    <div class="label">CallRail Only</div>
+    <div class="value">1</div>
+  </div>
+  <div class="card neither">
+    <div class="label">Not Found</div>
+    <div class="value">3</div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot dot-both"></div> In both CallRail &amp; Spark</div>
+  <div class="legend-item"><div class="legend-dot dot-spark"></div> Spark only (no CallRail record)</div>
+  <div class="legend-item"><div class="legend-dot dot-cr"></div> CallRail only (missing from Spark)</div>
+  <div class="legend-item"><div class="legend-dot dot-neither"></div> Not found in either system</div>
+  <div class="legend-item" style="margin-left:auto;"><div class="legend-dot dot-callrail" style="width:24px;border:1px solid #fcd34d;border-radius:3px;"></div> CallRail columns</div>
+  <div class="legend-item"><div class="legend-dot dot-spark-col" style="width:24px;border:1px solid #93c5fd;border-radius:3px;"></div> Spark columns</div>
+</div>
+
+<div class="table-wrap">
+<table>
+<thead>
+  <tr>
+    <th class="col-name">#</th>
+    <th class="col-name">Name</th>
+    <th class="col-cr">CallRail Date</th>
+    <th class="col-spark">Spark Date</th>
+    <th class="col-lag">Lag</th>
+    <th class="col-cr">CR Source</th>
+    <th class="col-cr">CR Campaign</th>
+    <th class="col-cr">CR Medium</th>
+    <th class="col-spark">Spark Mktg Source</th>
+    <th class="col-spark">UTM Source</th>
+    <th class="col-spark">UTM Medium</th>
+    <th class="col-spark">UTM Campaign</th>
+    <th class="col-spark">Rating</th>
+    <th class="col-status">Status</th>
+  </tr>
+</thead>
+<tbody>
+  <tr class="row-both">
+    <td>1</td><td><strong>Amanda Parrish</strong></td>
+    <td class="col-cr">Mar 21, 11:51 PM</td>
+    <td class="col-spark">Mar 24, 5:29 PM</td>
+    <td><span class="lag-value">3 days</span></td>
+    <td class="col-cr">Instagram Ads</td>
+    <td class="col-cr">sarasota</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark">Instagram</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">sarasota</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-neither">
+    <td>2</td><td><strong>Ana Maria Reano</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td><span class="badge badge-neither">Neither</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>3</td><td><strong>Brian Fortin Carter</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Facebook</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">sarasota</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>4</td><td><strong>Christina Arvanitis</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark">businessobserver</td>
+    <td class="col-spark">banner</td>
+    <td class="col-spark">bigfoot</td>
+    <td class="col-spark">Agent</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>5</td><td><strong>Darlene Rosselli</strong></td>
+    <td class="col-cr">Mar 16, 9:30 PM</td>
+    <td class="col-spark">Mar 24, 6:04 PM</td>
+    <td><span class="lag-value">8 days</span></td>
+    <td class="col-cr">Facebook Ads</td>
+    <td class="col-cr">sarasota</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark">Facebook</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">sarasota</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>6</td><td><strong>Diana Bridges</strong></td>
+    <td class="col-cr">Mar 17, 9:57 PM</td>
+    <td class="col-spark">Mar 24, 5:29 PM</td>
+    <td><span class="lag-value">7 days</span></td>
+    <td class="col-cr">miramarsarasota.com</td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr">Referral</td>
+    <td class="col-spark">Website</td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>7</td><td><strong>Elizabeth Giuliani</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 5:30 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Google</td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>8</td><td><strong>Gary Beltrani</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 5:30 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Google</td>
+    <td class="col-spark">google</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">search_branded</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>9</td><td><strong>Geeta Sangani</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Google</td>
+    <td class="col-spark">google</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">search_non-branded</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>10</td><td><strong>George Mackin</strong></td>
+    <td class="col-cr">Mar 21, 6:46 PM</td>
+    <td class="col-spark">Mar 24, 5:29 PM</td>
+    <td><span class="lag-value">3 days</span></td>
+    <td class="col-cr">Google Organic</td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr">Organic</td>
+    <td class="col-spark">Google</td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-neither">
+    <td>11</td><td><strong>Elena Hoyos</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td><span class="badge badge-neither">Neither</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>12</td><td><strong>Gloria Arosmendy</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Facebook</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">feeder</td>
+    <td class="col-spark">Agent</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>13</td><td><strong>Jeffrey Levoff</strong></td>
+    <td class="col-cr">Mar 16, 4:43 PM</td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="lag-value">8 days</span></td>
+    <td class="col-cr">Google Ads</td>
+    <td class="col-cr">Search_Non-Branded</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark">Google</td>
+    <td class="col-spark">google</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">search_non-branded</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>14</td><td><strong>Julie Kauzlarich</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Facebook</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">sarasota</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>15</td><td><strong>Keith Marks</strong></td>
+    <td class="col-cr">Mar 16, 3:34 PM</td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="lag-value">8 days</span></td>
+    <td class="col-cr">Google Ads</td>
+    <td class="col-cr">search_non-branded</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark">Google</td>
+    <td class="col-spark">google</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">search_non-branded</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>16</td><td><strong>Lauren Antonelli</strong></td>
+    <td class="col-cr">Mar 19, 7:44 PM</td>
+    <td class="col-spark">Mar 24, 5:29 PM</td>
+    <td><span class="lag-value">5 days</span></td>
+    <td class="col-cr">Google Ads</td>
+    <td class="col-cr">Search_Branded</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark">Google</td>
+    <td class="col-spark">google</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">search_branded</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>17</td><td><strong>Lila Palinsky</strong></td>
+    <td class="col-cr">Mar 16, 8:05 PM</td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="lag-value">8 days</span></td>
+    <td class="col-cr">Facebook Ads</td>
+    <td class="col-cr">feeder</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark">Facebook</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">feeder</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>18</td><td><strong>Lisa Mannino</strong></td>
+    <td class="col-cr">Mar 17, 7:08 PM</td>
+    <td class="col-spark">Mar 24, 5:29 PM</td>
+    <td><span class="lag-value">7 days</span></td>
+    <td class="col-cr">Direct</td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr">Direct</td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark">Agent</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>19</td><td><strong>Marcy Masterson</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Facebook</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">sarasota</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>20</td><td><strong>Maria Pizzino</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark">Agent</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+  <tr class="row-cr">
+    <td>21</td><td><strong>Mary Beth George</strong></td>
+    <td class="col-cr">Mar 21, 9:15 AM</td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td><span class="badge badge-missing">MISSING</span></td>
+    <td class="col-cr">Facebook Ads</td>
+    <td class="col-cr">sarasota</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td><span class="badge badge-cr">CallRail Only</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>22</td><td><strong>Melva M</strong></td>
+    <td class="col-cr">Mar 20, 5:14 AM</td>
+    <td class="col-spark">Mar 24, 5:29 PM</td>
+    <td><span class="lag-value">4 days</span></td>
+    <td class="col-cr">Facebook Ads</td>
+    <td class="col-cr">feeder</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark">Facebook</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">feeder</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>23</td><td><strong>Michelle Cenk</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Google</td>
+    <td class="col-spark">google</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">search_non-branded</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+  <tr class="row-neither">
+    <td>24</td><td><strong>Quinlan Van Workum</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td><span class="badge badge-neither">Neither</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>25</td><td><strong>Robert Jones</strong></td>
+    <td class="col-cr">Mar 16, 11:42 AM</td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="lag-value">8 days</span></td>
+    <td class="col-cr">Google Ads</td>
+    <td class="col-cr">Search_Competitors</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark">Google</td>
+    <td class="col-spark">google</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">search_competitors</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>26</td><td><strong>Rowland Rowland</strong></td>
+    <td class="col-cr">Mar 17, 3:53 PM</td>
+    <td class="col-spark">Mar 24, 5:29 PM</td>
+    <td><span class="lag-value">7 days</span></td>
+    <td class="col-cr">Facebook Ads</td>
+    <td class="col-cr">feeder</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark">Facebook</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">feeder</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>27</td><td><strong>Sally Sweeney</strong></td>
+    <td class="col-cr">Mar 17, 4:53 PM</td>
+    <td class="col-spark">Mar 24, 5:29 PM</td>
+    <td><span class="lag-value">7 days</span></td>
+    <td class="col-cr">Direct</td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr">Direct</td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark">Agent</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>28</td><td><strong>Shelley Kusman</strong></td>
+    <td class="col-cr">Mar 22, 9:19 AM</td>
+    <td class="col-spark">Mar 24, 5:30 PM</td>
+    <td><span class="lag-value">2 days</span></td>
+    <td class="col-cr">Facebook Ads</td>
+    <td class="col-cr">sarasota</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark">Facebook</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">sarasota</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>29</td><td><strong>Silvia Young</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Google</td>
+    <td class="col-spark">google</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">search_non-branded</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>30</td><td><strong>Tom Lutz</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 6:05 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Facebook</td>
+    <td class="col-spark">ig</td>
+    <td class="col-spark">social</td>
+    <td class="col-spark"><span class="empty">—</span></td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>31</td><td><strong>Tracey De Largy</strong></td>
+    <td class="col-cr">Mar 22, 11:39 AM</td>
+    <td class="col-spark">Mar 24, 5:30 PM</td>
+    <td><span class="lag-value">2 days</span></td>
+    <td class="col-cr">Facebook Ads</td>
+    <td class="col-cr">sarasota</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark">Facebook</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">sarasota</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-both">
+    <td>32</td><td><strong>Valerie Partee</strong></td>
+    <td class="col-cr">Mar 17, 9:37 PM</td>
+    <td class="col-spark">Mar 24, 5:29 PM</td>
+    <td><span class="lag-value">7 days</span></td>
+    <td class="col-cr">Facebook Ads</td>
+    <td class="col-cr">feeder</td>
+    <td class="col-cr">cpc</td>
+    <td class="col-spark">Facebook</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">feeder</td>
+    <td class="col-spark">Warm</td>
+    <td><span class="badge badge-both">Both</span></td>
+  </tr>
+  <tr class="row-spark">
+    <td>33</td><td><strong>Wendy Jordan</strong></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Mar 24, 6:06 PM</td>
+    <td><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-cr"><span class="empty">—</span></td>
+    <td class="col-spark">Instagram</td>
+    <td class="col-spark">meta</td>
+    <td class="col-spark">cpc</td>
+    <td class="col-spark">feeder</td>
+    <td class="col-spark">Agent</td>
+    <td><span class="badge badge-spark">Spark Only</span></td>
+  </tr>
+</tbody>
+</table>
+</div>
+
+<div class="note-box">
+  <strong>Why do all the Spark dates say March 24?</strong>
+  <ul>
+    <li>The <strong>CallRail Date</strong> is when the person actually submitted the form (their real registration date, ranging from Mar 16–22).</li>
+    <li>The <strong>Spark Date</strong> shows Mar 24 for everyone because that's when these contacts were pushed into Spark via the API. <strong>Spark does not allow backdating</strong> — all API-created contacts get the current timestamp.</li>
+    <li>The <strong>Lag</strong> column shows how many days passed between the real form submission and when the contact appeared in Spark.</li>
+    <li><strong>"Spark Only"</strong> contacts were entered into Spark directly (not through CallRail form tracking) — they may have come through the website form, been manually added, or registered through a channel CallRail doesn't track.</li>
+    <li><strong>Mary Beth George</strong> is flagged <span style="background:#fee2e2;color:#991b1b;padding:1px 6px;border-radius:8px;font-weight:700;font-size:12px;">MISSING</span> — she submitted via a Facebook Ad on Mar 21 but never made it into Spark.</li>
+  </ul>
+</div>
+
+<div class="field-key">
+  <h3>Field Name Differences Between Systems</h3>
+  <table>
+    <thead><tr><th>What It Means</th><th>CallRail Calls It</th><th>Spark Calls It</th></tr></thead>
+    <tbody>
+      <tr><td>Ad platform</td><td>"Facebook Ads" / "Instagram Ads" / "Google Ads"</td><td>Marketing Source: "Facebook" / "Instagram" / "Google"</td></tr>
+      <tr><td>Traffic source</td><td>(embedded in landing page URL)</td><td>UTM Source: "meta" / "google"</td></tr>
+      <tr><td>Ad type</td><td>Medium: "cpc"</td><td>UTM Medium: "cpc" / "social"</td></tr>
+      <tr><td>Campaign</td><td>Campaign: "sarasota" / "feeder" / etc.</td><td>UTM Campaign: same values</td></tr>
+      <tr><td>Organic / direct visit</td><td>"Google Organic" / "Direct"</td><td>Marketing Source: "Google" / "Website"</td></tr>
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>

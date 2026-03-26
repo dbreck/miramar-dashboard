@@ -17,6 +17,7 @@ import {
   Upload,
   Check,
   Loader2,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 // --- Types ---
@@ -349,6 +350,15 @@ export default function ReconciliationPage() {
                 Updated {formatDateTime(data.generatedAt)}
               </span>
             )}
+            <a
+              href="/api/contact-comparison"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-all"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Contact Comparison</span>
+            </a>
             <button
               onClick={() => fetchData()}
               disabled={loading}
