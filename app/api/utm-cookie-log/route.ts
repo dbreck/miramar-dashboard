@@ -3,7 +3,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 
 const WP_ENDPOINT = 'https://miramarsarasota.com/wp-json/miramar/v1/utm-cookie-log';
-const CACHE_FILE = path.join(process.cwd(), 'data', 'utm-cookie-log.json');
+const CACHE_FILE = path.join('/tmp', 'utm-cookie-log.json');
 
 interface LogEntry {
   status: string;
