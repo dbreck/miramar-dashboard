@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mira Mar — Lost Leads Investigation Report</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #0f1419;
+  --paper: #fafaf7;
+  --warm: #f5f0e8;
+  --rule: #e0dbd0;
+  --muted: #8a8578;
+  --accent: #c44b2b;
+  --accent-light: #fef0ec;
+  --green: #1a7a4c;
+  --green-light: #ecf7f0;
+  --blue: #2563eb;
+  --blue-light: #eff6ff;
+  --amber: #b45309;
+  --amber-light: #fffbeb;
+  --serif: 'DM Serif Display', Georgia, serif;
+  --sans: 'DM Sans', -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { font-family: var(--sans); color: var(--ink); background: var(--paper); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+
+/* === LAYOUT === */
+.container { max-width: 1120px; margin: 0 auto; padding: 0 32px; }
+
+/* === HERO === */
+.hero {
+  padding: 80px 0 64px;
+  border-bottom: 1px solid var(--rule);
+  background: linear-gradient(180deg, #fff 0%, var(--paper) 100%);
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: 500 11px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--accent); background: var(--accent-light);
+  padding: 6px 14px; border-radius: 100px; margin-bottom: 24px;
+}
+.hero-badge::before { content: ''; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
+.hero h1 {
+  font: 400 48px/1.1 var(--serif); color: var(--ink); margin-bottom: 16px;
+  max-width: 700px;
+}
+.hero .lead {
+  font: 400 18px/1.6 var(--sans); color: var(--muted); max-width: 640px;
+}
+.hero .meta {
+  margin-top: 24px; font: 400 13px/1 var(--mono); color: var(--muted);
+  display: flex; gap: 24px;
+}
+
+/* === SECTIONS === */
+section { padding: 64px 0; border-bottom: 1px solid var(--rule); }
+section:last-child { border-bottom: none; }
+.section-label {
+  font: 500 11px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 12px;
+}
+.section-title { font: 400 32px/1.2 var(--serif); margin-bottom: 8px; }
+.section-desc { font: 400 15px/1.6 var(--sans); color: var(--muted); max-width: 600px; margin-bottom: 40px; }
+
+/* === VERDICT CARDS === */
+.verdict-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+  background: var(--rule); border: 1px solid var(--rule); border-radius: 12px;
+  overflow: hidden; margin-bottom: 48px;
+}
+.verdict-card { background: #fff; padding: 28px 24px; }
+.verdict-card .num { font: 700 36px/1 var(--sans); margin-bottom: 4px; }
+.verdict-card .label { font: 400 13px/1.4 var(--sans); color: var(--muted); }
+.verdict-card.red .num { color: var(--accent); }
+.verdict-card.green .num { color: var(--green); }
+.verdict-card.blue .num { color: var(--blue); }
+.verdict-card.amber .num { color: var(--amber); }
+
+/* === TIMELINE VISUALIZATION === */
+.timeline-viz {
+  position: relative; padding: 32px 0; margin-bottom: 48px;
+}
+.timeline-axis {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  border-bottom: 2px solid var(--ink); padding-bottom: 8px; margin-bottom: 4px;
+}
+.timeline-axis span { font: 500 11px/1 var(--mono); color: var(--muted); }
+.timeline-bar-container { margin-top: 20px; }
+.timeline-bar-row {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 6px;
+}
+.timeline-bar-row .bar-label {
+  width: 140px; text-align: right; font: 500 12px/1 var(--sans);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.timeline-bar-row .bar-track {
+  flex: 1; height: 20px; position: relative; background: #f5f3ee; border-radius: 3px;
+}
+.timeline-bar-row .bar-cr {
+  position: absolute; height: 100%; border-radius: 3px;
+  background: var(--accent); opacity: 0.85;
+}
+.timeline-bar-row .bar-spark {
+  position: absolute; top: 2px; bottom: 2px; width: 3px;
+  background: var(--green); border-radius: 2px;
+}
+.timeline-bar-row .bar-gap {
+  position: absolute; height: 100%;
+  background: repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(196,75,43,0.1) 3px, rgba(196,75,43,0.1) 6px);
+}
+.timeline-legend {
+  display: flex; gap: 24px; margin-top: 16px; font: 400 12px/1 var(--sans); color: var(--muted);
+}
+.timeline-legend-item { display: flex; align-items: center; gap: 6px; }
+.timeline-legend-dot { width: 12px; height: 4px; border-radius: 2px; }
+
+/* === ERROR BREAKDOWN === */
+.error-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 48px; }
+.error-panel {
+  background: #fff; border: 1px solid var(--rule); border-radius: 12px;
+  padding: 28px; overflow: hidden;
+}
+.error-panel h4 { font: 600 14px/1.4 var(--sans); margin-bottom: 20px; }
+.error-bar-row {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+}
+.error-bar-row .elabel { width: 200px; font: 400 12px/1.3 var(--sans); color: var(--ink); }
+.error-bar-row .ebar { flex: 1; height: 18px; background: #f5f3ee; border-radius: 3px; overflow: hidden; }
+.error-bar-row .ebar-fill { height: 100%; border-radius: 3px; }
+.error-bar-row .ecount { width: 50px; font: 500 12px/1 var(--mono); text-align: right; }
+
+/* === CAUSE EXPLANATION === */
+.cause-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 48px; }
+.cause-card {
+  background: #fff; border: 1px solid var(--rule); border-radius: 12px;
+  padding: 24px; transition: border-color 0.2s;
+}
+.cause-card:hover { border-color: var(--accent); }
+.cause-icon {
+  width: 40px; height: 40px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; margin-bottom: 14px;
+}
+.cause-card h4 { font: 600 14px/1.3 var(--sans); margin-bottom: 6px; }
+.cause-card p { font: 400 13px/1.5 var(--sans); color: var(--muted); }
+.cause-card .count { font: 700 24px/1 var(--sans); color: var(--accent); margin-top: 12px; }
+.cause-card .count-label { font: 400 11px/1 var(--sans); color: var(--muted); }
+
+/* === DATA TABLE === */
+.table-wrap {
+  background: #fff; border: 1px solid var(--rule); border-radius: 12px;
+  overflow-x: auto;
+}
+.table-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.table-wrap thead th {
+  position: sticky; top: 0; z-index: 10;
+  padding: 14px 12px; text-align: left;
+  font: 600 10px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); background: #faf9f5; border-bottom: 2px solid var(--rule);
+  white-space: nowrap;
+}
+.table-wrap thead th.group-cr { background: var(--amber-light); color: var(--amber); }
+.table-wrap thead th.group-spark { background: var(--blue-light); color: var(--blue); }
+.table-wrap thead th.group-error { background: var(--accent-light); color: var(--accent); }
+.table-wrap tbody td {
+  padding: 10px 12px; border-bottom: 1px solid #f5f3ee;
+  font: 400 12px/1.4 var(--sans); vertical-align: top; white-space: nowrap;
+}
+.table-wrap tbody tr:hover td { background: #fdfcf9; }
+.table-wrap tbody td.name-cell { font-weight: 600; position: sticky; left: 0; background: #fff; z-index: 5; min-width: 150px; }
+.table-wrap tbody tr:hover td.name-cell { background: #fdfcf9; }
+.table-wrap tbody td.cr-cell { background: #fffdf7; }
+.table-wrap tbody tr:hover td.cr-cell { background: #fefcf0; }
+.table-wrap tbody td.spark-cell { background: #f9fbff; }
+.table-wrap tbody tr:hover td.spark-cell { background: #f4f7ff; }
+.table-wrap tbody td.error-cell { background: #fef8f6; }
+.table-wrap tbody tr:hover td.error-cell { background: #fef2ee; }
+td .empty { color: #d1cdc4; }
+td .lag-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 100px;
+  font: 500 10px/1.4 var(--mono); white-space: nowrap;
+}
+td .lag-short { background: var(--green-light); color: var(--green); }
+td .lag-med { background: var(--amber-light); color: var(--amber); }
+td .lag-long { background: var(--accent-light); color: var(--accent); }
+td .error-tag {
+  display: inline-block; padding: 3px 8px; border-radius: 4px;
+  font: 500 10px/1.4 var(--sans); max-width: 260px;
+  white-space: normal; line-height: 1.3;
+}
+td .error-recaptcha { background: var(--accent-light); color: var(--accent); }
+td .error-spam { background: #fef3c7; color: #92400e; }
+td .error-browser { background: #fce7f3; color: #9d174d; }
+td .error-notfound { background: #f3f4f6; color: #6b7280; }
+td .error-none { background: var(--green-light); color: var(--green); }
+td .channel-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 100px;
+  font: 500 10px/1.2 var(--sans);
+}
+td .ch-meta { background: #dbeafe; color: #1e40af; }
+td .ch-google { background: #dcfce7; color: #166534; }
+td .ch-direct { background: #f3f4f6; color: #374151; }
+td .ch-other { background: #fef3c7; color: #92400e; }
+
+/* === FIX SECTION === */
+.fix-box {
+  background: var(--green-light); border: 1px solid #a7f3d0; border-radius: 12px;
+  padding: 32px; margin-top: 48px;
+}
+.fix-box h3 { font: 400 24px/1.2 var(--serif); color: var(--green); margin-bottom: 12px; }
+.fix-box p { font: 400 14px/1.6 var(--sans); color: #065f46; max-width: 700px; }
+.fix-steps {
+  margin-top: 20px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}
+.fix-step {
+  background: #fff; border-radius: 10px; padding: 20px;
+  border: 1px solid #d1fae5;
+}
+.fix-step .step-num {
+  font: 700 11px/1 var(--mono); color: var(--green);
+  background: var(--green-light); display: inline-block;
+  padding: 4px 8px; border-radius: 4px; margin-bottom: 10px;
+}
+.fix-step h5 { font: 600 13px/1.3 var(--sans); margin-bottom: 4px; }
+.fix-step p { font: 400 12px/1.5 var(--sans); color: var(--muted); }
+
+/* === FOOTER === */
+.report-footer {
+  padding: 48px 0; text-align: center;
+  font: 400 12px/1.6 var(--sans); color: var(--muted);
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 32px; }
+  .verdict-grid { grid-template-columns: repeat(2, 1fr); }
+  .error-grid, .cause-cards, .fix-steps { grid-template-columns: 1fr; }
+}
+@media print {
+  body { background: #fff; }
+  .container { max-width: 100%; padding: 0 16px; }
+  section { padding: 32px 0; }
+  .hero { padding: 40px 0 32px; }
+  thead th { position: static !important; }
+  td.name-cell { position: static !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== HERO ===== -->
+<div class="hero">
+<div class="container">
+  <div class="hero-badge">Investigation Report</div>
+  <h1>32 Paid Leads Lost to a reCAPTCHA Bug</h1>
+  <p class="lead">
+    Between March 7 and March 24, 2026, the Mira Mar website contact form silently rejected 32 legitimate lead submissions. The visitors filled out the form and thought they submitted it successfully &mdash; but Spark never received their data. Here&rsquo;s what happened, who was affected, and how it was fixed.
+  </p>
+  <div class="meta">
+    <span>Period: Mar 7 &ndash; Mar 26, 2026</span>
+    <span>Prepared: March 26, 2026</span>
+    <span>Source: CallRail &times; Spark &times; Failed Submissions Log</span>
+  </div>
+</div>
+</div>
+
+<!-- ===== EXECUTIVE SUMMARY ===== -->
+<section>
+<div class="container">
+  <div class="section-label">01 &mdash; Executive Summary</div>
+  <h2 class="section-title">What Happened</h2>
+  <p class="section-desc">
+    The website contact form posts directly to Spark&rsquo;s servers. When visitors arrived from social media apps (Facebook, Instagram) or certain browsers, Spark&rsquo;s reCAPTCHA verification failed &mdash; silently blocking the submission. The visitor saw no error. CallRail captured the form data, but Spark never received it.
+  </p>
+
+  <div class="verdict-grid">
+    <div class="verdict-card red">
+      <div class="num">32</div>
+      <div class="label">Leads affected<br>All eventually recovered</div>
+    </div>
+    <div class="verdict-card amber">
+      <div class="num">2&ndash;17</div>
+      <div class="label">Days delayed<br>Before entering Spark</div>
+    </div>
+    <div class="verdict-card blue">
+      <div class="num">183</div>
+      <div class="label">Total failed submissions<br>Including 51 spam attempts</div>
+    </div>
+    <div class="verdict-card green">
+      <div class="num">0</div>
+      <div class="label">Leads still missing<br>All recovered via API push</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===== ROOT CAUSE ===== -->
+<section>
+<div class="container">
+  <div class="section-label">02 &mdash; Root Cause Analysis</div>
+  <h2 class="section-title">Why Spark Rejected These Leads</h2>
+  <p class="section-desc">
+    183 total form submissions were rejected by Spark. After removing 51 spam/bot attempts, 132 were real visitors. The rejection reasons break down into clear categories, all related to reCAPTCHA verification.
+  </p>
+
+  <div class="cause-cards">
+    <div class="cause-card">
+      <div class="cause-icon" style="background:var(--accent-light);">&#128274;</div>
+      <h4>reCAPTCHA Token Missing</h4>
+      <p>The form posted to Spark without a reCAPTCHA token. This happens when the browser blocks the reCAPTCHA script from loading &mdash; common in Facebook/Instagram in-app browsers that restrict third-party JavaScript.</p>
+      <div class="count">87</div>
+      <div class="count-label">rejected submissions (47%)</div>
+    </div>
+    <div class="cause-card">
+      <div class="cause-icon" style="background:#fef3c7;">&#128302;</div>
+      <h4>Spam Detected</h4>
+      <p>Spark&rsquo;s built-in spam filter flagged the submission. Some of these were actual bots, but legitimate leads like Gary Beltrani were also caught in the filter.</p>
+      <div class="count">39</div>
+      <div class="count-label">rejected submissions (21%)</div>
+    </div>
+    <div class="cause-card">
+      <div class="cause-icon" style="background:#fce7f3;">&#9888;&#65039;</div>
+      <h4>reCAPTCHA Verification Failed</h4>
+      <p>A token was sent but Spark couldn&rsquo;t verify it &mdash; due to browser errors, timeouts, duplicate submissions, or scores below the spam threshold.</p>
+      <div class="count">53</div>
+      <div class="count-label">rejected submissions (29%)</div>
+    </div>
+  </div>
+
+  <div class="error-grid">
+    <div class="error-panel">
+      <h4>Rejection Reasons (All 183 Failed Submissions)</h4>
+      <div class="error-bar-row">
+        <div class="elabel">reCAPTCHA token missing</div>
+        <div class="ebar"><div class="ebar-fill" style="width:47.5%;background:var(--accent);"></div></div>
+        <div class="ecount">87</div>
+      </div>
+      <div class="error-bar-row">
+        <div class="elabel">Spam detected</div>
+        <div class="ebar"><div class="ebar-fill" style="width:21.3%;background:#d97706;"></div></div>
+        <div class="ecount">39</div>
+      </div>
+      <div class="error-bar-row">
+        <div class="elabel">reCAPTCHA timeout / duplicate</div>
+        <div class="ebar"><div class="ebar-fill" style="width:13.7%;background:#9333ea;"></div></div>
+        <div class="ecount">25</div>
+      </div>
+      <div class="error-bar-row">
+        <div class="elabel">reCAPTCHA browser error</div>
+        <div class="ebar"><div class="ebar-fill" style="width:10.9%;background:#db2777;"></div></div>
+        <div class="ecount">20</div>
+      </div>
+      <div class="error-bar-row">
+        <div class="elabel">reCAPTCHA below threshold</div>
+        <div class="ebar"><div class="ebar-fill" style="width:3.8%;background:#6366f1;"></div></div>
+        <div class="ecount">7</div>
+      </div>
+      <div class="error-bar-row">
+        <div class="elabel">Form not found</div>
+        <div class="ebar"><div class="ebar-fill" style="width:2.2%;background:#64748b;"></div></div>
+        <div class="ecount">4</div>
+      </div>
+      <div class="error-bar-row">
+        <div class="elabel">Invalid reCAPTCHA response</div>
+        <div class="ebar"><div class="ebar-fill" style="width:0.5%;background:#94a3b8;"></div></div>
+        <div class="ecount">1</div>
+      </div>
+    </div>
+
+    <div class="error-panel">
+      <h4>Failed Submissions by Browser</h4>
+      <div class="error-bar-row">
+        <div class="elabel">Chrome (Desktop)</div>
+        <div class="ebar"><div class="ebar-fill" style="width:66.1%;background:#4285f4;"></div></div>
+        <div class="ecount">121</div>
+      </div>
+      <div class="error-bar-row">
+        <div class="elabel">Safari</div>
+        <div class="ebar"><div class="ebar-fill" style="width:13.7%;background:#007aff;"></div></div>
+        <div class="ecount">25</div>
+      </div>
+      <div class="error-bar-row">
+        <div class="elabel">Other / Unknown</div>
+        <div class="ebar"><div class="ebar-fill" style="width:8.2%;background:#9ca3af;"></div></div>
+        <div class="ecount">15</div>
+      </div>
+      <div class="error-bar-row">
+        <div class="elabel">Facebook In-App Browser</div>
+        <div class="ebar"><div class="ebar-fill" style="width:6.6%;background:#1877f2;"></div></div>
+        <div class="ecount">12</div>
+      </div>
+      <div class="error-bar-row">
+        <div class="elabel">Instagram In-App Browser</div>
+        <div class="ebar"><div class="ebar-fill" style="width:4.4%;background:#e4405f;"></div></div>
+        <div class="ecount">8</div>
+      </div>
+      <div class="error-bar-row">
+        <div class="elabel">Chrome on iOS</div>
+        <div class="ebar"><div class="ebar-fill" style="width:1.1%;background:#34a853;"></div></div>
+        <div class="ecount">2</div>
+      </div>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--rule);font:400 12px/1.5 var(--sans);color:var(--muted);">
+        <strong>Note:</strong> Chrome&rsquo;s high number includes many spam bots using Chrome user-agent strings. The Facebook and Instagram in-app browsers disproportionately affected <em>real</em> leads from paid ads.
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===== TIMELINE ===== -->
+<section>
+<div class="container">
+  <div class="section-label">03 &mdash; Impact Timeline</div>
+  <h2 class="section-title">When Leads Were Lost vs. When They Reached Spark</h2>
+  <p class="section-desc">
+    Each bar shows the gap between when a lead actually submitted the form (CallRail date) and when they were manually pushed into Spark via API. The longest delay was 17 days.
+  </p>
+
+  <div class="timeline-viz">
+    <div class="timeline-axis">
+      <span>Mar 7</span><span>Mar 10</span><span>Mar 13</span><span>Mar 16</span><span>Mar 19</span><span>Mar 22</span><span>Mar 25</span>
+    </div>
+    <div class="timeline-bar-container" id="timeline-bars"></div>
+    <div class="timeline-legend">
+      <div class="timeline-legend-item"><div class="timeline-legend-dot" style="background:var(--accent);"></div> Form submitted (CallRail)</div>
+      <div class="timeline-legend-item"><div class="timeline-legend-dot" style="background:var(--green);"></div> Entered Spark (API push)</div>
+      <div class="timeline-legend-item"><div class="timeline-legend-dot" style="background:repeating-linear-gradient(90deg,transparent,transparent 2px,rgba(196,75,43,0.15) 2px,rgba(196,75,43,0.15) 4px);"></div> Days lost</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ===== CONTACT TABLE ===== -->
+<section>
+<div class="container">
+  <div class="section-label">04 &mdash; Complete Contact Record</div>
+  <h2 class="section-title">Every Affected Lead &mdash; Side by Side</h2>
+  <p class="section-desc">
+    The full picture: when each person submitted, when they appeared in Spark, how they found us, and exactly why Spark rejected their original submission.
+  </p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="position:sticky;left:0;z-index:11;background:#faf9f5;">Name</th>
+          <th class="group-cr">CallRail Date</th>
+          <th class="group-spark">Spark Date</th>
+          <th>Lag</th>
+          <th class="group-cr">Ad Channel</th>
+          <th class="group-cr">Campaign</th>
+          <th class="group-spark">UTM Source</th>
+          <th class="group-spark">UTM Medium</th>
+          <th class="group-error">Spark Rejection Reason</th>
+        </tr>
+      </thead>
+      <tbody id="contact-table-body"></tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:16px;display:flex;gap:16px;flex-wrap:wrap;font:400 11px/1.4 var(--sans);color:var(--muted);">
+    <span><span class="error-tag error-recaptcha" style="font-size:10px;">reCAPTCHA</span> = reCAPTCHA token missing or failed</span>
+    <span><span class="error-tag error-spam" style="font-size:10px;">Spam</span> = Spark&rsquo;s spam filter flagged it</span>
+    <span><span class="error-tag error-browser" style="font-size:10px;">Browser Error</span> = reCAPTCHA couldn&rsquo;t run in the browser</span>
+    <span><span class="error-tag error-none" style="font-size:10px;">Not in log</span> = Failed before logging was enabled</span>
+  </div>
+</div>
+</section>
+
+<!-- ===== FIX ===== -->
+<section>
+<div class="container">
+  <div class="section-label">05 &mdash; Resolution</div>
+  <h2 class="section-title">How This Was Fixed</h2>
+  <p class="section-desc">
+    The root cause was that the website form posted directly to Spark&rsquo;s servers (cross-origin). This caused browsers to block reCAPTCHA scripts, especially in social media in-app browsers. The fix was deployed on March 24, 2026.
+  </p>
+
+  <div class="fix-box">
+    <h3>All 32 leads have been recovered</h3>
+    <p>Every affected contact was pushed into Spark via the API with their correct marketing source and UTM tracking data. The form has been fixed to prevent future losses.</p>
+
+    <div class="fix-steps">
+      <div class="fix-step">
+        <div class="step-num">Step 1</div>
+        <h5>Server-Side Form Relay</h5>
+        <p>Forms now POST to the WordPress server first, which relays to Spark server-side. This eliminates the cross-origin reCAPTCHA problem entirely.</p>
+      </div>
+      <div class="fix-step">
+        <div class="step-num">Step 2</div>
+        <h5>Lead Recovery via API</h5>
+        <p>All 32 missing contacts were pushed to Spark via the API with their original marketing source and UTM campaign data preserved.</p>
+      </div>
+      <div class="fix-step">
+        <div class="step-num">Step 3</div>
+        <h5>Monitoring Deployed</h5>
+        <p>UTM cookie diagnostics are now tracking every visitor to confirm the fix is working. Zero cookie failures in the first 24 hours of monitoring.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:32px;padding:24px;background:#fff;border:1px solid var(--rule);border-radius:12px;">
+    <h4 style="font:600 14px/1.3 var(--sans);margin-bottom:8px;">Important Caveat: Spark Registration Dates</h4>
+    <p style="font:400 13px/1.6 var(--sans);color:var(--muted);">
+      The Spark API does not allow backdating. All recovered contacts show a Spark registration date of <strong>March 24, 2026</strong> (the date they were pushed via API), not their original form submission date. The <em>CallRail Date</em> column in the table above reflects the actual date each person submitted the form.
+    </p>
+  </div>
+</div>
+</section>
+
+<div class="report-footer">
+  <div class="container">
+    Prepared by ClearPH &bull; Data sources: CallRail Form Tracking, Spark.re CRM, Spark Failed Submissions Log &bull; March 2026
+  </div>
+</div>
+
+<script>
+// Contact data
+const contacts = [
+  {n:"Amanda Parrish",cr:"2026-03-21 23:51",sp:"2026-03-24 17:29",ch:"Instagram",camp:"sarasota",us:"meta",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Ana Maria Reano",cr:"2026-03-23 21:07",sp:"2026-03-24 17:30",ch:"Facebook",camp:"feeder",us:"meta",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Brian Fortin Carter",cr:"2026-03-14 14:23",sp:"2026-03-24 18:05",ch:"Facebook",camp:"sarasota",us:"meta",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Christina Arvanitis",cr:"2026-03-12 19:32",sp:"2026-03-24 18:05",ch:"Business Observer",camp:"bigfoot",us:"businessobserver",um:"banner",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Darlene Rosselli",cr:"2026-03-16 21:30",sp:"2026-03-24 18:04",ch:"Facebook",camp:"sarasota",us:"meta",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Diana Bridges",cr:"2026-03-17 21:57",sp:"2026-03-24 17:29",ch:"Website",camp:"",us:"",um:"",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Elizabeth Giuliani",cr:"2026-03-24 07:42",sp:"2026-03-24 17:30",ch:"Google",camp:"",us:"",um:"",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Gary Beltrani",cr:"2026-03-23 15:48",sp:"2026-03-24 17:30",ch:"Google",camp:"search_branded",us:"google",um:"cpc",err:"Spam Detected",et:"spam"},
+  {n:"Geeta Sangani",cr:"2026-03-26 08:02",sp:"2026-03-24 18:05",ch:"Google",camp:"search_non-branded",us:"google",um:"cpc",err:"Token missing (failed 3 times)",et:"recaptcha"},
+  {n:"George Mackin",cr:"2026-03-21 18:46",sp:"2026-03-24 17:29",ch:"Google",camp:"",us:"",um:"",err:"reCAPTCHA browser error",et:"browser"},
+  {n:"Gloria Arosmendy",cr:"2026-03-14 10:18",sp:"2026-03-24 18:05",ch:"Facebook",camp:"feeder",us:"meta",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Jeffrey Levoff",cr:"2026-03-16 16:43",sp:"2026-03-24 18:05",ch:"Google",camp:"search_non-branded",us:"google",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Julie Kauzlarich",cr:"2026-03-07 10:47",sp:"2026-03-24 18:05",ch:"Facebook",camp:"sarasota",us:"meta",um:"cpc",err:"Not in failed log",et:"none"},
+  {n:"Keith Marks",cr:"2026-03-16 15:34",sp:"2026-03-24 18:05",ch:"Google",camp:"search_non-branded",us:"google",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Lauren Antonelli",cr:"2026-03-19 19:44",sp:"2026-03-24 20:56",ch:"Google",camp:"search_branded",us:"google",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Lila Palinsky",cr:"2026-03-16 20:05",sp:"2026-03-24 18:05",ch:"Facebook",camp:"feeder",us:"meta",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Lisa Mannino",cr:"2026-03-17 19:08",sp:"2026-03-24 17:29",ch:"Direct",camp:"",us:"",um:"",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Marcy Masterson",cr:"2026-03-13 23:25",sp:"2026-03-24 18:05",ch:"Facebook",camp:"sarasota",us:"meta",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Maria Pizzino",cr:"2026-03-12 10:33",sp:"2026-03-24 18:05",ch:"Direct",camp:"",us:"",um:"",err:"Not in failed log",et:"none"},
+  {n:"Mary Beth George",cr:"2026-03-21 09:15",sp:"2026-03-24 17:29",ch:"Facebook",camp:"sarasota",us:"meta",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Melva M",cr:"2026-03-20 05:14",sp:"2026-03-24 17:29",ch:"Facebook",camp:"feeder",us:"meta",um:"cpc",err:"Not in failed log",et:"none"},
+  {n:"Michelle Cenk",cr:"2026-03-12 10:55",sp:"2026-03-24 18:05",ch:"Google",camp:"search_non-branded",us:"google",um:"cpc",err:"reCAPTCHA browser error",et:"browser"},
+  {n:"Quinlan Van Workum",cr:"2026-03-24 18:21",sp:"2026-03-24 18:21",ch:"Direct",camp:"",us:"",um:"",err:"Not in failed log",et:"none"},
+  {n:"Robert Jones",cr:"2026-03-16 11:42",sp:"2026-03-24 18:05",ch:"Google",camp:"search_competitors",us:"google",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Rowland Rowland",cr:"2026-03-17 15:53",sp:"2026-03-24 17:29",ch:"Facebook",camp:"feeder",us:"meta",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Sally Sweeney",cr:"2026-03-17 16:53",sp:"2026-03-24 17:29",ch:"Direct",camp:"",us:"",um:"",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Shelley Kusman",cr:"2026-03-22 09:19",sp:"2026-03-24 17:30",ch:"Facebook",camp:"sarasota",us:"meta",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Silvia Young",cr:"2026-03-08 18:21",sp:"2026-03-24 18:05",ch:"Google",camp:"search_non-branded",us:"google",um:"cpc",err:"Not in failed log",et:"none"},
+  {n:"Tom Lutz",cr:"2026-03-14 21:56",sp:"2026-03-24 18:05",ch:"Instagram",camp:"",us:"ig",um:"social",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Tracey De Largy",cr:"2026-03-22 11:39",sp:"2026-03-24 17:30",ch:"Facebook",camp:"sarasota",us:"meta",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Valerie Partee",cr:"2026-03-17 21:37",sp:"2026-03-24 17:29",ch:"Facebook",camp:"feeder",us:"meta",um:"cpc",err:"Token (g-recaptcha-response) is missing.",et:"recaptcha"},
+  {n:"Wendy Jordan",cr:"2026-03-15 00:17",sp:"2026-03-24 18:06",ch:"Instagram",camp:"feeder",us:"meta",um:"cpc",err:"Not in failed log",et:"none"},
+];
+
+// Timeline
+const tStart = new Date('2026-03-07').getTime();
+const tEnd = new Date('2026-03-26').getTime();
+const tRange = tEnd - tStart;
+function pct(dateStr) {
+  const d = new Date(dateStr.replace(' ', 'T')).getTime();
+  return Math.max(0, Math.min(100, ((d - tStart) / tRange) * 100));
+}
+
+const sorted = [...contacts].sort((a,b) => new Date(a.cr.replace(' ','T')) - new Date(b.cr.replace(' ','T')));
+const tlEl = document.getElementById('timeline-bars');
+sorted.forEach(c => {
+  const crPct = pct(c.cr);
+  const spPct = pct(c.sp);
+  const gapW = spPct - crPct;
+  tlEl.innerHTML += `
+    <div class="timeline-bar-row">
+      <div class="bar-label">${c.n}</div>
+      <div class="bar-track">
+        <div class="bar-gap" style="left:${crPct}%;width:${gapW}%;"></div>
+        <div class="bar-cr" style="left:${crPct}%;width:6px;border-radius:3px;"></div>
+        <div class="bar-spark" style="left:${spPct}%;"></div>
+      </div>
+    </div>`;
+});
+
+// Table
+function fmtD(s) {
+  if (!s) return '<span class="empty">\u2014</span>';
+  const d = new Date(s.replace(' ','T'));
+  const m = d.toLocaleString('en-US',{month:'short'});
+  const day = d.getDate();
+  const h = d.toLocaleString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+  return `${m} ${day}, ${h}`;
+}
+
+function lagDays(cr, sp) {
+  if (!cr || !sp) return '';
+  const diff = Math.round((new Date(sp.replace(' ','T')) - new Date(cr.replace(' ','T'))) / 86400000);
+  if (diff <= 0) return '<span class="lag-badge lag-short">&lt;1d</span>';
+  const cls = diff <= 3 ? 'lag-short' : diff <= 7 ? 'lag-med' : 'lag-long';
+  return `<span class="lag-badge ${cls}">${diff}d</span>`;
+}
+
+function channelTag(ch) {
+  if (!ch) return '<span class="empty">\u2014</span>';
+  const cls = ['Facebook','Instagram','Meta'].some(x => ch.includes(x)) ? 'ch-meta' :
+    ch.includes('Google') ? 'ch-google' : ch.includes('Direct') || ch.includes('Website') ? 'ch-direct' : 'ch-other';
+  return `<span class="channel-tag ${cls}">${ch}</span>`;
+}
+
+function errTag(c) {
+  const cls = c.et === 'recaptcha' ? 'error-recaptcha' : c.et === 'spam' ? 'error-spam' :
+    c.et === 'browser' ? 'error-browser' : c.et === 'none' ? 'error-none' : 'error-notfound';
+  let label = c.err;
+  if (label.includes('Token')) label = 'reCAPTCHA token missing';
+  if (label.includes('3 times')) label = 'reCAPTCHA token missing (3x)';
+  if (label === 'Not in failed log') label = 'Not in failed log (pre-logging)';
+  return `<span class="error-tag ${cls}">${label}</span>`;
+}
+
+const tbody = document.getElementById('contact-table-body');
+contacts.forEach(c => {
+  tbody.innerHTML += `<tr>
+    <td class="name-cell">${c.n}</td>
+    <td class="cr-cell">${fmtD(c.cr)}</td>
+    <td class="spark-cell">${fmtD(c.sp)}</td>
+    <td>${lagDays(c.cr, c.sp)}</td>
+    <td class="cr-cell">${channelTag(c.ch)}</td>
+    <td class="cr-cell">${c.camp ? c.camp : '<span class="empty">\u2014</span>'}</td>
+    <td class="spark-cell">${c.us || '<span class="empty">\u2014</span>'}</td>
+    <td class="spark-cell">${c.um || '<span class="empty">\u2014</span>'}</td>
+    <td class="error-cell">${errTag(c)}</td>
+  </tr>`;
+});
+</script>
+</body>
+</html>

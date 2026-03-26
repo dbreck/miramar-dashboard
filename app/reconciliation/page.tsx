@@ -19,6 +19,7 @@ import {
   Loader2,
   FileSpreadsheet,
   Cookie,
+  FileSearch,
 } from 'lucide-react';
 
 // --- Types ---
@@ -351,6 +352,15 @@ export default function ReconciliationPage() {
                 Updated {formatDateTime(data.generatedAt)}
               </span>
             )}
+            <a
+              href="/api/lost-leads-report"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-orange-900/50 hover:bg-orange-800/50 text-orange-300 text-sm font-medium transition-all ring-1 ring-orange-700/30"
+            >
+              <FileSearch className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Lost Leads Report</span>
+            </a>
             <a
               href="/api/contact-comparison"
               target="_blank"
