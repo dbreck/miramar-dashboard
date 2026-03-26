@@ -20,6 +20,7 @@ import {
   FileSpreadsheet,
   Cookie,
   FileSearch,
+  Activity,
 } from 'lucide-react';
 
 // --- Types ---
@@ -378,6 +379,15 @@ export default function ReconciliationPage() {
             >
               <Cookie className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">UTM Cookies</span>
+            </a>
+            <a
+              href="/api/spark-relay-log"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-all"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Relay Health</span>
             </a>
             <button
               onClick={() => fetchData()}
