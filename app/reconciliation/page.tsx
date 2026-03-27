@@ -354,7 +354,7 @@ export default function ReconciliationPage() {
               </span>
             )}
             <a
-              href="/api/lost-leads-report"
+              href="/api/lost-leads-alltime"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-orange-900/50 hover:bg-orange-800/50 text-orange-300 text-sm font-medium transition-all ring-1 ring-orange-700/30"
