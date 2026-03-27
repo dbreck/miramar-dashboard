@@ -1,5 +1,24 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { createHmac } from 'crypto';
+
+function getSecret(): string {
+  return process.env.SESSION_SECRET || 'dev-secret-change-me';
+}
+
+function verifySession(token: string): { role: string } | null {
+  try {
+    const [payload, signature] = token.split('.');
+    if (!payload || !signature) return null;
+
+    const expectedSig = createHmac('sha256', getSecret()).update(payload).digest('hex');
+    if (signature !== expectedSig) return null;
+
+    return JSON.parse(Buffer.from(payload, 'base64').toString('utf-8'));
+  } catch {
+    return null;
+  }
+}
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -12,14 +31,36 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for session cookie
-  const session = request.cookies.get('miramar-session');
-  const isAuthenticated = session?.value === 'authenticated';
+  // Check for session cookie (supports both old and new format)
+  const sessionCookie = request.cookies.get('miramar-session');
+  let isAuth = false;
+  let isAdminUser = false;
+
+  if (sessionCookie?.value) {
+    // New signed session format
+    const session = verifySession(sessionCookie.value);
+    if (session) {
+      isAuth = true;
+      isAdminUser = session.role === 'admin';
+    }
+    // Legacy format fallback
+    if (!isAuth && sessionCookie.value === 'authenticated') {
+      isAuth = true;
+      isAdminUser = true; // Legacy sessions get admin access
+    }
+  }
 
   // Redirect to login if not authenticated
-  if (!isAuthenticated && pathname !== '/login') {
+  if (!isAuth) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    return NextResponse.redirect(url);
+  }
+
+  // Protect admin routes
+  if (pathname.startsWith('/admin') && !isAdminUser) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/';
     return NextResponse.redirect(url);
   }
 
