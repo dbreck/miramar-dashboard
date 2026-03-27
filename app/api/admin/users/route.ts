@@ -16,7 +16,8 @@ export async function GET() {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }
 
-  return NextResponse.json({ users: listUsers() });
+  const users = await listUsers();
+  return NextResponse.json({ users });
 }
 
 export async function POST(request: Request) {
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Role must be admin or viewer' }, { status: 400 });
     }
 
-    const user = createUser(email, name || '', password, role, permissions);
+    const user = await createUser(email, name || '', password, role, permissions);
     return NextResponse.json({ user }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });
@@ -66,7 +67,7 @@ export async function PUT(request: Request) {
     if (password !== undefined) updates.password = password;
     if (permissions !== undefined) updates.permissions = permissions;
 
-    const user = updateUser(id, updates);
+    const user = await updateUser(id, updates);
     return NextResponse.json({ user });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });
@@ -86,12 +87,11 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
     }
 
-    // Prevent self-deletion
     if (id === session.userId) {
       return NextResponse.json({ error: 'Cannot delete your own account' }, { status: 400 });
     }
 
-    deleteUser(id);
+    await deleteUser(id);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });

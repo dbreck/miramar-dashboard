@@ -15,8 +15,8 @@ export async function POST(request: Request) {
 
     // If email provided, do per-user auth
     if (email) {
-      ensureDefaultAdmin();
-      const user = validateUserPassword(email, password);
+      await ensureDefaultAdmin();
+      const user = await validateUserPassword(email, password);
       if (!user) {
         return NextResponse.json(
           { error: 'Invalid email or password' },
