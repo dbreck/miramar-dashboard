@@ -23,13 +23,8 @@ export interface User {
 
 export type UserPublic = Omit<User, 'passwordHash' | 'salt'>;
 
-const IS_VERCEL = !!process.env.VERCEL;
-const LOCAL_USERS_FILE = join(process.cwd(), 'data', 'users.json');
-const VERCEL_USERS_FILE = '/tmp/users.json';
-
-function getUsersFile(): string {
-  return IS_VERCEL ? VERCEL_USERS_FILE : LOCAL_USERS_FILE;
-}
+// Always use /tmp/ — writable on both Vercel and local dev
+const USERS_FILE = '/tmp/miramar-users.json';
 
 function hashPassword(password: string, salt: string): string {
   return createHash('sha256').update(password + salt).digest('hex');
@@ -40,7 +35,7 @@ function generateId(): string {
 }
 
 function readUsers(): User[] {
-  const file = getUsersFile();
+  const file = USERS_FILE;
   if (!existsSync(file)) {
     return [];
   }
@@ -53,7 +48,7 @@ function readUsers(): User[] {
 }
 
 function writeUsers(users: User[]): void {
-  const file = getUsersFile();
+  const file = USERS_FILE;
   const dir = dirname(file);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });

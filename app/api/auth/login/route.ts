@@ -13,11 +13,9 @@ export async function POST(request: Request) {
       );
     }
 
-    // Ensure default admin exists
-    ensureDefaultAdmin();
-
     // If email provided, do per-user auth
     if (email) {
+      ensureDefaultAdmin();
       const user = validateUserPassword(email, password);
       if (!user) {
         return NextResponse.json(
