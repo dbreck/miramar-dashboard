@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Sun, Moon, LogOut, Info, Filter, GitCompareArrows, Users } from 'lucide-react';
+import { Sun, Moon, LogOut, Info, Filter, GitCompareArrows, Users, RefreshCw } from 'lucide-react';
 import DateRangePicker, { DateRange } from './DateRangePicker';
 import FilterPanel from './FilterPanel';
 import { useFilters } from '@/lib/filter-context';
@@ -14,11 +14,26 @@ interface DashboardLayoutProps {
   setActiveTab: (tab: 'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline' | 'marketing' | 'ratings') => void;
   dateRange: DateRange;
   setDateRange: (range: DateRange) => void;
+  onRefresh?: () => void;
+  lastFetchedAt?: number | null;
+  isCached?: boolean;
+  isRefreshing?: boolean;
 }
 
-export default function DashboardLayout({ children, activeTab, setActiveTab, dateRange, setDateRange }: DashboardLayoutProps) {
+function formatTimeAgo(timestamp: number): string {
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+export default function DashboardLayout({ children, activeTab, setActiveTab, dateRange, setDateRange, onRefresh, lastFetchedAt, isCached, isRefreshing }: DashboardLayoutProps) {
   const router = useRouter();
-  const [darkMode, setDarkMode] = useState(true); // Default to dark mode
+  const [darkMode, setDarkMode] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canReconcile, setCanReconcile] = useState(false);
@@ -26,7 +41,6 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
   const activeFilterCount = getActiveFilterCount();
 
   useEffect(() => {
-    // Load dark mode preference from localStorage, default to true
     const savedMode = localStorage.getItem('darkMode');
     const isDark = savedMode === null ? true : savedMode === 'true';
     setDarkMode(isDark);
@@ -37,7 +51,6 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
       document.documentElement.classList.remove('dark');
     }
 
-    // Check if current user is admin
     fetch('/api/auth/me')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
@@ -75,11 +88,6 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
     { id: 'overview' as const, label: 'Overview' },
     { id: 'marketing' as const, label: 'Marketing' },
     { id: 'ratings' as const, label: 'Ratings' },
-    // Hidden temporarily - will restore when ready to add interaction data
-    // { id: 'contacts' as const, label: 'Contacts' },
-    // { id: 'engagement' as const, label: 'Engagement' },
-    // { id: 'team' as const, label: 'Team' },
-    // { id: 'pipeline' as const, label: 'Pipeline' },
   ];
 
   return (
@@ -107,6 +115,22 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Refresh Data Button */}
+              {onRefresh && (
+                <button
+                  onClick={onRefresh}
+                  disabled={isRefreshing}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow hover:shadow-md transition-all cursor-pointer font-medium text-sm ${
+                    isRefreshing
+                      ? 'bg-green-600 text-white opacity-75 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
+                  title="Pull fresh data from Spark"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh Data'}</span>
+                </button>
+              )}
               {/* Reconciliation Link */}
               {canReconcile && (
                 <button
@@ -178,6 +202,26 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
 
         {/* Date Range Picker */}
         <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
+
+        {/* Data Freshness Banner */}
+        {lastFetchedAt && (
+          <div className="mb-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>
+                {isCached ? 'Showing cached data' : 'Data loaded'} {formatTimeAgo(lastFetchedAt)}
+              </span>
+            </div>
+            {onRefresh && !isRefreshing && (
+              <button
+                onClick={onRefresh}
+                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
+              >
+                Refresh now
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Navigation Tabs */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
