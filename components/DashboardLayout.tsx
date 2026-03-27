@@ -21,6 +21,7 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
   const [darkMode, setDarkMode] = useState(true); // Default to dark mode
   const [loggingOut, setLoggingOut] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canReconcile, setCanReconcile] = useState(false);
   const { isFilterPanelOpen, setFilterPanelOpen, getActiveFilterCount } = useFilters();
   const activeFilterCount = getActiveFilterCount();
 
@@ -39,7 +40,10 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
     // Check if current user is admin
     fetch('/api/auth/me')
       .then(res => res.ok ? res.json() : null)
-      .then(data => { if (data?.role === 'admin') setIsAdmin(true); })
+      .then(data => {
+        if (data?.role === 'admin') setIsAdmin(true);
+        if (data?.role === 'admin' || data?.permissions?.reconcile) setCanReconcile(true);
+      })
       .catch(() => {});
   }, []);
 
@@ -104,14 +108,16 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
 
             <div className="flex items-center gap-2">
               {/* Reconciliation Link */}
-              <button
-                onClick={() => router.push('/reconciliation')}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all text-gray-700 dark:text-gray-300 cursor-pointer"
-                title="CallRail / Spark Reconciliation"
-              >
-                <GitCompareArrows className="w-4 h-4" />
-                <span className="hidden sm:inline">Reconcile</span>
-              </button>
+              {canReconcile && (
+                <button
+                  onClick={() => router.push('/reconciliation')}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all text-gray-700 dark:text-gray-300 cursor-pointer"
+                  title="CallRail / Spark Reconciliation"
+                >
+                  <GitCompareArrows className="w-4 h-4" />
+                  <span className="hidden sm:inline">Reconcile</span>
+                </button>
+              )}
               {/* Admin Users Link */}
               {isAdmin && (
                 <button

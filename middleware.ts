@@ -7,7 +7,7 @@ import type { NextRequest } from 'next/server';
  * API routes verify the full signature in Node.js runtime.
  * The httpOnly cookie flag prevents client-side tampering.
  */
-function decodeSession(token: string): { role: string } | null {
+function decodeSession(token: string): { role: string; permissions?: { reconcile?: boolean } } | null {
   try {
     const [payload] = token.split('.');
     if (!payload) return null;
@@ -36,6 +36,7 @@ export function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get('miramar-session');
   let isAuth = false;
   let isAdminUser = false;
+  let canReconcile = false;
 
   if (sessionCookie?.value) {
     // New signed session format (base64.signature)
@@ -43,11 +44,13 @@ export function middleware(request: NextRequest) {
     if (session) {
       isAuth = true;
       isAdminUser = session.role === 'admin';
+      canReconcile = isAdminUser || !!session.permissions?.reconcile;
     }
     // Legacy format fallback
     if (!isAuth && sessionCookie.value === 'authenticated') {
       isAuth = true;
       isAdminUser = true;
+      canReconcile = true;
     }
   }
 
@@ -60,6 +63,13 @@ export function middleware(request: NextRequest) {
 
   // Protect admin routes
   if (pathname.startsWith('/admin') && !isAdminUser) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/';
+    return NextResponse.redirect(url);
+  }
+
+  // Protect reconciliation routes
+  if ((pathname.startsWith('/reconciliation') || pathname.startsWith('/api/reconciliation')) && !canReconcile) {
     const url = request.nextUrl.clone();
     url.pathname = '/';
     return NextResponse.redirect(url);

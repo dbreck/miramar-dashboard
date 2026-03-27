@@ -11,6 +11,7 @@ export async function GET() {
       email: session.email,
       name: session.name,
       role: session.role,
+      permissions: session.permissions || { reconcile: session.role === 'admin' },
     });
   }
 
@@ -23,6 +24,7 @@ export async function GET() {
       email: 'admin@miramar.com',
       name: 'Admin',
       role: 'admin',
+      permissions: { reconcile: true },
     });
   }
 

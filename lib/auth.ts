@@ -12,6 +12,7 @@ export interface SessionData {
   email: string;
   name: string;
   role: 'admin' | 'viewer';
+  permissions: { reconcile: boolean };
 }
 
 function getSecret(): string {
