@@ -87,24 +87,31 @@ function buildDefaultAdmin(): User {
  * On Vercel, re-seeds /tmp/users.json on each cold start.
  */
 export function ensureDefaultAdmin(): void {
-  const users = readUsers();
+  let users = readUsers();
   const defaultAdmin = buildDefaultAdmin();
 
-  // Check if default admin already exists
-  const existingAdmin = users.find(u => u.id === 'default-admin');
-  if (existingAdmin) {
+  // Check if default admin already exists (by ID or email)
+  const existingById = users.find(u => u.id === 'default-admin');
+  const existingByEmail = users.find(u => u.email === defaultAdmin.email);
+
+  if (existingById) {
     // Update password hash in case DASHBOARD_PASSWORD changed
-    if (existingAdmin.passwordHash !== defaultAdmin.passwordHash) {
-      existingAdmin.passwordHash = defaultAdmin.passwordHash;
-      existingAdmin.salt = defaultAdmin.salt;
-      existingAdmin.email = defaultAdmin.email;
-      existingAdmin.name = defaultAdmin.name;
+    if (existingById.passwordHash !== defaultAdmin.passwordHash) {
+      existingById.passwordHash = defaultAdmin.passwordHash;
+      existingById.salt = defaultAdmin.salt;
+      existingById.email = defaultAdmin.email;
+      existingById.name = defaultAdmin.name;
       writeUsers(users);
     }
     return;
   }
 
-  // No default admin — seed it
+  if (existingByEmail) {
+    // Old-format admin exists (random ID from first deploy) — replace it
+    users = users.filter(u => u.email !== defaultAdmin.email);
+  }
+
+  // Seed default admin
   users.unshift(defaultAdmin);
   writeUsers(users);
 }
