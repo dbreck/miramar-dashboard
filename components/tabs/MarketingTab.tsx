@@ -17,7 +17,13 @@ interface MarketingData {
   };
 }
 
-export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
+interface MarketingTabProps {
+  dateRange: DateRange;
+  refreshTrigger?: number;
+  onDataStatus?: (isCached: boolean, lastFetchedAt: number | null, loading: boolean) => void;
+}
+
+export default function MarketingTab({ dateRange, refreshTrigger, onDataStatus }: MarketingTabProps) {
   const [sourcesUpdated, setSourcesUpdated] = useState(false);
 
   const {
@@ -27,13 +33,19 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
     setAvailableSources,
   } = useFilters();
 
-  const { data, loading, error, progress, startTime } = useDashboardStream({
+  const { data, loading, error, progress, startTime, isCached, lastFetchedAt } = useDashboardStream({
     start: dateRange.start,
     end: dateRange.end,
     excludedSources,
     excludeAgents,
     excludeNoSource,
+    refreshTrigger,
   });
+
+  // Report data status to parent
+  useEffect(() => {
+    onDataStatus?.(isCached, lastFetchedAt, loading);
+  }, [isCached, lastFetchedAt, loading, onDataStatus]);
 
   // Update available sources when data loads (only once per data load)
   useEffect(() => {
@@ -60,8 +72,9 @@ export default function MarketingTab({ dateRange }: { dateRange: DateRange }) {
 
   if (!data) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500 dark:text-gray-400">No data available</div>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center">
+        <p className="text-gray-500 dark:text-gray-400 text-lg">No data loaded yet.</p>
+        <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Click <span className="font-semibold text-green-600">Refresh Data</span> to pull from Spark.</p>
       </div>
     );
   }

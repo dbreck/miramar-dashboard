@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import OverviewTab from '@/components/tabs/OverviewTab';
 import ContactsTab from '@/components/tabs/ContactsTab';
@@ -15,21 +15,44 @@ import { FilterProvider } from '@/lib/filter-context';
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline' | 'marketing' | 'ratings'>('overview');
   const [dateRange, setDateRange] = useState<DateRange>({
-    start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago (reduced to minimize API calls)
+    start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
     end: new Date(),
     preset: '7d'
   });
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
+  const [isCached, setIsCached] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
+  const handleDataStatus = useCallback((cached: boolean, timestamp: number | null, loading: boolean) => {
+    setIsCached(cached);
+    setLastFetchedAt(timestamp);
+    setIsRefreshing(loading);
+  }, []);
 
   return (
     <FilterProvider>
-      <DashboardLayout activeTab={activeTab} setActiveTab={setActiveTab} dateRange={dateRange} setDateRange={setDateRange}>
-        {activeTab === 'overview' && <OverviewTab dateRange={dateRange} />}
+      <DashboardLayout
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        dateRange={dateRange}
+        setDateRange={setDateRange}
+        onRefresh={handleRefresh}
+        lastFetchedAt={lastFetchedAt}
+        isCached={isCached}
+        isRefreshing={isRefreshing}
+      >
+        {activeTab === 'overview' && <OverviewTab dateRange={dateRange} refreshTrigger={refreshTrigger} onDataStatus={handleDataStatus} />}
         {activeTab === 'contacts' && <ContactsTab dateRange={dateRange} />}
         {activeTab === 'engagement' && <EngagementTab dateRange={dateRange} />}
         {activeTab === 'team' && <TeamTab dateRange={dateRange} />}
         {activeTab === 'pipeline' && <PipelineTab dateRange={dateRange} />}
-        {activeTab === 'marketing' && <MarketingTab dateRange={dateRange} />}
-        {activeTab === 'ratings' && <RatingsTab dateRange={dateRange} />}
+        {activeTab === 'marketing' && <MarketingTab dateRange={dateRange} refreshTrigger={refreshTrigger} onDataStatus={handleDataStatus} />}
+        {activeTab === 'ratings' && <RatingsTab dateRange={dateRange} refreshTrigger={refreshTrigger} onDataStatus={handleDataStatus} />}
       </DashboardLayout>
     </FilterProvider>
   );

@@ -45,9 +45,11 @@ interface DashboardData {
 
 interface OverviewTabProps {
   dateRange: DateRange;
+  refreshTrigger?: number;
+  onDataStatus?: (isCached: boolean, lastFetchedAt: number | null, loading: boolean) => void;
 }
 
-export default function OverviewTab({ dateRange }: OverviewTabProps) {
+export default function OverviewTab({ dateRange, refreshTrigger, onDataStatus }: OverviewTabProps) {
   const [selectedSource, setSelectedSource] = useState<string>('All');
   const [sourcesUpdated, setSourcesUpdated] = useState(false);
 
@@ -58,13 +60,19 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
     setAvailableSources,
   } = useFilters();
 
-  const { data, loading, error, progress, startTime, refetch } = useDashboardStream({
+  const { data, loading, error, progress, startTime, refetch, isCached, lastFetchedAt } = useDashboardStream({
     start: dateRange.start,
     end: dateRange.end,
     excludedSources,
     excludeAgents,
     excludeNoSource,
+    refreshTrigger,
   });
+
+  // Report data status to parent
+  useEffect(() => {
+    onDataStatus?.(isCached, lastFetchedAt, loading);
+  }, [isCached, lastFetchedAt, loading, onDataStatus]);
 
   // Update available sources when data loads (only once per data load)
   useEffect(() => {
@@ -96,7 +104,14 @@ export default function OverviewTab({ dateRange }: OverviewTabProps) {
     );
   }
 
-  if (!data) return null;
+  if (!data) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center">
+        <p className="text-gray-500 dark:text-gray-400 text-lg">No data loaded yet.</p>
+        <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Click <span className="font-semibold text-green-600">Refresh Data</span> to pull from Spark.</p>
+      </div>
+    );
+  }
 
   const dashboardData = data as DashboardData;
 
