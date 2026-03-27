@@ -1,9 +1,14 @@
 /**
  * User management with JSON file storage
+ *
+ * Local dev: uses data/users.json (writable)
+ * Vercel: uses /tmp/users.json (only writable path)
+ *   - Default admin is re-seeded on each cold start from env vars
+ *   - Dynamically-added users persist until next cold start
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
 import { createHash, randomBytes } from 'crypto';
 
 export interface User {
@@ -18,7 +23,13 @@ export interface User {
 
 export type UserPublic = Omit<User, 'passwordHash' | 'salt'>;
 
-const USERS_FILE = join(process.cwd(), 'data', 'users.json');
+const IS_VERCEL = !!process.env.VERCEL;
+const LOCAL_USERS_FILE = join(process.cwd(), 'data', 'users.json');
+const VERCEL_USERS_FILE = '/tmp/users.json';
+
+function getUsersFile(): string {
+  return IS_VERCEL ? VERCEL_USERS_FILE : LOCAL_USERS_FILE;
+}
 
 function hashPassword(password: string, salt: string): string {
   return createHash('sha256').update(password + salt).digest('hex');
@@ -29,11 +40,12 @@ function generateId(): string {
 }
 
 function readUsers(): User[] {
-  if (!existsSync(USERS_FILE)) {
+  const file = getUsersFile();
+  if (!existsSync(file)) {
     return [];
   }
   try {
-    const data = readFileSync(USERS_FILE, 'utf-8');
+    const data = readFileSync(file, 'utf-8');
     return JSON.parse(data);
   } catch {
     return [];
@@ -41,30 +53,60 @@ function readUsers(): User[] {
 }
 
 function writeUsers(users: User[]): void {
-  writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+  const file = getUsersFile();
+  const dir = dirname(file);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  writeFileSync(file, JSON.stringify(users, null, 2), 'utf-8');
 }
 
 /**
- * Initialize with default admin user if no users exist.
- * Uses DASHBOARD_PASSWORD env var as the initial admin password.
+ * Build the default admin from env vars.
+ * Always available, even on Vercel cold starts.
  */
-export function ensureDefaultAdmin(): void {
-  const users = readUsers();
-  if (users.length > 0) return;
-
+function buildDefaultAdmin(): User {
   const password = process.env.DASHBOARD_PASSWORD || 'miramar2025';
-  const salt = randomBytes(16).toString('hex');
-  const admin: User = {
-    id: generateId(),
-    email: 'admin@miramar.com',
-    name: 'Admin',
+  const email = (process.env.ADMIN_EMAIL || 'admin@miramar.com').toLowerCase();
+  const name = process.env.ADMIN_NAME || 'Admin';
+  // Use a deterministic salt for the env-var admin so the hash is stable
+  const salt = createHash('sha256').update('miramar-admin-salt-' + email).digest('hex').slice(0, 32);
+  return {
+    id: 'default-admin',
+    email,
+    name,
     role: 'admin',
     passwordHash: hashPassword(password, salt),
     salt,
-    createdAt: new Date().toISOString(),
+    createdAt: new Date('2026-03-27').toISOString(),
   };
+}
 
-  writeUsers([admin]);
+/**
+ * Ensure the default admin exists. Called on reads.
+ * On Vercel, re-seeds /tmp/users.json on each cold start.
+ */
+export function ensureDefaultAdmin(): void {
+  const users = readUsers();
+  const defaultAdmin = buildDefaultAdmin();
+
+  // Check if default admin already exists
+  const existingAdmin = users.find(u => u.id === 'default-admin');
+  if (existingAdmin) {
+    // Update password hash in case DASHBOARD_PASSWORD changed
+    if (existingAdmin.passwordHash !== defaultAdmin.passwordHash) {
+      existingAdmin.passwordHash = defaultAdmin.passwordHash;
+      existingAdmin.salt = defaultAdmin.salt;
+      existingAdmin.email = defaultAdmin.email;
+      existingAdmin.name = defaultAdmin.name;
+      writeUsers(users);
+    }
+    return;
+  }
+
+  // No default admin — seed it
+  users.unshift(defaultAdmin);
+  writeUsers(users);
 }
 
 export function listUsers(): UserPublic[] {
@@ -78,6 +120,7 @@ export function getUserByEmail(email: string): User | undefined {
 }
 
 export function getUserById(id: string): User | undefined {
+  ensureDefaultAdmin();
   return readUsers().find(u => u.id === id);
 }
 
@@ -92,6 +135,7 @@ export function validateUserPassword(email: string, password: string): User | nu
 }
 
 export function createUser(email: string, name: string, password: string, role: 'admin' | 'viewer'): UserPublic {
+  ensureDefaultAdmin();
   const users = readUsers();
 
   if (users.some(u => u.email.toLowerCase() === email.toLowerCase())) {
@@ -121,6 +165,7 @@ export function createUser(email: string, name: string, password: string, role: 
 }
 
 export function updateUser(id: string, updates: { name?: string; role?: 'admin' | 'viewer'; password?: string }): UserPublic {
+  ensureDefaultAdmin();
   const users = readUsers();
   const index = users.findIndex(u => u.id === id);
   if (index === -1) throw new Error('User not found');
@@ -143,9 +188,15 @@ export function updateUser(id: string, updates: { name?: string; role?: 'admin' 
 }
 
 export function deleteUser(id: string): void {
+  ensureDefaultAdmin();
   const users = readUsers();
   const index = users.findIndex(u => u.id === id);
   if (index === -1) throw new Error('User not found');
+
+  // Prevent deleting the default admin
+  if (users[index].id === 'default-admin') {
+    throw new Error('Cannot delete the default admin user');
+  }
 
   // Prevent deleting the last admin
   const adminCount = users.filter(u => u.role === 'admin').length;
