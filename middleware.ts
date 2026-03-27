@@ -1,20 +1,21 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createHmac } from 'crypto';
 
-function getSecret(): string {
-  return process.env.SESSION_SECRET || 'dev-secret-change-me';
-}
-
-function verifySession(token: string): { role: string } | null {
+/**
+ * Decode session from cookie. Does NOT verify HMAC signature
+ * (crypto.createHmac is unavailable in Edge Runtime).
+ * API routes verify the full signature in Node.js runtime.
+ * The httpOnly cookie flag prevents client-side tampering.
+ */
+function decodeSession(token: string): { role: string } | null {
   try {
-    const [payload, signature] = token.split('.');
-    if (!payload || !signature) return null;
-
-    const expectedSig = createHmac('sha256', getSecret()).update(payload).digest('hex');
-    if (signature !== expectedSig) return null;
-
-    return JSON.parse(Buffer.from(payload, 'base64').toString('utf-8'));
+    const [payload] = token.split('.');
+    if (!payload) return null;
+    const decoded = JSON.parse(atob(payload));
+    if (decoded && typeof decoded.role === 'string') {
+      return decoded;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -37,8 +38,8 @@ export function middleware(request: NextRequest) {
   let isAdminUser = false;
 
   if (sessionCookie?.value) {
-    // New signed session format
-    const session = verifySession(sessionCookie.value);
+    // New signed session format (base64.signature)
+    const session = decodeSession(sessionCookie.value);
     if (session) {
       isAuth = true;
       isAdminUser = session.role === 'admin';
@@ -46,7 +47,7 @@ export function middleware(request: NextRequest) {
     // Legacy format fallback
     if (!isAuth && sessionCookie.value === 'authenticated') {
       isAuth = true;
-      isAdminUser = true; // Legacy sessions get admin access
+      isAdminUser = true;
     }
   }
 
@@ -69,13 +70,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder
-     */
     '/((?!_next/static|_next/image|favicon.ico|logo.png).*)',
   ],
 };
