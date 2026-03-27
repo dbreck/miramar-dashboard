@@ -29,6 +29,7 @@ export async function POST(request: Request) {
         email: user.email,
         name: user.name,
         role: user.role,
+        permissions: user.role === 'admin' ? { reconcile: true } : (user.permissions || { reconcile: false }),
       });
 
       return NextResponse.json({
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
       email: 'admin@miramar.com',
       name: 'Admin',
       role: 'admin',
+      permissions: { reconcile: true },
     });
 
     return NextResponse.json({

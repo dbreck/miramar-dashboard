@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { email, name, password, role } = await request.json();
+    const { email, name, password, role, permissions } = await request.json();
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Role must be admin or viewer' }, { status: 400 });
     }
 
-    const user = createUser(email, name || '', password, role);
+    const user = createUser(email, name || '', password, role, permissions);
     return NextResponse.json({ user }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 400 });
@@ -50,7 +50,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const { id, name, role, password } = await request.json();
+    const { id, name, role, password, permissions } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
@@ -60,10 +60,11 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Role must be admin or viewer' }, { status: 400 });
     }
 
-    const updates: { name?: string; role?: 'admin' | 'viewer'; password?: string } = {};
+    const updates: { name?: string; role?: 'admin' | 'viewer'; password?: string; permissions?: { reconcile?: boolean } } = {};
     if (name !== undefined) updates.name = name;
     if (role !== undefined) updates.role = role;
     if (password !== undefined) updates.password = password;
+    if (permissions !== undefined) updates.permissions = permissions;
 
     const user = updateUser(id, updates);
     return NextResponse.json({ user });

@@ -11,11 +11,20 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { createHash, randomBytes } from 'crypto';
 
+export interface UserPermissions {
+  reconcile: boolean;
+}
+
+export const DEFAULT_PERMISSIONS: UserPermissions = {
+  reconcile: false,
+};
+
 export interface User {
   id: string;
   email: string;
   name: string;
   role: 'admin' | 'viewer';
+  permissions: UserPermissions;
   passwordHash: string;
   salt: string;
   createdAt: string;
@@ -41,7 +50,12 @@ function readUsers(): User[] {
   }
   try {
     const data = readFileSync(file, 'utf-8');
-    return JSON.parse(data);
+    const users: User[] = JSON.parse(data);
+    // Backfill permissions for users created before this field existed
+    return users.map(u => ({
+      ...u,
+      permissions: u.permissions || { ...DEFAULT_PERMISSIONS },
+    }));
   } catch {
     return [];
   }
@@ -71,6 +85,7 @@ function buildDefaultAdmin(): User {
     email,
     name,
     role: 'admin',
+    permissions: { reconcile: true },
     passwordHash: hashPassword(password, salt),
     salt,
     createdAt: new Date('2026-03-27').toISOString(),
@@ -136,7 +151,7 @@ export function validateUserPassword(email: string, password: string): User | nu
   return user;
 }
 
-export function createUser(email: string, name: string, password: string, role: 'admin' | 'viewer'): UserPublic {
+export function createUser(email: string, name: string, password: string, role: 'admin' | 'viewer', permissions?: Partial<UserPermissions>): UserPublic {
   ensureDefaultAdmin();
   const users = readUsers();
 
@@ -154,6 +169,7 @@ export function createUser(email: string, name: string, password: string, role: 
     email: email.toLowerCase(),
     name,
     role,
+    permissions: { ...DEFAULT_PERMISSIONS, ...permissions },
     passwordHash: hashPassword(password, salt),
     salt,
     createdAt: new Date().toISOString(),
@@ -166,7 +182,7 @@ export function createUser(email: string, name: string, password: string, role: 
   return publicUser;
 }
 
-export function updateUser(id: string, updates: { name?: string; role?: 'admin' | 'viewer'; password?: string }): UserPublic {
+export function updateUser(id: string, updates: { name?: string; role?: 'admin' | 'viewer'; password?: string; permissions?: Partial<UserPermissions> }): UserPublic {
   ensureDefaultAdmin();
   const users = readUsers();
   const index = users.findIndex(u => u.id === id);
@@ -174,6 +190,9 @@ export function updateUser(id: string, updates: { name?: string; role?: 'admin' 
 
   if (updates.name !== undefined) users[index].name = updates.name;
   if (updates.role !== undefined) users[index].role = updates.role;
+  if (updates.permissions !== undefined) {
+    users[index].permissions = { ...(users[index].permissions || DEFAULT_PERMISSIONS), ...updates.permissions };
+  }
   if (updates.password !== undefined) {
     if (updates.password.length < 8) {
       throw new Error('Password must be at least 8 characters');
