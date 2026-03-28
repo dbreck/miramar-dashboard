@@ -103,7 +103,8 @@ async function readUsers(): Promise<User[]> {
     const { blobs } = await blob.list({ prefix: BLOB_PATH });
     if (blobs.length === 0) return [];
 
-    const response = await fetch(blobs[0].url);
+    const fetchUrl = blobs[0].downloadUrl || blobs[0].url;
+    const response = await fetch(fetchUrl);
     if (!response.ok) return [];
 
     const users: User[] = await response.json();
