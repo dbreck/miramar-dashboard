@@ -440,12 +440,69 @@ From `CHANGELOG.md` v1.2.0:
 ### Common Pitfall: TypeScript Strict Mode
 All API responses should be typed. Avoid `any` where possible. The build will fail on type errors.
 
-## Authentication
+## Authentication & User Management (v1.7.0)
 
-Session-based auth with HTTP-only cookies (not JWT/OAuth):
-- Login: `app/login/page.tsx` - Compares against `DASHBOARD_PASSWORD`
-- Session: `app/api/auth/login/route.ts` - Sets HTTP-only cookie
-- Protection: `middleware.ts` - Checks cookie on protected routes
+**Multi-user auth** with HMAC-signed session cookies:
+- Login: `app/login/page.tsx` - Email + password, or password-only (backward compat)
+- Session: `lib/auth.ts` - HMAC-SHA256 signed cookies encoding userId, email, name, role, permissions
+- Middleware: `middleware.ts` - Decodes session with `atob` (Edge Runtime, no HMAC verify). API routes verify full signature in Node.js runtime.
+- User storage: `lib/users.ts` - **Vercel Blob** (`@vercel/blob`) for persistent storage across cold starts
+
+**User Model:**
+```typescript
+interface User {
+  id: string; email: string; name: string;
+  role: 'admin' | 'viewer';
+  permissions: { reconcile: boolean };
+  passwordHash: string; salt: string; createdAt: string;
+}
+```
+
+**Key Files:**
+- `lib/users.ts` — Async CRUD with Vercel Blob storage, default admin seeding
+- `lib/auth.ts` — Session encode/decode with HMAC signing (SessionData includes permissions)
+- `middleware.ts` — Edge Runtime compatible (uses `atob`, NOT `crypto.createHmac`)
+- `app/admin/users/page.tsx` — Admin-only user management UI
+- `app/api/admin/users/route.ts` — User CRUD API (admin-only)
+- `app/api/auth/me/route.ts` — Returns current user info + permissions
+- `app/api/auth/login/route.ts` — Email+password or password-only login
+
+**Roles & Permissions:**
+- **Admin** — Full access including `/admin/users`, always has reconcile access
+- **Viewer** — Dashboard only, no admin routes, reconcile access via checkbox
+
+**Critical Vercel Gotchas:**
+1. Middleware runs in **Edge Runtime** — `crypto.createHmac` is NOT available. Use `atob`/`btoa` only.
+2. Vercel filesystem is **read-only** except `/tmp/` (ephemeral). User data uses Vercel Blob.
+3. Default admin re-seeds from `DASHBOARD_PASSWORD` env var on every cold start.
+4. Password-only login (no email) bypasses Blob storage entirely — checks `DASHBOARD_PASSWORD` directly.
+
+## Dashboard Data Loading (v1.7.0)
+
+**No auto-fetch on page load.** Dashboard shows cached data from localStorage and waits for user to click "Refresh Data" button.
+
+**Data Flow:**
+```
+Page Load → localStorage cache check → Show cached data (or empty state)
+                                          ↓ (user clicks Refresh Data)
+                                    SSE to /api/dashboard/stream
+                                          ↓
+                                    Spark API (10-60s)
+                                          ↓
+                                    Update UI + save to localStorage
+```
+
+**Key Files:**
+- `lib/dashboard-cache.ts` — localStorage wrapper with 7-day TTL, version-prefixed keys
+- `lib/use-dashboard-stream.ts` — Hook with `refreshTrigger` prop; only fetches when trigger > 0
+- `app/page.tsx` — Manages `refreshTrigger` state, passes to layout + tabs
+
+**How it works:**
+- `useDashboardStream` starts with `loading: false` (no auto-fetch)
+- Hydrates from localStorage on mount using `optionsKey` (date range + filters)
+- SSE fetch only fires when `refreshTrigger` increments (button click)
+- After successful fetch, data saved to localStorage for next visit
+- Each tab reports `isCached`/`lastFetchedAt`/`loading` to parent for the freshness banner
 
 ## Deployment
 
@@ -453,10 +510,13 @@ Hosted on Vercel. Push to `main` branch triggers auto-deployment.
 
 **Environment Variables** (set in Vercel dashboard):
 - `SPARK_API_KEY` - Spark.re API token
-- `DASHBOARD_PASSWORD` - Login password
+- `DASHBOARD_PASSWORD` - Login password (also used for default admin)
 - `SESSION_SECRET` - 32+ random characters for cookie signing
+- `BLOB_READ_WRITE_TOKEN` - Vercel Blob storage token (auto-set when Blob store connected)
 - `UTM_COOKIE_LOG_SECRET` - Bearer token for WP utm-cookie-log endpoint (`miramar-utm-log-2026-x9k4m`)
 - `SPARK_RELAY_LOG_SECRET` - Bearer token for WP spark-relay-log endpoint (`miramar-relay-log-2026-r7m3k`)
+- `ADMIN_EMAIL` - (optional) Override default admin email (default: `admin@miramar.com`)
+- `ADMIN_NAME` - (optional) Override default admin display name (default: `Admin`)
 
 ## CallRail Integration (2026-03-23)
 
