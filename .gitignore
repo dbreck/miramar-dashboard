@@ -38,3 +38,6 @@ next-env.d.ts
 # rating snapshot data (runtime-generated)
 /data/snapshots/
 /data/rating-changes.json
+
+# local user data (development only)
+/.data/
