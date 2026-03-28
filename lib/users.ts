@@ -77,8 +77,8 @@ async function readUsers(): Promise<User[]> {
     const result = backfillPermissions(users);
     memoryCache = { users: result, timestamp: Date.now() };
     return result;
-  } catch (e) {
-    console.error('Failed to read users from blob:', e);
+  } catch (e: any) {
+    console.error('Failed to read users from blob:', e?.message || e);
     return [];
   }
 }
@@ -86,15 +86,21 @@ async function readUsers(): Promise<User[]> {
 async function writeUsers(users: User[]): Promise<void> {
   try {
     const blob = await getBlob();
+
+    // Delete old blob(s) first, then write new one
+    const { blobs: existing } = await blob.list({ prefix: BLOB_PATH });
+    if (existing.length > 0) {
+      await blob.del(existing.map(b => b.url));
+    }
+
     await blob.put(BLOB_PATH, JSON.stringify(users, null, 2), {
       access: 'public',
       contentType: 'application/json',
-      addRandomSuffix: false,
     });
     memoryCache = { users, timestamp: Date.now() };
-  } catch (e) {
-    console.error('Failed to write users to blob:', e);
-    throw new Error('Failed to save user data');
+  } catch (e: any) {
+    console.error('Failed to write users to blob:', e?.message || e, e?.stack);
+    throw new Error('Failed to save user data: ' + (e?.message || 'unknown error'));
   }
 }
 
