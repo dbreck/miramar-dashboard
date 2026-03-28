@@ -134,7 +134,7 @@ async function writeUsers(users: User[]): Promise<void> {
     }
 
     await blob.put(BLOB_PATH, JSON.stringify(users, null, 2), {
-      access: 'public',
+      access: 'private',
       contentType: 'application/json',
     });
     memoryCache = { users, timestamp: Date.now() };
