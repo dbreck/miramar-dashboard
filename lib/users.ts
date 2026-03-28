@@ -7,8 +7,14 @@
  */
 
 import { createHash, randomBytes } from 'crypto';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
 let blobModule: typeof import('@vercel/blob') | null = null;
+
+function useBlobStorage(): boolean {
+  return !!process.env.BLOB_READ_WRITE_TOKEN;
+}
 
 async function getBlob() {
   if (!blobModule) {
@@ -40,6 +46,10 @@ export type UserPublic = Omit<User, 'passwordHash' | 'salt'>;
 
 const BLOB_PATH = 'miramar-users.json';
 
+// Local file path for development (when Vercel Blob is not available)
+const LOCAL_DATA_DIR = join(process.cwd(), '.data');
+const LOCAL_USERS_FILE = join(LOCAL_DATA_DIR, 'users.json');
+
 function hashPassword(password: string, salt: string): string {
   return createHash('sha256').update(password + salt).digest('hex');
 }
@@ -55,14 +65,37 @@ function backfillPermissions(users: User[]): User[] {
   }));
 }
 
-// In-memory cache to avoid reading blob on every request within same invocation
+// In-memory cache to avoid reading storage on every request within same invocation
 let memoryCache: { users: User[]; timestamp: number } | null = null;
 const MEMORY_TTL = 10_000; // 10 seconds
 
+function readUsersLocal(): User[] {
+  try {
+    if (!existsSync(LOCAL_USERS_FILE)) return [];
+    const data = readFileSync(LOCAL_USERS_FILE, 'utf-8');
+    return backfillPermissions(JSON.parse(data));
+  } catch {
+    return [];
+  }
+}
+
+function writeUsersLocal(users: User[]): void {
+  if (!existsSync(LOCAL_DATA_DIR)) {
+    mkdirSync(LOCAL_DATA_DIR, { recursive: true });
+  }
+  writeFileSync(LOCAL_USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+}
+
 async function readUsers(): Promise<User[]> {
-  // Check memory cache first
   if (memoryCache && Date.now() - memoryCache.timestamp < MEMORY_TTL) {
     return memoryCache.users;
+  }
+
+  // Local file storage when Blob is not configured
+  if (!useBlobStorage()) {
+    const users = readUsersLocal();
+    memoryCache = { users, timestamp: Date.now() };
+    return users;
   }
 
   try {
@@ -84,6 +117,13 @@ async function readUsers(): Promise<User[]> {
 }
 
 async function writeUsers(users: User[]): Promise<void> {
+  // Local file storage when Blob is not configured
+  if (!useBlobStorage()) {
+    writeUsersLocal(users);
+    memoryCache = { users, timestamp: Date.now() };
+    return;
+  }
+
   try {
     const blob = await getBlob();
 

@@ -6,58 +6,33 @@ export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
 
-    if (!password) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: 'Password is required' },
+        { error: 'Email and password are required' },
         { status: 400 }
       );
     }
 
-    // If email provided, do per-user auth
-    if (email) {
-      await ensureDefaultAdmin();
-      const user = await validateUserPassword(email, password);
-      if (!user) {
-        return NextResponse.json(
-          { error: 'Invalid email or password' },
-          { status: 401 }
-        );
-      }
-
-      await createSession({
-        userId: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        permissions: user.role === 'admin' ? { reconcile: true } : (user.permissions || { reconcile: false }),
-      });
-
-      return NextResponse.json({
-        success: true,
-        user: { email: user.email, name: user.name, role: user.role },
-      });
-    }
-
-    // No email — fallback to single-password auth (backward compat)
-    const validPassword = process.env.DASHBOARD_PASSWORD || 'miramar2025';
-    if (password !== validPassword) {
+    await ensureDefaultAdmin();
+    const user = await validateUserPassword(email, password);
+    if (!user) {
       return NextResponse.json(
-        { error: 'Invalid password' },
+        { error: 'Invalid email or password' },
         { status: 401 }
       );
     }
 
     await createSession({
-      userId: 'default-admin',
-      email: 'admin@miramar.com',
-      name: 'Admin',
-      role: 'admin',
-      permissions: { reconcile: true },
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      permissions: user.role === 'admin' ? { reconcile: true } : (user.permissions || { reconcile: false }),
     });
 
     return NextResponse.json({
       success: true,
-      user: { email: 'admin@miramar.com', name: 'Admin', role: 'admin' },
+      user: { email: user.email, name: user.name, role: user.role },
     });
   } catch (error) {
     console.error('Login error:', error);
