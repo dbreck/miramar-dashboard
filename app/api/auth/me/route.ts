@@ -1,32 +1,34 @@
-import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { getSession } from '@/lib/auth';
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
-  // Try new signed session first
-  const session = await getSession();
-  if (session) {
-    return NextResponse.json({
-      userId: session.userId,
-      email: session.email,
-      name: session.name,
-      role: session.role,
-      permissions: session.permissions || { reconcile: session.role === 'admin' },
-    });
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Legacy fallback: old "authenticated" cookie gets admin access
-  const cookieStore = await cookies();
-  const legacyCookie = cookieStore.get('miramar-session');
-  if (legacyCookie?.value === 'authenticated') {
-    return NextResponse.json({
-      userId: 'legacy',
-      email: 'admin@miramar.com',
-      name: 'Admin',
-      role: 'admin',
-      permissions: { reconcile: true },
-    });
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, email, full_name, role, can_reconcile")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile) {
+    return NextResponse.json({ error: "Profile not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+  return NextResponse.json({
+    userId: profile.id,
+    email: profile.email,
+    name: profile.full_name,
+    role: profile.role,
+    permissions: {
+      reconcile: profile.role === "admin" || profile.can_reconcile,
+    },
+  });
 }
