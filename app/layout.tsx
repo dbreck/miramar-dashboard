@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/lib/auth-provider';
+import { BrandingProvider } from '@/lib/branding';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -19,7 +20,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="antialiased">
-        <AuthProvider>{children}</AuthProvider>
+        <BrandingProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </BrandingProvider>
       </body>
     </html>
   );
