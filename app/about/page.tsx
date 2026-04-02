@@ -19,7 +19,7 @@ export default function AboutPage() {
             <span>Back to Dashboard</span>
           </button>
           <h1 className="text-4xl font-bold text-white mb-2">
-            About Mira Mar Leads Dashboard
+            About Lead Analytics Dashboard
           </h1>
           <p className="text-gray-400 text-lg">
             Real-time analytics powered by Spark.re CRM
@@ -37,7 +37,7 @@ export default function AboutPage() {
               <h2 className="text-2xl font-bold text-white">Dashboard Purpose</h2>
             </div>
             <p className="text-gray-300 leading-relaxed mb-4">
-              The Mira Mar Leads Dashboard provides real-time analytics and insights into your Spark CRM data.
+              The Lead Analytics Dashboard provides real-time analytics and insights into your Spark CRM data.
               Track lead generation, analyze geographic distribution, monitor agent performance, and understand pipeline health with comprehensive visualizations.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">

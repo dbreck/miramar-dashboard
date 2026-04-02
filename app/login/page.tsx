@@ -37,7 +37,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900">Mira Mar Dashboard</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Lead Analytics</h1>
             <p className="text-gray-500 mt-2">Sign in to continue</p>
           </div>
 

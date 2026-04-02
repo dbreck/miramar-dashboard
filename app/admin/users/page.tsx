@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { Users, UserPlus, Pencil, Trash2, ArrowLeft, Loader2, Check, X, KeyRound } from 'lucide-react';
 
 interface User {
@@ -222,13 +221,9 @@ export default function AdminUsersPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <Image
-                src="/logo.png"
-                alt="Mira Mar Logo"
-                width={40}
-                height={40}
-                className="rounded-lg"
-              />
+              <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+              </div>
               <div>
                 <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">
                   User Management
