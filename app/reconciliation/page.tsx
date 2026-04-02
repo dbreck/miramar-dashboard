@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import {
   ArrowLeft,
   RefreshCw,
@@ -343,7 +342,9 @@ export default function ReconciliationPage() {
             </button>
             <div className="h-6 w-px bg-gray-800" />
             <div className="flex items-center gap-2.5">
-              <Image src="/logo.png" alt="Mira Mar" width={28} height={28} className="rounded-md" />
+              <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+              </div>
               <h1 className="text-lg font-semibold tracking-tight">Lead Reconciliation</h1>
             </div>
           </div>

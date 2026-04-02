@@ -3,11 +3,11 @@ import { AuthProvider } from '@/lib/auth-provider';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Mira Mar Leads - Analytics Dashboard',
-  description: 'Spark Data Analytics Dashboard for Mira Mar',
+  title: 'Lead Analytics Dashboard',
+  description: 'Spark Data Analytics Dashboard',
   icons: {
-    icon: '/logo.png',
-    apple: '/logo.png',
+    icon: '/favicon.svg',
+    apple: '/favicon.svg',
   },
 };
 
