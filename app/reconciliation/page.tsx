@@ -21,6 +21,7 @@ import {
   FileSearch,
   Activity,
 } from 'lucide-react';
+import { useBranding, BrandLogo } from '@/lib/branding';
 
 // --- Types ---
 
@@ -126,6 +127,7 @@ type FilterView = 'all' | 'missing' | 'matched' | 'utm-gaps';
 
 export default function ReconciliationPage() {
   const router = useRouter();
+  const { branded } = useBranding();
   const [data, setData] = useState<ReconData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -342,9 +344,7 @@ export default function ReconciliationPage() {
             </button>
             <div className="h-6 w-px bg-gray-800" />
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-md bg-blue-600 flex items-center justify-center">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-              </div>
+              <BrandLogo size={28} />
               <h1 className="text-lg font-semibold tracking-tight">Lead Reconciliation</h1>
             </div>
           </div>
