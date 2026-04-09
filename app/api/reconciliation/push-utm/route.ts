@@ -22,6 +22,7 @@ interface UtmPushContact {
   sparkContactId: number;
   name: string;
   email: string;
+  callrailSource: string;
   utmSource: string;
   utmMedium: string;
   utmCampaign: string;
@@ -68,13 +69,23 @@ export async function POST(request: NextRequest) {
               customFields.push({ custom_field_id: UTM_FIELD_IDS.utm_campaign, value: c.utmCampaign });
             }
 
-            if (customFields.length === 0) {
+            // Build the update body - include marketing_source from CallRail source
+            const updateBody: Record<string, any> = {};
+            const hasSource = c.callrailSource && c.callrailSource !== 'Unknown' && c.callrailSource !== '(Not Available)';
+            if (hasSource) {
+              updateBody.marketing_source = c.callrailSource;
+            }
+            if (customFields.length > 0) {
+              updateBody.custom_field_values = customFields;
+            }
+
+            if (Object.keys(updateBody).length === 0) {
               return {
                 email: c.email,
                 name: c.name,
                 sparkContactId: c.sparkContactId,
                 success: false,
-                error: 'No UTM values to push',
+                error: 'No values to push',
               };
             }
 
@@ -84,7 +95,7 @@ export async function POST(request: NextRequest) {
                 Authorization: `Token token=${SPARK_API_KEY}`,
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify({ custom_field_values: customFields }),
+              body: JSON.stringify(updateBody),
             });
 
             if (!res.ok) {
@@ -136,6 +147,7 @@ export async function POST(request: NextRequest) {
         sparkContactId: r.sparkContactId,
         success: r.success,
         error: r.error,
+        callrailSource: contacts[i]?.callrailSource,
         utmSource: contacts[i]?.utmSource,
         utmMedium: contacts[i]?.utmMedium,
         utmCampaign: contacts[i]?.utmCampaign,
