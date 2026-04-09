@@ -301,6 +301,7 @@ export default function ReconciliationPage() {
         sparkContactId: c.sparkContactId!,
         name: c.name,
         email: c.email,
+        callrailSource: c.callrailSource,
         utmSource: c.callrailUtmSource,
         utmMedium: c.callrailUtmMedium,
         utmCampaign: c.callrailUtmCampaign,
