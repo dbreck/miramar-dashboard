@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
@@ -20,8 +20,10 @@ import {
   Cookie,
   FileSearch,
   Activity,
+  FileBarChart,
 } from 'lucide-react';
 import { useBranding, BrandLogo } from '@/lib/branding';
+import { useAuth } from '@/lib/auth-provider';
 
 // --- Types ---
 
@@ -128,10 +130,13 @@ type FilterView = 'all' | 'missing' | 'matched' | 'utm-gaps';
 export default function ReconciliationPage() {
   const router = useRouter();
   const { branded } = useBranding();
+  const { isAdmin } = useAuth();
+  const [reportsOpen, setReportsOpen] = useState(false);
+  const reportsRef = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<ReconData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activePreset, setActivePreset] = useState('30d');
+  const [activePreset, setActivePreset] = useState('7d');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [filterView, setFilterView] = useState<FilterView>('all');
@@ -146,6 +151,17 @@ export default function ReconciliationPage() {
   const [selectedUtmEmails, setSelectedUtmEmails] = useState<Set<string>>(new Set());
   const [pushingUtm, setPushingUtm] = useState(false);
   const [pushUtmResults, setPushUtmResults] = useState<{ succeeded: number; failed: number; results: any[] } | null>(null);
+
+  // Close reports dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (reportsRef.current && !reportsRef.current.contains(e.target as Node)) {
+        setReportsOpen(false);
+      }
+    }
+    if (reportsOpen) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [reportsOpen]);
 
   const fetchData = useCallback(async (preset?: string) => {
     setLoading(true);
@@ -355,42 +371,58 @@ export default function ReconciliationPage() {
                 Updated {formatDateTime(data.generatedAt)}
               </span>
             )}
-            <a
-              href="/api/lost-leads-alltime"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-orange-900/50 hover:bg-orange-800/50 text-orange-300 text-sm font-medium transition-all ring-1 ring-orange-700/30"
-            >
-              <FileSearch className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Lost Leads Report</span>
-            </a>
-            <a
-              href="/api/contact-comparison"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-all"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Contact Comparison</span>
-            </a>
-            <a
-              href="/api/utm-cookie-log"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-all"
-            >
-              <Cookie className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">UTM Cookies</span>
-            </a>
-            <a
-              href="/api/spark-relay-log"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-all"
-            >
-              <Activity className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Relay Health</span>
-            </a>
+            {isAdmin && (
+              <div className="relative" ref={reportsRef}>
+                <button
+                  onClick={() => setReportsOpen(!reportsOpen)}
+                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-all"
+                  title="Reports"
+                >
+                  <FileBarChart className="w-3.5 h-3.5" />
+                  <ChevronDown className={`w-3 h-3 transition-transform ${reportsOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {reportsOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-gray-800 rounded-lg ring-1 ring-gray-700 shadow-xl z-50 py-1">
+                    <a
+                      href="/api/lost-leads-alltime"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                    >
+                      <FileSearch className="w-3.5 h-3.5" />
+                      Lost Leads Report
+                    </a>
+                    <a
+                      href="/api/contact-comparison"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      Contact Comparison
+                    </a>
+                    <a
+                      href="/api/utm-cookie-log"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                    >
+                      <Cookie className="w-3.5 h-3.5" />
+                      UTM Cookies
+                    </a>
+                    <a
+                      href="/api/spark-relay-log"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                    >
+                      <Activity className="w-3.5 h-3.5" />
+                      Relay Health
+                    </a>
+                  </div>
+                )}
+              </div>
+            )}
             <button
               onClick={() => fetchData()}
               disabled={loading}
