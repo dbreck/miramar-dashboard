@@ -49,6 +49,9 @@ interface ReconContact {
   likelyCause: string;
   matchMethod: 'email' | 'phone' | 'name' | 'none';
   warnings: string[];
+  callrailZip: string;
+  callrailHowHeard: string;
+  callrailComments: string;
 }
 
 interface SourceStats {
@@ -100,7 +103,7 @@ async function fetchCallRailSubmissions(startDate?: string, endDate?: string): P
       company_id: CALLRAIL_COMPANY_ID,
       per_page: '250',
       page: String(page),
-      fields: 'utm_source,utm_medium,utm_campaign',
+      fields: 'form_data,utm_source,utm_medium,utm_campaign',
       sort_by: 'submitted_at',
       sort_dir: 'desc',
     };
@@ -144,6 +147,21 @@ function extractUtmFromUrl(url: string): { utm_source: string; utm_medium: strin
   } catch {
     return { utm_source: '', utm_medium: '', utm_campaign: '' };
   }
+}
+
+// --- Form Data Extraction ---
+
+function extractFormFields(formData: Record<string, any> | undefined): { zip: string; howHeard: string; comments: string } {
+  if (!formData) return { zip: '', howHeard: '', comments: '' };
+
+  let zip = '', howHeard = '', comments = '';
+  for (const [key, val] of Object.entries(formData)) {
+    const k = key.toLowerCase();
+    if (k.includes('zip') || k.includes('postal') || k.includes('postcode')) zip = String(val || '');
+    else if (k.includes('hear') || k.includes('how_did') || k.includes('referral_source')) howHeard = String(val || '');
+    else if (k.includes('comment') || k.includes('question') || k.includes('message') || k.includes('notes')) comments = String(val || '');
+  }
+  return { zip, howHeard, comments };
 }
 
 // --- Email Typo Detection ---
@@ -354,6 +372,8 @@ export async function GET(request: NextRequest) {
           const crUtmMedium = sub.utm_medium || urlUtm.utm_medium || '';
           const crUtmCampaign = sub.utm_campaign || urlUtm.utm_campaign || '';
 
+          const formFields = extractFormFields(sub.form_data);
+
           return {
             email,
             name: contactName,
@@ -377,6 +397,9 @@ export async function GET(request: NextRequest) {
             likelyCause: inSpark ? '' : determineLikelyCause(sub),
             matchMethod,
             warnings,
+            callrailZip: formFields.zip,
+            callrailHowHeard: formFields.howHeard,
+            callrailComments: formFields.comments,
           } as ReconContact;
         })
       );

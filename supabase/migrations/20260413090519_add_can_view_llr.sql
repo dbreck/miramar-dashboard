@@ -1,0 +1,1 @@
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS can_view_llr BOOLEAN DEFAULT false;

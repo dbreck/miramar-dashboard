@@ -16,6 +16,7 @@ export interface Profile {
   full_name: string | null;
   role: "admin" | "viewer";
   can_reconcile: boolean;
+  can_view_llr: boolean;
 }
 
 interface AuthContextType {
@@ -77,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const supabase = createClient();
     const { data } = await supabase
       .from("profiles")
-      .select("id, email, full_name, role, can_reconcile")
+      .select("id, email, full_name, role, can_reconcile, can_view_llr")
       .eq("id", userId)
       .single();
 

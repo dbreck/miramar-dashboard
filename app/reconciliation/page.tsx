@@ -50,6 +50,9 @@ interface ReconContact {
   matchMethod: 'email' | 'phone' | 'name' | 'none';
   warnings: string[];
   sparkEmail: string;
+  callrailZip: string;
+  callrailHowHeard: string;
+  callrailComments: string;
 }
 
 interface SourceStats {
@@ -130,7 +133,7 @@ type FilterView = 'all' | 'missing' | 'matched' | 'utm-gaps';
 export default function ReconciliationPage() {
   const router = useRouter();
   const { branded } = useBranding();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
   const [reportsOpen, setReportsOpen] = useState(false);
   const reportsRef = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<ReconData | null>(null);
@@ -264,6 +267,9 @@ export default function ReconciliationPage() {
         utmSource: c.callrailUtmSource,
         utmMedium: c.callrailUtmMedium,
         utmCampaign: c.callrailUtmCampaign,
+        zip: c.callrailZip,
+        howHeard: c.callrailHowHeard,
+        comments: c.callrailComments,
       }));
 
     try {
@@ -383,15 +389,17 @@ export default function ReconciliationPage() {
                 </button>
                 {reportsOpen && (
                   <div className="absolute right-0 top-full mt-2 w-52 bg-gray-800 rounded-lg ring-1 ring-gray-700 shadow-xl z-50 py-1">
-                    <a
-                      href="/api/lost-leads-alltime"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
-                    >
-                      <FileSearch className="w-3.5 h-3.5" />
-                      Lost Leads Report
-                    </a>
+                    {(isAdmin || profile?.can_view_llr) && (
+                      <a
+                        href="/api/lost-leads-alltime"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                      >
+                        <FileSearch className="w-3.5 h-3.5" />
+                        Lost Leads Report
+                      </a>
+                    )}
                     <a
                       href="/api/contact-comparison"
                       target="_blank"
@@ -966,6 +974,13 @@ function ContactRow({ contact: c, expanded, onToggle, selected, onSelect, utmSel
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <Field label="Source" value={c.callrailSource} />
                 <Field label="Submitted" value={formatDateTime(c.submittedAt)} />
+                <Field label="Zip" value={c.callrailZip} />
+                <Field label="How heard" value={c.callrailHowHeard} />
+                {c.callrailComments && (
+                  <div className="col-span-2">
+                    <Field label="Comments" value={c.callrailComments} />
+                  </div>
+                )}
                 <Field label="utm_source" value={c.callrailUtmSource} mono />
                 <Field label="utm_medium" value={c.callrailUtmMedium} mono />
                 <Field label="utm_campaign" value={c.callrailUtmCampaign} mono />
