@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const contacts: PushContact[] = body.contacts || [];
+    const recaptchaToken: string = body.recaptchaToken || '';
 
     if (contacts.length === 0) {
       return NextResponse.json({ error: 'No contacts provided' }, { status: 400 });
@@ -110,6 +111,11 @@ export async function POST(request: NextRequest) {
             if (c.utmCampaign && c.utmCampaign !== '(none)') {
               formData.set('contact[custom_fields_attributes][22410][value]', c.utmCampaign);
               formData.set('contact[custom_fields_attributes][22410][template_id]', '22410');
+            }
+
+            // reCAPTCHA token (generated in admin's browser)
+            if (recaptchaToken) {
+              formData.set('g-recaptcha-response', recaptchaToken);
             }
 
             // Redirects (for success detection)
