@@ -468,8 +468,12 @@ interface User {
 - `app/api/auth/login/route.ts` — Email+password or password-only login
 
 **Roles & Permissions:**
-- **Admin** — Full access including `/admin/users`, always has reconcile access
-- **Viewer** — Dashboard only, no admin routes, reconcile access via checkbox
+- **Admin** — Full access including `/admin/users`, always has reconcile + LLR access
+- **Viewer** — Dashboard only, no admin routes, reconcile access via checkbox, LLR access via checkbox
+
+**Supabase `profiles` table permissions columns:**
+- `can_reconcile` — boolean, controls access to `/reconciliation`
+- `can_view_llr` — boolean (added 2026-04-13), controls access to Lost Leads Report (`/api/lost-leads-alltime`). Admins always have access. LLR link in reports dropdown hidden if no permission.
 
 **Critical Vercel Gotchas:**
 1. Middleware runs in **Edge Runtime** — `crypto.createHmac` is NOT available. Use `atob`/`btoa` only.
@@ -527,7 +531,9 @@ Cross-referencing CallRail (all-time, 71 Mira Mar form submissions) against Spar
 - Google Ads: 44% drop rate (4 of 9)
 - Direct: 8% drop rate (3 of 36)
 
-**Root cause:** The Spark contact form (`~/Sites/miramarsarasota/.../salient-child/partials/spark-contact-form.php`) POSTs directly to `https://spark.re/.../register/inquire-form`. Meta in-app browsers interfere with cross-origin POST, cookies, JS execution, and/or reCAPTCHA — killing submissions before they reach Spark.
+**Root cause (revised 2026-04-10):** The custom form JS (`spark-contact-form.js`) had bugs that caused silent failures in certain browsers. Originally blamed on cross-origin POST issues with Meta in-app browsers, but after switching back to Spark's vanilla form embed, submissions are NOT being dropped — even from Meta in-app browsers. The custom JS was the problem, not the browser environment.
+
+**Current status (2026-04-10):** Custom form and relay RETIRED. Now using Spark's native/vanilla form embed. No drops observed since the switch.
 
 ### CallRail Setup
 
@@ -552,9 +558,9 @@ Cross-referencing CallRail (all-time, 71 Mira Mar form submissions) against Spar
 - CallRail tracks 3 sites: miramarsarasota.com (71), residences400central.com (24), reflectionstpete.com (1)
 - All-time analysis CSV saved to `data/callrail-all-time-forms.csv`
 
-### Form Relay Fix (2026-03-24) — DEPLOYED TO PRODUCTION
+### Form Relay Fix (2026-03-24) — RETIRED 2026-04-10
 
-The cross-origin POST problem has been **fixed** with a server-side relay:
+The server-side relay has been **retired** in favor of Spark's vanilla form embed. Forms are no longer dropping. The relay code remains on the server but is no longer active. Historical reference below:
 - **File:** `~/Sites/miramarsarasota/.../salient-child/includes/spark-form-relay.php`
 - All 3 forms now POST same-origin to `admin-post.php`, which relays server-side to Spark via `wp_remote_post()`
 - UTM cookie fallback: server reads `miramar_utm_data` cookie when JS fails to populate UTM fields
@@ -599,25 +605,40 @@ Real-time CallRail vs Spark cross-reference at `/reconciliation`. Accessible via
 - Date range presets (7d/14d/30d/60d/90d/All) + custom range
 - Summary cards: total, in Spark, missing, UTM gaps
 - Drop rate by source visualization
-- Contact list with filter tabs (All/Missing/Matched/UTM Gaps)
+- Contact list with filter tabs (All/Missing/Matched/Meta Gaps/Dismissed)
 - Expandable rows showing side-by-side CallRail data vs Spark status
 - **Smart matching (3-tier):** email → phone number → first+last name
 - **Email typo detection:** `.com.com`, `.ne`→`.net`, `.co`→`.com`, double `@`
-- **Push to Spark:** Select all / individual checkboxes → create contacts via Spark API with marketing source + UTM fields
+- **Push to Spark (2026-04-13):** POSTs form-encoded data to Spark registration form URL (not API), triggering auto-assignment, ratings, and auto-reply emails. Includes reCAPTCHA token generated in admin's browser.
+- **Full form data (2026-04-13):** Displays zip, "how did you hear about us", comments, broker/resident type, and brokerage from CallRail form_data
+- **Agent detection (2026-04-13):** Extracts broker/agent flag from CallRail. Shows "Push as Agent/Broker" checkbox (pre-checked if CallRail says agent). Sends `agent=true` in form POST.
+- **Dismiss/Restore (2026-04-13):** Select missing contacts → Dismiss to hide from Missing tab. Persisted in localStorage. Dismissed tab appears with Restore option.
 - Warning flags on contacts with typo emails or non-email matches
 
 **Key files:**
 - `app/reconciliation/page.tsx` — UI
 - `app/api/reconciliation/live/route.ts` — Smart matching API
-- `app/api/reconciliation/push/route.ts` — Push contacts to Spark API (maxDuration=60s)
+- `app/api/reconciliation/push/route.ts` — Push contacts via Spark form URL POST (maxDuration=60s)
 - `app/api/reconciliation/push-utm/route.ts` — Push UTM fields to existing contacts (maxDuration=60s)
 - `lib/push-logger.ts` — Audit logging for all push actions → `data/push-log.jsonl`
 
-**Push UTM Feature (2026-03-26):**
+**Push via Form URL (2026-04-13):**
+- Push route now POSTs form-encoded data to `https://spark.re/mira-mar-acquisitions-company-llc/mira-mar/register/inquire-form`
+- This triggers Spark's form-level automations: auto-assignment (round-robin), default rating, auto-reply email
+- **reCAPTCHA passthrough:** Admin's browser generates a reCAPTCHA v3 token via `grecaptcha.execute()`, sent through push API and included as `g-recaptcha-response` in the form POST
+- **reCAPTCHA domain setup:** Site key `6LfqnOErAAAAALcWX6q1VKVJ4zvvS5XxsCNPzuWu` must have both `miramarsarasota.com` AND the dashboard domain(s) in Google reCAPTCHA admin console
+- **Success detection:** `fetch()` with `redirect: 'manual'`, check Location header for `thank-you` (success) vs `form-error` (failure)
+- **Agent flag:** Sends `agent=true/false` and `contact[brokerage_name]` for broker detection
+- **Form fields sent:** first_name, last_name, email, phone, postcode, comments, answers[24470][answers] (how heard), agent, brokerage_name, source, UTM custom_fields_attributes (22408/22409/22410), redirect_success/error
+- **Important:** Spark's reCAPTCHA must stay ON (form setting) — it's the only thing blocking spam bots. Our push works because the admin's browser generates a valid token.
+- **Why not API?** `POST /v2/contacts` doesn't trigger auto-assignment or other form-level automations. Round-robin state is internal to Spark.
+
+**Push UTM Feature (2026-03-26, updated 2026-04-09):**
 - UTM Gaps tab shows contacts in Spark with missing UTM data that CallRail has
 - Select all / individual checkboxes (amber-colored) to push UTM fields
-- Uses PUT to `https://api.spark.re/v2/contacts/{id}` with `custom_field_values`
+- Uses PUT to `https://api.spark.re/v2/contacts/{id}` with `custom_field_values` AND `marketing_source`
 - Both push endpoints have `maxDuration = 60` to avoid Vercel timeouts on large batches
+- **marketing_source push (2026-04-09):** Now sends CallRail source (e.g. "Facebook Organic") as `marketing_source` alongside UTM custom fields. Previously failed with "No UTM values to push" when contact had a source but no UTM params. Frontend also updated to pass `callrailSource` to the endpoint.
 
 **Push Audit Logging (2026-03-26):**
 - All push actions (create + UTM update) logged to `data/push-log.jsonl`
@@ -629,17 +650,15 @@ Real-time CallRail vs Spark cross-reference at `/reconciliation`. Accessible via
 
 ### Remaining Work
 
-1. ~~**Recover missing leads**~~ **DONE (2026-03-24)** — All missing contacts pushed to Spark via API and dashboard Push feature. Marketing source + UTM custom fields populated.
-2. **Monitor UTM cookie logging** — `utm-tracker.js` now tags Clarity sessions with `utm_cookie` (set/failed/exists/no_utms) and `utm_browser` (facebook/instagram/chrome/safari/etc). Also logs to WordPress JSONL at `salient-child/utm-cookie-log.jsonl`. Deployed 2026-03-26. Check after a few days of traffic to diagnose Direct attribution loss.
-3. **Monitor relay effectiveness** — Use reconciliation dashboard to verify Meta in-app browser submissions now reach Spark
-4. **Remove debug logging** from relay once stable (spark-relay-debug.log on production)
-5. **Clean up 3 test contacts** in Spark (test-import-delete-me@, test-utm-delete-me@, test-fullutm-delete-me@example.com)
-6. **Fix double-submit root cause** — dedup guard catches it but two requests still fire. Need to fix the inline reCAPTCHA script to prevent the second submit
-7. **Spark API writes WORK** — Direct HTTP POST to `https://api.spark.re/v2/contacts` works with our key (Bearer token). The Spark MCP tool (`mcp__spark-re__create_update_contact`) fails due to MCP tool limitations, NOT the API key. Always use direct `curl`/`fetch` for writes. Supports `marketing_source`, `custom_field_values` (UTM fields: 22408=utm_source, 22409=utm_medium, 22410=utm_campaign), and all standard fields. See `/sparkre-crm-api` skill for full POST body reference.
-8. **Spark API does NOT support backdating** — `created_at` cannot be set on POST/PUT. Contacts pushed via API always get current timestamp.
-9. **Spark workshop endpoint** — intermittently returns 500 errors. Array encoding fix resolved the relay-caused 500s, but original pre-relay failures suggest deeper Spark-side issues
+1. ~~**Recover missing leads**~~ **DONE (2026-03-24)** — All 55 missing contacts pushed to Spark. Marketing source + UTM custom fields populated.
+2. **Monitor vanilla form** — Switched from custom form + relay to Spark's native embed ~2026-04-10. Use reconciliation dashboard to confirm zero drops continue.
+4. ~~**Monitor relay effectiveness**~~ **N/A** — Relay retired, vanilla form in use.
+5. **Clean up relay artifacts on production** — `spark-relay-debug.log`, `spark-relay-log.jsonl` on Flywheel. Relay PHP files can stay (inactive).
+6. **Clean up 3 test contacts** in Spark (test-import-delete-me@, test-utm-delete-me@, test-fullutm-delete-me@example.com)
+7. **Client call with Spark** — Summary doc at `drafts/lost-leads-summary.md`. Frames issue as custom JS failure, all 55 leads recovered, now using vanilla Spark form.
+8. **Spark API writes WORK** — Direct HTTP POST to `https://api.spark.re/v2/contacts` works with our key (Bearer token). The Spark MCP tool (`mcp__spark-re__create_update_contact`) fails due to MCP tool limitations, NOT the API key. Always use direct `curl`/`fetch` for writes. Supports `marketing_source`, `custom_field_values` (UTM fields: 22408=utm_source, 22409=utm_medium, 22410=utm_campaign), and all standard fields. See `/sparkre-crm-api` skill for full POST body reference.
+9. **Spark API does NOT support backdating** — `created_at` cannot be set on POST/PUT. Contacts pushed via API always get current timestamp.
 10. **Verify Vercel plan supports maxDuration=60** — If on hobby plan (10s max), push-utm will still fail for large batches. Would need frontend-side chunking.
-11. **Client email drafts** — `drafts/client-response-lost-leads.md` (answers 3 questions about dates, UTM, team assignment) and `drafts/client-response-extra-contacts.md` (explains the 16 extra contacts from wider date range)
 
 ### UTM Cookie Diagnostics (2026-03-26) — DEPLOYED TO PRODUCTION
 
@@ -666,16 +685,16 @@ Lightweight logging to diagnose whether paid ad visitors lose UTM cookies before
 
 ### Reconciliation Page Reports (2026-03-26)
 
-The reconciliation page header has 4 report buttons:
+The reconciliation page header has 4 reports in an **admin-only dropdown** (FileBarChart icon, visible only to `isAdmin` users via `useAuth()`). Lost Leads Report requires separate `can_view_llr` permission (admin-only by default):
 
-| Button | Route | Description |
+| Report | Route | Description |
 |--------|-------|-------------|
-| **Lost Leads Report** | `/api/lost-leads-report` | Visual investigation: 32 leads from the original spreadsheet, with timeline + error codes |
+| **Lost Leads Report** | `/api/lost-leads-alltime` | 55 leads lost over 3 months (Dec 26 2025 - Mar 26 2026) |
 | **Contact Comparison** | `/api/contact-comparison` | Side-by-side CallRail vs Spark for 33 contacts with dates, UTMs, lag |
 | **UTM Cookies** | `/api/utm-cookie-log` | Live UTM cookie diagnostics from WordPress (sync from WP REST) |
 | **Relay Health** | `/api/spark-relay-log` | Form relay success/failure monitoring (sync from WP REST) |
 
-**All-time report** (not linked from UI): `/api/lost-leads-alltime` — 55 leads lost over 3 months (Dec 26 2025 - Mar 26 2026)
+**Default date range**: 7 days (changed from 30d on 2026-04-09)
 
 ### Relay Health Monitoring (2026-03-26) — DEPLOYED TO PRODUCTION
 
@@ -737,4 +756,4 @@ Full cross-reference of CallRail API (603 all-time Mira Mar submissions, back to
 
 ---
 
-**Last Updated**: 2026-03-26 (Relay monitoring, all-time lost leads report, contact comparison, UTM cookie dashboard, client reports)
+**Last Updated**: 2026-04-13 (Push via form URL with reCAPTCHA passthrough; full form data enrichment; LLR access control; agent detection; dismiss/restore; Meta Gaps rename)
