@@ -52,6 +52,8 @@ interface ReconContact {
   callrailZip: string;
   callrailHowHeard: string;
   callrailComments: string;
+  callrailIsAgent: boolean;
+  callrailBrokerage: string;
 }
 
 interface SourceStats {
@@ -151,17 +153,21 @@ function extractUtmFromUrl(url: string): { utm_source: string; utm_medium: strin
 
 // --- Form Data Extraction ---
 
-function extractFormFields(formData: Record<string, any> | undefined): { zip: string; howHeard: string; comments: string } {
-  if (!formData) return { zip: '', howHeard: '', comments: '' };
+function extractFormFields(formData: Record<string, any> | undefined): { zip: string; howHeard: string; comments: string; isAgent: boolean; brokerage: string } {
+  if (!formData) return { zip: '', howHeard: '', comments: '', isAgent: false, brokerage: '' };
 
-  let zip = '', howHeard = '', comments = '';
+  let zip = '', howHeard = '', comments = '', brokerage = '';
+  let isAgent = false;
   for (const [key, val] of Object.entries(formData)) {
     const k = key.toLowerCase();
-    if (k.includes('zip') || k.includes('postal') || k.includes('postcode')) zip = String(val || '');
-    else if (k.includes('hear') || k.includes('how_did') || k.includes('referral_source')) howHeard = String(val || '');
-    else if (k.includes('comment') || k.includes('question') || k.includes('message') || k.includes('notes')) comments = String(val || '');
+    const v = String(val || '');
+    if (k === 'agent') isAgent = v === 'true';
+    else if (k.includes('brokerage') || k.includes('employer')) brokerage = v;
+    else if (k.includes('zip') || k.includes('postal') || k.includes('postcode')) zip = v;
+    else if (k.includes('hear') || k.includes('how_did') || k.includes('referral_source')) howHeard = v;
+    else if (k.includes('comment') || k.includes('question') || k.includes('message') || k.includes('notes')) comments = v;
   }
-  return { zip, howHeard, comments };
+  return { zip, howHeard, comments, isAgent, brokerage };
 }
 
 // --- Email Typo Detection ---
@@ -400,6 +406,8 @@ export async function GET(request: NextRequest) {
             callrailZip: formFields.zip,
             callrailHowHeard: formFields.howHeard,
             callrailComments: formFields.comments,
+            callrailIsAgent: formFields.isAgent,
+            callrailBrokerage: formFields.brokerage,
           } as ReconContact;
         })
       );

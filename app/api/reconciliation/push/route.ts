@@ -1,8 +1,8 @@
 /**
- * Push missing contacts to Spark
+ * Push missing contacts to Spark via form submission
  *
  * POST /api/reconciliation/push
- * Body: { contacts: [{ name, email, phone, marketingSource, utmSource, utmMedium, utmCampaign }] }
+ * Body: { contacts: [{ name, email, phone, callrailSource, utmSource, utmMedium, utmCampaign, zip, howHeard, comments, isAgent, brokerage }] }
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,13 +10,7 @@ import { logPush } from '@/lib/push-logger';
 
 export const maxDuration = 60;
 
-const SPARK_API_KEY = process.env.SPARK_API_KEY!;
-
-const UTM_FIELD_IDS = {
-  utm_source: 22408,
-  utm_medium: 22409,
-  utm_campaign: 22410,
-};
+const SPARK_FORM_URL = 'https://spark.re/mira-mar-acquisitions-company-llc/mira-mar/register/inquire-form';
 
 // Map CallRail source names to Spark marketing_source values
 function mapMarketingSource(callrailSource: string): string {
@@ -41,6 +35,8 @@ interface PushContact {
   zip: string;
   howHeard: string;
   comments: string;
+  isAgent: boolean;
+  brokerage: string;
 }
 
 interface PushResult {
@@ -77,86 +73,75 @@ export async function POST(request: NextRequest) {
             const firstName = nameParts[0] || '';
             const lastName = nameParts.slice(1).join(' ') || '';
 
-            // Build request body
-            const sparkBody: Record<string, any> = {
-              first_name: firstName,
-              last_name: lastName,
-              email: c.email,
-              phone: c.phone,
-            };
+            // Build form-encoded body
+            const formData = new URLSearchParams();
+            formData.set('contact[first_name]', firstName);
+            formData.set('contact[last_name]', lastName);
+            formData.set('contact[email]', c.email);
+            formData.set('contact[phone]', c.phone);
 
-            // Add postcode if available
-            if (c.zip) {
-              sparkBody.postcode = c.zip;
+            if (c.zip) formData.set('contact[postcode]', c.zip);
+            if (c.comments) formData.set('contact[comments]', c.comments);
+            if (c.howHeard) formData.set('answers[24470][answers]', c.howHeard);
+
+            // Agent flag
+            formData.set('agent', c.isAgent ? 'true' : 'false');
+            if (c.isAgent && c.brokerage) {
+              formData.set('contact[brokerage_name]', c.brokerage);
             }
 
-            // Add marketing source
+            // Marketing source
             const marketingSource = mapMarketingSource(c.callrailSource);
             if (marketingSource) {
-              sparkBody.marketing_source = marketingSource;
+              formData.set('source', marketingSource);
+            } else {
+              formData.set('source', 'Reconciliation Import');
             }
 
-            // Add UTM custom fields if present
-            const customFields: { custom_field_id: number; value: string }[] = [];
+            // UTM custom fields
             if (c.utmSource && c.utmSource !== '(direct)' && c.utmSource !== '(none)') {
-              customFields.push({ custom_field_id: UTM_FIELD_IDS.utm_source, value: c.utmSource });
+              formData.set('contact[custom_fields_attributes][22408][value]', c.utmSource);
+              formData.set('contact[custom_fields_attributes][22408][template_id]', '22408');
             }
             if (c.utmMedium && c.utmMedium !== '(none)') {
-              customFields.push({ custom_field_id: UTM_FIELD_IDS.utm_medium, value: c.utmMedium });
+              formData.set('contact[custom_fields_attributes][22409][value]', c.utmMedium);
+              formData.set('contact[custom_fields_attributes][22409][template_id]', '22409');
             }
             if (c.utmCampaign && c.utmCampaign !== '(none)') {
-              customFields.push({ custom_field_id: UTM_FIELD_IDS.utm_campaign, value: c.utmCampaign });
-            }
-            if (customFields.length > 0) {
-              sparkBody.custom_field_values = customFields;
+              formData.set('contact[custom_fields_attributes][22410][value]', c.utmCampaign);
+              formData.set('contact[custom_fields_attributes][22410][template_id]', '22410');
             }
 
-            const res = await fetch('https://api.spark.re/v2/contacts', {
+            // Redirects (for success detection)
+            formData.set('redirect_success', 'https://miramarsarasota.com/thank-you');
+            formData.set('redirect_error', 'https://miramarsarasota.com/form-error');
+
+            const res = await fetch(SPARK_FORM_URL, {
               method: 'POST',
               headers: {
-                Authorization: `Token token=${SPARK_API_KEY}`,
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
               },
-              body: JSON.stringify(sparkBody),
+              body: formData.toString(),
+              redirect: 'manual', // Don't follow redirects — check Location header
             });
 
-            if (!res.ok) {
-              const errText = await res.text();
+            // Spark returns 302 redirect on both success and failure
+            const location = res.headers.get('location') || '';
+            const isSuccess = res.status === 302 && location.includes('thank-you');
+
+            if (!isSuccess) {
               return {
                 email: c.email,
                 name: c.name,
                 success: false,
-                error: `Spark API ${res.status}: ${errText}`,
+                error: `Spark form ${res.status}: redirected to ${location || '(no location)'}`,
               };
-            }
-
-            const data = await res.json();
-
-            // Add note with form details if available
-            if (data.id && (c.howHeard || c.comments)) {
-              const noteLines: string[] = [];
-              if (c.howHeard) noteLines.push(`How did you hear about us: ${c.howHeard}`);
-              if (c.comments) noteLines.push(`Comments: ${c.comments}`);
-
-              try {
-                await fetch(`https://api.spark.re/v2/contacts/${data.id}/notes`, {
-                  method: 'POST',
-                  headers: {
-                    Authorization: `Token token=${SPARK_API_KEY}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({ body: noteLines.join('\n') }),
-                });
-              } catch {
-                // Non-critical — don't fail the push if note creation fails
-              }
             }
 
             return {
               email: c.email,
               name: c.name,
               success: true,
-              sparkId: data.id,
             };
           } catch (err: any) {
             return {
@@ -196,6 +181,8 @@ export async function POST(request: NextRequest) {
         zip: contacts[i]?.zip,
         howHeard: contacts[i]?.howHeard,
         comments: contacts[i]?.comments,
+        isAgent: contacts[i]?.isAgent,
+        brokerage: contacts[i]?.brokerage,
       })),
       summary: { total: results.length, succeeded, failed },
     });

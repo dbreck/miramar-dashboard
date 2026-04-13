@@ -53,6 +53,8 @@ interface ReconContact {
   callrailZip: string;
   callrailHowHeard: string;
   callrailComments: string;
+  callrailIsAgent: boolean;
+  callrailBrokerage: string;
 }
 
 interface SourceStats {
@@ -154,6 +156,7 @@ export default function ReconciliationPage() {
   const [selectedUtmEmails, setSelectedUtmEmails] = useState<Set<string>>(new Set());
   const [pushingUtm, setPushingUtm] = useState(false);
   const [pushUtmResults, setPushUtmResults] = useState<{ succeeded: number; failed: number; results: any[] } | null>(null);
+  const [agentOverrides, setAgentOverrides] = useState<Map<string, boolean>>(new Map());
 
   // Close reports dropdown on outside click
   useEffect(() => {
@@ -270,6 +273,8 @@ export default function ReconciliationPage() {
         zip: c.callrailZip,
         howHeard: c.callrailHowHeard,
         comments: c.callrailComments,
+        isAgent: agentOverrides.has(c.email) ? agentOverrides.get(c.email)! : c.callrailIsAgent,
+        brokerage: c.callrailBrokerage,
       }));
 
     try {
@@ -783,6 +788,8 @@ export default function ReconciliationPage() {
                     utmSelected={selectedUtmEmails.has(c.email)}
                     onUtmSelect={() => toggleUtmSelect(c.email)}
                     showUtmCheckbox={filterView === 'utm-gaps' || selectedUtmEmails.size > 0}
+                    agentOverride={agentOverrides.get(c.email)}
+                    onAgentToggle={(val: boolean) => setAgentOverrides(prev => { const next = new Map(prev); next.set(c.email, val); return next; })}
                   />
                 ))}
               </div>
@@ -848,11 +855,13 @@ function SortHeader({
   );
 }
 
-function ContactRow({ contact: c, expanded, onToggle, selected, onSelect, utmSelected, onUtmSelect, showUtmCheckbox }: {
+function ContactRow({ contact: c, expanded, onToggle, selected, onSelect, utmSelected, onUtmSelect, showUtmCheckbox, agentOverride, onAgentToggle }: {
   contact: ReconContact; expanded: boolean; onToggle: () => void;
   selected: boolean; onSelect: () => void;
   utmSelected: boolean; onUtmSelect: () => void;
   showUtmCheckbox: boolean;
+  agentOverride?: boolean;
+  onAgentToggle: (val: boolean) => void;
 }) {
   const isUtmGapSelectable = c.hasUtmGap && c.inSpark && c.sparkContactId;
   const showCheckbox = !c.inSpark || (showUtmCheckbox && isUtmGapSelectable);
@@ -976,9 +985,24 @@ function ContactRow({ contact: c, expanded, onToggle, selected, onSelect, utmSel
                 <Field label="Submitted" value={formatDateTime(c.submittedAt)} />
                 <Field label="Zip" value={c.callrailZip} />
                 <Field label="How heard" value={c.callrailHowHeard} />
+                <Field label="Type" value={c.callrailIsAgent ? `Broker${c.callrailBrokerage ? ` (${c.callrailBrokerage})` : ''}` : 'Future Resident'} highlight={c.callrailIsAgent} />
                 {c.callrailComments && (
                   <div className="col-span-2">
                     <Field label="Comments" value={c.callrailComments} />
+                  </div>
+                )}
+                {!c.inSpark && (
+                  <div className="col-span-2 flex items-center gap-2 pt-1">
+                    <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={agentOverride !== undefined ? agentOverride : c.callrailIsAgent}
+                        onChange={e => { e.stopPropagation(); onAgentToggle(e.target.checked); }}
+                        onClick={e => e.stopPropagation()}
+                        className="w-3.5 h-3.5 rounded accent-purple-500 cursor-pointer"
+                      />
+                      Push as Agent/Broker
+                    </label>
                   </div>
                 )}
                 <Field label="utm_source" value={c.callrailUtmSource} mono />
