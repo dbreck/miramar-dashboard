@@ -540,7 +540,7 @@ export default function ReconciliationPage() {
                 />
               </button>
               <SummaryCard
-                label="UTM Gaps"
+                label="Meta Gaps"
                 value={data.summary.utmGaps}
                 sub="paid leads w/o UTM"
                 color={data.summary.utmGaps > 0 ? 'text-amber-400' : 'text-emerald-400'}
@@ -607,7 +607,7 @@ export default function ReconciliationPage() {
                     { key: 'all', label: 'All', count: data.contacts.length },
                     { key: 'missing', label: 'Missing', count: data.summary.missing },
                     { key: 'matched', label: 'Matched', count: data.summary.inSpark },
-                    { key: 'utm-gaps', label: 'UTM Gaps', count: data.summary.utmGaps },
+                    { key: 'utm-gaps', label: 'Meta Gaps', count: data.summary.utmGaps },
                   ] as { key: FilterView; label: string; count: number }[]).map(f => (
                     <button
                       key={f.key}
@@ -792,7 +792,7 @@ export default function ReconciliationPage() {
                   <CheckCircle2 className="w-10 h-10 text-emerald-500/30 mx-auto mb-3" />
                   <p className="text-gray-500 text-sm">
                     {filterView === 'missing' ? 'No missing contacts!' :
-                     filterView === 'utm-gaps' ? 'No UTM gaps detected.' :
+                     filterView === 'utm-gaps' ? 'No Meta gaps detected.' :
                      'No contacts match your search.'}
                   </p>
                 </div>
