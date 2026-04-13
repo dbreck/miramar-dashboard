@@ -168,7 +168,7 @@ function sourceBadgeClasses(source: string): string {
 
 // --- Filter Type ---
 
-type FilterView = 'all' | 'missing' | 'matched' | 'utm-gaps';
+type FilterView = 'all' | 'missing' | 'matched' | 'utm-gaps' | 'dismissed';
 
 // --- Component ---
 
@@ -198,6 +198,32 @@ export default function ReconciliationPage() {
   const [pushingUtm, setPushingUtm] = useState(false);
   const [pushUtmResults, setPushUtmResults] = useState<{ succeeded: number; failed: number; results: any[] } | null>(null);
   const [agentOverrides, setAgentOverrides] = useState<Map<string, boolean>>(new Map());
+  const [dismissedEmails, setDismissedEmails] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const stored = localStorage.getItem('recon-dismissed');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const dismissContacts = (emails: string[]) => {
+    setDismissedEmails(prev => {
+      const next = new Set(prev);
+      emails.forEach(e => next.add(e));
+      localStorage.setItem('recon-dismissed', JSON.stringify([...next]));
+      return next;
+    });
+    setSelectedEmails(new Set());
+  };
+
+  const undismissContact = (email: string) => {
+    setDismissedEmails(prev => {
+      const next = new Set(prev);
+      next.delete(email);
+      localStorage.setItem('recon-dismissed', JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   // Close reports dropdown on outside click
   useEffect(() => {
@@ -256,10 +282,11 @@ export default function ReconciliationPage() {
   // Filter and sort contacts
   const filteredContacts = (data?.contacts || [])
     .filter(c => {
-      if (filterView === 'missing') return !c.inSpark;
+      if (filterView === 'missing') return !c.inSpark && !dismissedEmails.has(c.email);
       if (filterView === 'matched') return c.inSpark;
       if (filterView === 'utm-gaps') return c.hasUtmGap;
-      return true;
+      if (filterView === 'dismissed') return !c.inSpark && dismissedEmails.has(c.email);
+      return !dismissedEmails.has(c.email) || c.inSpark;
     })
     .filter(c => {
       if (!searchQuery) return true;
@@ -275,7 +302,8 @@ export default function ReconciliationPage() {
     });
 
   // Selection helpers
-  const missingContacts = (data?.contacts || []).filter(c => !c.inSpark);
+  const missingContacts = (data?.contacts || []).filter(c => !c.inSpark && !dismissedEmails.has(c.email));
+  const dismissedCount = (data?.contacts || []).filter(c => !c.inSpark && dismissedEmails.has(c.email)).length;
   const visibleMissing = filteredContacts.filter(c => !c.inSpark);
   const allVisibleMissingSelected = visibleMissing.length > 0 && visibleMissing.every(c => selectedEmails.has(c.email));
 
@@ -658,10 +686,11 @@ export default function ReconciliationPage() {
                 {/* Filter Tabs */}
                 <div className="flex items-center bg-gray-800/50 rounded-lg p-0.5 ring-1 ring-gray-700/50">
                   {([
-                    { key: 'all', label: 'All', count: data.contacts.length },
-                    { key: 'missing', label: 'Missing', count: data.summary.missing },
+                    { key: 'all', label: 'All', count: data.contacts.length - dismissedCount },
+                    { key: 'missing', label: 'Missing', count: data.summary.missing - dismissedCount },
                     { key: 'matched', label: 'Matched', count: data.summary.inSpark },
                     { key: 'utm-gaps', label: 'Meta Gaps', count: data.summary.utmGaps },
+                    ...(dismissedCount > 0 ? [{ key: 'dismissed' as FilterView, label: 'Dismissed', count: dismissedCount }] : []),
                   ] as { key: FilterView; label: string; count: number }[]).map(f => (
                     <button
                       key={f.key}
@@ -712,18 +741,27 @@ export default function ReconciliationPage() {
                     </button>
 
                     {selectedEmails.size > 0 && (
-                      <button
-                        onClick={pushToSpark}
-                        disabled={pushing}
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {pushing ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Upload className="w-3 h-3" />
-                        )}
-                        {pushing ? 'Pushing...' : `Push ${selectedEmails.size} to Spark`}
-                      </button>
+                      <>
+                        <button
+                          onClick={pushToSpark}
+                          disabled={pushing}
+                          className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {pushing ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Upload className="w-3 h-3" />
+                          )}
+                          {pushing ? 'Pushing...' : `Push ${selectedEmails.size} to Spark`}
+                        </button>
+                        <button
+                          onClick={() => dismissContacts([...selectedEmails])}
+                          className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-gray-700 text-gray-300 hover:bg-gray-600 transition-all"
+                        >
+                          <XCircle className="w-3 h-3" />
+                          Dismiss {selectedEmails.size}
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
@@ -839,6 +877,8 @@ export default function ReconciliationPage() {
                     showUtmCheckbox={filterView === 'utm-gaps' || selectedUtmEmails.size > 0}
                     agentOverride={agentOverrides.get(c.email)}
                     onAgentToggle={(val: boolean) => setAgentOverrides(prev => { const next = new Map(prev); next.set(c.email, val); return next; })}
+                    isDismissed={dismissedEmails.has(c.email)}
+                    onUndismiss={() => undismissContact(c.email)}
                   />
                 ))}
               </div>
@@ -849,6 +889,7 @@ export default function ReconciliationPage() {
                   <p className="text-gray-500 text-sm">
                     {filterView === 'missing' ? 'No missing contacts!' :
                      filterView === 'utm-gaps' ? 'No Meta gaps detected.' :
+                     filterView === 'dismissed' ? 'No dismissed contacts.' :
                      'No contacts match your search.'}
                   </p>
                 </div>
@@ -904,13 +945,15 @@ function SortHeader({
   );
 }
 
-function ContactRow({ contact: c, expanded, onToggle, selected, onSelect, utmSelected, onUtmSelect, showUtmCheckbox, agentOverride, onAgentToggle }: {
+function ContactRow({ contact: c, expanded, onToggle, selected, onSelect, utmSelected, onUtmSelect, showUtmCheckbox, agentOverride, onAgentToggle, isDismissed, onUndismiss }: {
   contact: ReconContact; expanded: boolean; onToggle: () => void;
   selected: boolean; onSelect: () => void;
   utmSelected: boolean; onUtmSelect: () => void;
   showUtmCheckbox: boolean;
   agentOverride?: boolean;
   onAgentToggle: (val: boolean) => void;
+  isDismissed: boolean;
+  onUndismiss: () => void;
 }) {
   const isUtmGapSelectable = c.hasUtmGap && c.inSpark && c.sparkContactId;
   const showCheckbox = !c.inSpark || (showUtmCheckbox && isUtmGapSelectable);
@@ -922,7 +965,7 @@ function ContactRow({ contact: c, expanded, onToggle, selected, onSelect, utmSel
     <div className="group">
       <div
         className={`w-full grid grid-cols-1 lg:grid-cols-[2rem_1fr_1.2fr_0.8fr_0.8fr_0.6fr_0.5fr] gap-2 lg:gap-4 px-5 py-3.5 text-left hover:bg-gray-800/30 transition-colors cursor-pointer ${
-          selected ? 'bg-blue-500/5' : utmSelected ? 'bg-amber-500/5' : ''
+          isDismissed ? 'opacity-50' : selected ? 'bg-blue-500/5' : utmSelected ? 'bg-amber-500/5' : ''
         }`}
         onClick={onToggle}
       >
@@ -1098,10 +1141,23 @@ function ContactRow({ contact: c, expanded, onToggle, selected, onSelect, utmSel
                 </div>
               ) : (
                 <div className="text-sm space-y-2">
-                  <p className="text-red-400 font-medium">Not found in Spark</p>
-                  <p className="text-gray-500 text-xs">
-                    Likely cause: <span className="text-gray-400">{c.likelyCause}</span>
+                  <p className="text-red-400 font-medium">
+                    {isDismissed ? 'Dismissed' : 'Not found in Spark'}
                   </p>
+                  {!isDismissed && (
+                    <p className="text-gray-500 text-xs">
+                      Likely cause: <span className="text-gray-400">{c.likelyCause}</span>
+                    </p>
+                  )}
+                  {isDismissed && (
+                    <button
+                      onClick={e => { e.stopPropagation(); onUndismiss(); }}
+                      className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors mt-1"
+                    >
+                      <ArrowLeft className="w-3 h-3" />
+                      Restore to Missing
+                    </button>
+                  )}
                 </div>
               )}
 
