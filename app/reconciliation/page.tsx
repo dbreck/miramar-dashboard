@@ -25,6 +25,46 @@ import {
 import { useBranding, BrandLogo } from '@/lib/branding';
 import { useAuth } from '@/lib/auth-provider';
 
+// --- reCAPTCHA ---
+
+const RECAPTCHA_SITE_KEY = '6LfqnOErAAAAALcWX6q1VKVJ4zvvS5XxsCNPzuWu';
+
+declare global {
+  interface Window {
+    grecaptcha: {
+      ready: (cb: () => void) => void;
+      execute: (siteKey: string, options: { action: string }) => Promise<string>;
+    };
+  }
+}
+
+function useRecaptcha() {
+  useEffect(() => {
+    if (document.querySelector(`script[src*="recaptcha"]`)) return;
+    const script = document.createElement('script');
+    script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
+    script.async = true;
+    document.head.appendChild(script);
+  }, []);
+
+  const getToken = useCallback((): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      if (!window.grecaptcha) {
+        reject(new Error('reCAPTCHA not loaded'));
+        return;
+      }
+      window.grecaptcha.ready(() => {
+        window.grecaptcha
+          .execute(RECAPTCHA_SITE_KEY, { action: 'registration' })
+          .then(resolve)
+          .catch(reject);
+      });
+    });
+  }, []);
+
+  return { getToken };
+}
+
 // --- Types ---
 
 interface ReconContact {
@@ -136,6 +176,7 @@ export default function ReconciliationPage() {
   const router = useRouter();
   const { branded } = useBranding();
   const { isAdmin, profile } = useAuth();
+  const { getToken: getRecaptchaToken } = useRecaptcha();
   const [reportsOpen, setReportsOpen] = useState(false);
   const reportsRef = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<ReconData | null>(null);
@@ -278,10 +319,18 @@ export default function ReconciliationPage() {
       }));
 
     try {
+      // Generate reCAPTCHA token in the admin's browser
+      let recaptchaToken = '';
+      try {
+        recaptchaToken = await getRecaptchaToken();
+      } catch {
+        // Continue without token — Spark will reject if reCAPTCHA is required
+      }
+
       const res = await fetch('/api/reconciliation/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contacts: contactsToPush }),
+        body: JSON.stringify({ contacts: contactsToPush, recaptchaToken }),
       });
       const result = await res.json();
       setPushResults({ succeeded: result.summary.succeeded, failed: result.summary.failed, results: result.results });
