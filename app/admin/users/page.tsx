@@ -10,7 +10,7 @@ interface User {
   email: string;
   name: string;
   role: 'admin' | 'viewer';
-  permissions: { reconcile: boolean };
+  permissions: { reconcile: boolean; llr: boolean };
   createdAt: string;
 }
 
@@ -362,6 +362,7 @@ export default function AdminUsersPage() {
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
                   <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reconcile</th>
+                  <th className="text-center px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">LLR</th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Joined</th>
                   <th className="text-right px-6 py-3 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                 </tr>
@@ -432,6 +433,32 @@ export default function AdminUsersPage() {
                                   method: 'PUT',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ id: user.id, permissions: { reconcile: !user.permissions?.reconcile } }),
+                                });
+                                const data = await res.json();
+                                if (!res.ok) throw new Error(data.error);
+                                fetchUsers();
+                              } catch (err: any) {
+                                setError(err.message);
+                              }
+                            }}
+                            className="w-4 h-4 rounded accent-green-600 cursor-pointer"
+                          />
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        {user.role === 'admin' ? (
+                          <input type="checkbox" checked disabled className="w-4 h-4 rounded accent-green-600 cursor-not-allowed opacity-60" title="Admins always have access" />
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={user.permissions?.llr || false}
+                            onChange={async () => {
+                              clearMessages();
+                              try {
+                                const res = await fetch('/api/admin/users', {
+                                  method: 'PUT',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ id: user.id, permissions: { llr: !user.permissions?.llr } }),
                                 });
                                 const data = await res.json();
                                 if (!res.ok) throw new Error(data.error);

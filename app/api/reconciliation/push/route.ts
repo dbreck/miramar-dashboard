@@ -38,6 +38,9 @@ interface PushContact {
   utmSource: string;
   utmMedium: string;
   utmCampaign: string;
+  zip: string;
+  howHeard: string;
+  comments: string;
 }
 
 interface PushResult {
@@ -82,6 +85,11 @@ export async function POST(request: NextRequest) {
               phone: c.phone,
             };
 
+            // Add postcode if available
+            if (c.zip) {
+              sparkBody.postcode = c.zip;
+            }
+
             // Add marketing source
             const marketingSource = mapMarketingSource(c.callrailSource);
             if (marketingSource) {
@@ -123,6 +131,27 @@ export async function POST(request: NextRequest) {
             }
 
             const data = await res.json();
+
+            // Add note with form details if available
+            if (data.id && (c.howHeard || c.comments)) {
+              const noteLines: string[] = [];
+              if (c.howHeard) noteLines.push(`How did you hear about us: ${c.howHeard}`);
+              if (c.comments) noteLines.push(`Comments: ${c.comments}`);
+
+              try {
+                await fetch(`https://api.spark.re/v2/contacts/${data.id}/notes`, {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Token token=${SPARK_API_KEY}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ body: noteLines.join('\n') }),
+                });
+              } catch {
+                // Non-critical — don't fail the push if note creation fails
+              }
+            }
+
             return {
               email: c.email,
               name: c.name,
@@ -164,6 +193,9 @@ export async function POST(request: NextRequest) {
         utmMedium: contacts[i]?.utmMedium,
         utmCampaign: contacts[i]?.utmCampaign,
         callrailSource: contacts[i]?.callrailSource,
+        zip: contacts[i]?.zip,
+        howHeard: contacts[i]?.howHeard,
+        comments: contacts[i]?.comments,
       })),
       summary: { total: results.length, succeeded, failed },
     });

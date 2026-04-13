@@ -59,6 +59,7 @@ export async function GET() {
     role: p.role,
     permissions: {
       reconcile: p.role === "admin" || p.can_reconcile,
+      llr: p.role === "admin" || p.can_view_llr,
     },
     createdAt: p.created_at,
     last_sign_in_at: authUserMap.get(p.id)?.last_sign_in_at ?? null,
@@ -120,6 +121,7 @@ export async function POST(request: Request) {
         full_name: name || "",
         role: role || "viewer",
         can_reconcile: permissions?.reconcile || false,
+        can_view_llr: permissions?.llr || false,
       });
 
     if (profileError) {
@@ -137,6 +139,7 @@ export async function POST(request: Request) {
           role,
           permissions: {
             reconcile: role === "admin" || permissions?.reconcile || false,
+            llr: role === "admin" || permissions?.llr || false,
           },
           createdAt: newUserData.user.created_at,
         },
@@ -175,6 +178,9 @@ export async function PUT(request: Request) {
     if (role !== undefined) profileUpdate.role = role;
     if (permissions?.reconcile !== undefined) {
       profileUpdate.can_reconcile = permissions.reconcile;
+    }
+    if (permissions?.llr !== undefined) {
+      profileUpdate.can_view_llr = permissions.llr;
     }
 
     if (Object.keys(profileUpdate).length > 0) {
@@ -217,6 +223,7 @@ export async function PUT(request: Request) {
         role: profile.role,
         permissions: {
           reconcile: profile.role === "admin" || profile.can_reconcile,
+          llr: profile.role === "admin" || profile.can_view_llr,
         },
         createdAt: profile.created_at,
       },
