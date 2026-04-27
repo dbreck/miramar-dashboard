@@ -22,7 +22,7 @@ import {
   Activity,
   FileBarChart,
 } from 'lucide-react';
-import { useBranding, BrandLogo } from '@/lib/branding';
+import { useBranding } from '@/lib/branding';
 import { useAuth } from '@/lib/auth-provider';
 
 // --- reCAPTCHA ---
@@ -435,27 +435,25 @@ export default function ReconciliationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      {/* Top Bar */}
-      <div className="border-b border-gray-800/80 bg-gray-950/80 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push('/')}
-              className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span className="hidden sm:inline text-sm">Dashboard</span>
-            </button>
-            <div className="h-6 w-px bg-gray-800" />
-            <div className="flex items-center gap-2.5">
-              <BrandLogo size={28} />
-              <h1 className="text-lg font-semibold tracking-tight">Lead Reconciliation</h1>
-            </div>
+    <div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Page Title */}
+        <header className="mb-6 flex items-end justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+              Mira Mar Sarasota
+            </p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-1">
+              Reconcile
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              CallRail × Spark contact reconciliation
+            </p>
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-2">
             {data && (
-              <span className="text-xs text-gray-500 hidden sm:inline">
+              <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline mr-2">
                 Updated {formatDateTime(data.generatedAt)}
               </span>
             )}
@@ -463,20 +461,20 @@ export default function ReconciliationPage() {
               <div className="relative" ref={reportsRef}>
                 <button
                   onClick={() => setReportsOpen(!reportsOpen)}
-                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-all"
-                  title="Reports"
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm transition-all"
+                  title="Operational reports"
                 >
                   <FileBarChart className="w-3.5 h-3.5" />
                   <ChevronDown className={`w-3 h-3 transition-transform ${reportsOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {reportsOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 bg-gray-800 rounded-lg ring-1 ring-gray-700 shadow-xl z-50 py-1">
+                  <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg z-50 py-1">
                     {(isAdmin || profile?.can_view_llr) && (
                       <a
                         href="/api/lost-leads-alltime"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                       >
                         <FileSearch className="w-3.5 h-3.5" />
                         Lost Leads Report
@@ -486,7 +484,7 @@ export default function ReconciliationPage() {
                       href="/api/contact-comparison"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
                       <FileSpreadsheet className="w-3.5 h-3.5" />
                       Contact Comparison
@@ -495,7 +493,7 @@ export default function ReconciliationPage() {
                       href="/api/utm-cookie-log"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
                       <Cookie className="w-3.5 h-3.5" />
                       UTM Cookies
@@ -504,7 +502,7 @@ export default function ReconciliationPage() {
                       href="/api/spark-relay-log"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
                       <Activity className="w-3.5 h-3.5" />
                       Relay Health
@@ -516,16 +514,14 @@ export default function ReconciliationPage() {
             <button
               onClick={() => fetchData()}
               disabled={loading}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-all disabled:opacity-50"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-medium shadow-sm transition-all disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               {loading ? `${elapsedTime}s` : 'Refresh'}
             </button>
           </div>
-        </div>
-      </div>
+        </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Date Controls */}
         <div className="flex flex-wrap items-center gap-3 mb-8">
           <div className="flex items-center bg-gray-900 rounded-xl p-1 ring-1 ring-gray-800">

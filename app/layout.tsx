@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { AuthProvider } from '@/lib/auth-provider';
 import { BrandingProvider } from '@/lib/branding';
 import { ThemeProvider, themeInitScript } from '@/lib/theme';
+import AppShell from '@/components/AppShell';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -32,7 +33,9 @@ export default function RootLayout({
       <body className="antialiased">
         <ThemeProvider>
           <BrandingProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              <AppShell>{children}</AppShell>
+            </AuthProvider>
           </BrandingProvider>
         </ThemeProvider>
       </body>
