@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sun, Moon, LogOut, Info, Filter, GitCompareArrows, Users, RefreshCw } from 'lucide-react';
+import { Sun, Moon, LogOut, Info, Filter, GitCompareArrows, Users, RefreshCw, Settings } from 'lucide-react';
 import { useBranding, BrandLogo } from '@/lib/branding';
+import { useTheme } from '@/lib/theme';
 import DateRangePicker, { DateRange } from './DateRangePicker';
 import FilterPanel from './FilterPanel';
 import { useFilters } from '@/lib/filter-context';
@@ -33,7 +34,8 @@ function formatTimeAgo(timestamp: number): string {
 
 export default function DashboardLayout({ children, activeTab, setActiveTab, dateRange, setDateRange, onRefresh, lastFetchedAt, isCached, isRefreshing }: DashboardLayoutProps) {
   const router = useRouter();
-  const [darkMode, setDarkMode] = useState(true);
+  const { mode, toggleMode } = useTheme();
+  const darkMode = mode === 'dark';
   const [loggingOut, setLoggingOut] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canReconcile, setCanReconcile] = useState(false);
@@ -42,16 +44,6 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
   const { title: brandTitle } = useBranding();
 
   useEffect(() => {
-    const savedMode = localStorage.getItem('darkMode');
-    const isDark = savedMode === null ? true : savedMode === 'true';
-    setDarkMode(isDark);
-
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-
     fetch('/api/auth/me')
       .then(res => res.ok ? res.json() : null)
       .then(data => {
@@ -60,18 +52,6 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
       })
       .catch(() => {});
   }, []);
-
-  const toggleDarkMode = () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-    localStorage.setItem('darkMode', String(newMode));
-
-    if (newMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
 
   const handleLogout = async () => {
     setLoggingOut(true);
@@ -166,7 +146,7 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
                 )}
               </button>
               <button
-                onClick={toggleDarkMode}
+                onClick={toggleMode}
                 className="p-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all cursor-pointer"
                 aria-label="Toggle dark mode"
               >
@@ -175,6 +155,14 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
                 ) : (
                   <Moon className="w-5 h-5 text-gray-600" />
                 )}
+              </button>
+              <button
+                onClick={() => router.push('/settings')}
+                className="p-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all text-gray-700 dark:text-gray-300 cursor-pointer"
+                aria-label="Settings"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
               </button>
               <button
                 onClick={() => router.push('/about')}
