@@ -3,19 +3,144 @@
 /* Define dark mode variant for Tailwind v4 */
 @variant dark (&:where(.dark, .dark *));
 
+/* ============================================================
+   Mira Mar Sarasota — Design System tokens
+   Source: claude.ai/design handoff (Apr 2026)
+   ============================================================ */
+
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 249, 250, 251;
-  --background-end-rgb: 243, 244, 246;
+  /* Brand color (figma exact) */
+  --mm-oxblood:       #4B0108;
+  --mm-oxblood-deep:  #401516;
+  --mm-rose:          #A4515E;
+  --mm-rose-soft:     #97555F;
+  --mm-cream:         #F3ECE7;
+  --mm-cream-warm:    #FFF9EA;
+  --mm-paper:         #FFFDFB;
+  --mm-paper-2:       #EFE9E4;
+  --mm-ink:           #161412;
+  --mm-ink-2:         #1E1C1C;
+  --mm-ash:           #65635F;
+
+  /* Tracking */
+  --mm-tracking-loose: 0.07em;
+  --mm-tracking-mid:   0.04em;
+
+  /* Type families */
+  --mm-f-display:    "Pinyon Script", "Snell Roundhand", cursive;
+  --mm-f-serif-sc:   "Libre Caslon Display", "Baskervville SC", serif;
+  --mm-f-serif-body: "Libre Baskerville", "Baskerville", Georgia, serif;
+  --mm-f-serif-soft: "Cormorant Garamond", serif;
+  --mm-f-sans:       "Work Sans", "Helvetica Neue", Arial, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 17, 24, 39;
-    --background-end-rgb: 31, 41, 55;
-  }
+/* ============================================================
+   Palette: Mira Mar (default)
+   Override Tailwind neutral + accent tokens. Used by both
+   light and dark — Tailwind classes pick the right shade via
+   the `dark:` prefix; we just shift the brand.
+   ============================================================ */
+
+html:not([data-palette="classic"]) {
+  /* Body gradient (light) */
+  --foreground-rgb:        22, 20, 18;
+  --background-start-rgb:  255, 253, 251;
+  --background-end-rgb:    239, 233, 228;
+
+  /* Neutrals — gray scale tuned to warm cream/oxblood family */
+  --color-white:    #FFFDFB;
+  --color-gray-50:  #FAF6F1;
+  --color-gray-100: #F3ECE7;
+  --color-gray-200: #E5DCD3;
+  --color-gray-300: #C9BEB3;
+  --color-gray-400: #9A928A;
+  --color-gray-500: #65635F;
+  --color-gray-600: #4B453F;
+  --color-gray-700: #2A2624;
+  --color-gray-800: #1E1C1C;
+  --color-gray-900: #161412;
+  --color-gray-950: #0E0C0B;
+
+  /* Blue → oxblood/rose tonal (primary CTAs, info) */
+  --color-blue-50:  #FBE9EC;
+  --color-blue-100: #F0CDD2;
+  --color-blue-200: #E1A6AE;
+  --color-blue-300: #C97A86;
+  --color-blue-400: #A4515E;
+  --color-blue-500: #8C424E;
+  --color-blue-600: #4B0108;
+  --color-blue-700: #401516;
+  --color-blue-800: #2C0E10;
+  --color-blue-900: #1A0608;
+
+  /* Purple → softened rose-violet (less common, used in some charts) */
+  --color-purple-50:  #F4E9EE;
+  --color-purple-100: #E5C7D1;
+  --color-purple-500: #8C5061;
+  --color-purple-600: #6B3A48;
+  --color-purple-900: #2A1620;
+
+  /* Status colors — keep semantic meaning, warm them slightly */
+  --color-green-50:  #EDF4ED;
+  --color-green-100: #D6E5D6;
+  --color-green-500: #5C8E5F;
+  --color-green-600: #4A7A4D;
+  --color-green-700: #3A6240;
+  --color-green-900: #1F3320;
+
+  --color-emerald-400: #6FA774;
+  --color-emerald-500: #5C8E5F;
+
+  --color-yellow-50:  #FCF5E1;
+  --color-yellow-100: #F7E8B7;
+  --color-yellow-200: #F0D78A;
+  --color-yellow-900: #4D3D14;
+
+  --color-amber-400: #D5A45F;
+  --color-amber-500: #C28E48;
+
+  --color-red-50:  #FBEAE6;
+  --color-red-100: #F5CEC4;
+  --color-red-400: #D88A78;
+  --color-red-500: #C26A57;
+  --color-red-600: #A55543;
+  --color-red-700: #8A4536;
+  --color-red-900: #3E1B14;
+
+  --color-orange-100: #F6DDC4;
+  --color-orange-200: #EFC299;
+  --color-orange-500: #C8854A;
+  --color-orange-900: #4A2A12;
 }
+
+html:not([data-palette="classic"]).dark {
+  /* Body gradient (dark) */
+  --foreground-rgb:        243, 236, 231;
+  --background-start-rgb:  22, 20, 18;
+  --background-end-rgb:    30, 28, 28;
+}
+
+/* ============================================================
+   Palette: Classic (preserves original look)
+   Tailwind defaults stay in effect — we only restore the
+   body gradient values that were in the original globals.css
+   ============================================================ */
+
+html[data-palette="classic"] {
+  --foreground-rgb:       0, 0, 0;
+  --background-start-rgb: 249, 250, 251;
+  --background-end-rgb:   243, 244, 246;
+}
+
+html[data-palette="classic"].dark {
+  --foreground-rgb:       255, 255, 255;
+  --background-start-rgb: 17, 24, 39;
+  --background-end-rgb:   31, 41, 55;
+}
+
+/* ============================================================
+   Body shell
+   ============================================================ */
 
 body {
   color: rgb(var(--foreground-rgb));
@@ -27,56 +152,69 @@ body {
     rgb(var(--background-start-rgb));
 }
 
-/* Dark mode styles */
-.dark {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 17, 24, 39;
-  --background-end-rgb: 31, 41, 55;
+html:not([data-palette="classic"]) body {
+  font-family: var(--mm-f-sans);
 }
 
-.dark body {
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-}
-
-/* Smooth transitions */
+/* Smooth transitions for theme switches */
 * {
   transition-property: background-color, border-color, color, fill, stroke;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
 
-/* Custom scrollbar */
+/* ============================================================
+   Scrollbars (palette-aware)
+   ============================================================ */
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
+::-webkit-scrollbar-track { background: var(--color-gray-100); }
+::-webkit-scrollbar-thumb { background: var(--color-gray-400); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-gray-500); }
 
-::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 4px;
-}
+.dark ::-webkit-scrollbar-track { background: var(--color-gray-900); }
+.dark ::-webkit-scrollbar-thumb { background: var(--color-gray-700); }
+.dark ::-webkit-scrollbar-thumb:hover { background: var(--color-gray-600); }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
+/* ============================================================
+   Mira Mar typography helpers
+   Apply on demand — `<h1 class="mm-h1">…</h1>`
+   ============================================================ */
 
-.dark ::-webkit-scrollbar-track {
-  background: #1f2937;
+.mm-display {
+  font-family: var(--mm-f-display);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.005em;
 }
-
-.dark ::-webkit-scrollbar-thumb {
-  background: #4b5563;
+.mm-h1 {
+  font-family: var(--mm-f-serif-sc);
+  font-weight: 400;
+  line-height: 1.04;
 }
-
-.dark ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+.mm-h2 {
+  font-family: var(--mm-f-serif-sc);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0.005em;
+}
+.mm-eyebrow {
+  font-family: var(--mm-f-serif-sc);
+  letter-spacing: var(--mm-tracking-loose);
+  text-transform: uppercase;
+  color: var(--mm-rose);
+}
+.mm-body {
+  font-family: var(--mm-f-serif-body);
+  line-height: 1.85;
+}
+.mm-caption {
+  font-family: var(--mm-f-sans);
+  font-weight: 600;
+  letter-spacing: var(--mm-tracking-loose);
+  text-transform: uppercase;
 }
