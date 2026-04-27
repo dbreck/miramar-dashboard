@@ -1,15 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Sun, Moon, LogOut, Info, Filter, GitCompareArrows, Users, RefreshCw, Settings } from 'lucide-react';
-import { useBranding, BrandLogo } from '@/lib/branding';
-import { useTheme } from '@/lib/theme';
+import { Filter, RefreshCw } from 'lucide-react';
 import DateRangePicker, { DateRange } from './DateRangePicker';
 import FilterPanel from './FilterPanel';
 import { useFilters } from '@/lib/filter-context';
 
-type TabId = 'overview' | 'marketing' | 'ratings' | 'reports' | 'design';
+type TabId = 'overview' | 'marketing' | 'ratings' | 'reports';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -34,229 +30,148 @@ function formatTimeAgo(timestamp: number): string {
   return `${days}d ago`;
 }
 
-export default function DashboardLayout({ children, activeTab, setActiveTab, dateRange, setDateRange, onRefresh, lastFetchedAt, isCached, isRefreshing }: DashboardLayoutProps) {
-  const router = useRouter();
-  const { mode, toggleMode } = useTheme();
-  const darkMode = mode === 'dark';
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [canReconcile, setCanReconcile] = useState(false);
+export default function DashboardLayout({
+  children,
+  activeTab,
+  setActiveTab,
+  dateRange,
+  setDateRange,
+  onRefresh,
+  lastFetchedAt,
+  isCached,
+  isRefreshing,
+}: DashboardLayoutProps) {
   const { isFilterPanelOpen, setFilterPanelOpen, getActiveFilterCount } = useFilters();
   const activeFilterCount = getActiveFilterCount();
-  const { title: brandTitle } = useBranding();
-
-  useEffect(() => {
-    fetch('/api/auth/me')
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?.role === 'admin') setIsAdmin(true);
-        if (data?.role === 'admin' || data?.permissions?.reconcile) setCanReconcile(true);
-      })
-      .catch(() => {});
-  }, []);
-
-  const handleLogout = async () => {
-    setLoggingOut(true);
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      router.push('/login');
-      router.refresh();
-    } catch (error) {
-      console.error('Logout failed:', error);
-      setLoggingOut(false);
-    }
-  };
 
   const tabs: { id: TabId; label: string }[] = [
     { id: 'overview', label: 'Overview' },
     { id: 'marketing', label: 'Marketing' },
     { id: 'ratings', label: 'Ratings' },
     { id: 'reports', label: 'Reports' },
-    { id: 'design', label: 'Design System' },
   ];
 
+  const isDataTab = activeTab !== 'reports';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <BrandLogo size={40} />
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white">
-                  {brandTitle}
-                </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  Lead Generation Dashboard
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Refresh Data Button — only on data tabs */}
-              {onRefresh && activeTab !== 'reports' && activeTab !== 'design' && (
-                <button
-                  onClick={onRefresh}
-                  disabled={isRefreshing}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow hover:shadow-md transition-all cursor-pointer font-medium text-sm ${
-                    isRefreshing
-                      ? 'bg-green-600 text-white opacity-75 cursor-not-allowed'
-                      : 'bg-green-600 hover:bg-green-700 text-white'
-                  }`}
-                  title="Pull fresh data from Spark"
-                >
-                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh Data'}</span>
-                </button>
-              )}
-              {/* Reconciliation Link */}
-              {canReconcile && (
-                <button
-                  onClick={() => router.push('/reconciliation')}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all text-gray-700 dark:text-gray-300 cursor-pointer"
-                  title="CallRail / Spark Reconciliation"
-                >
-                  <GitCompareArrows className="w-4 h-4" />
-                  <span className="hidden sm:inline">Reconcile</span>
-                </button>
-              )}
-              {/* Admin Users Link */}
-              {isAdmin && (
-                <button
-                  onClick={() => router.push('/admin/users')}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all text-gray-700 dark:text-gray-300 cursor-pointer"
-                  title="Manage Users"
-                >
-                  <Users className="w-4 h-4" />
-                  <span className="hidden sm:inline">Users</span>
-                </button>
-              )}
-              {/* Filter Button */}
-              <button
-                onClick={() => setFilterPanelOpen(true)}
-                className={`relative flex items-center gap-2 px-4 py-2 rounded-lg shadow hover:shadow-md transition-all cursor-pointer ${
-                  activeFilterCount > 0
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                }`}
-              >
-                <Filter className="w-4 h-4" />
-                <span className="hidden sm:inline">Filters</span>
-                {activeFilterCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={toggleMode}
-                className="p-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all cursor-pointer"
-                aria-label="Toggle dark mode"
-              >
-                {darkMode ? (
-                  <Sun className="w-5 h-5 text-yellow-500" />
-                ) : (
-                  <Moon className="w-5 h-5 text-gray-600" />
-                )}
-              </button>
-              <button
-                onClick={() => router.push('/settings')}
-                className="p-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all text-gray-700 dark:text-gray-300 cursor-pointer"
-                aria-label="Settings"
-                title="Settings"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => router.push('/about')}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all text-gray-700 dark:text-gray-300 cursor-pointer"
-              >
-                <Info className="w-4 h-4" />
-                <span className="hidden sm:inline">About</span>
-              </button>
-              <button
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-gray-800 shadow hover:shadow-md transition-all text-gray-700 dark:text-gray-300 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline">Logout</span>
-              </button>
-            </div>
-          </div>
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+      {/* Page Title */}
+      <header className="mb-6 flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+            Mira Mar Sarasota
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mt-1">
+            Spark Reporting
+          </h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            Lead generation analytics
+          </p>
         </div>
 
-        {/* Date Range Picker — hidden on tabs that don't consume a date range */}
-        {activeTab !== 'reports' && activeTab !== 'design' && (
-          <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
-        )}
-
-        {/* Data Freshness Banner */}
-        {activeTab !== 'reports' && activeTab !== 'design' && lastFetchedAt && (
-          <div className="mb-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>
-                {isCached ? 'Showing cached data' : 'Data loaded'} {formatTimeAgo(lastFetchedAt)}
-              </span>
-            </div>
-            {onRefresh && !isRefreshing && (
-              <button
-                onClick={onRefresh}
-                className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
-              >
-                Refresh now
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Navigation Tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {tabs.map((tab) => (
+        {/* Page-level controls */}
+        <div className="flex items-center gap-2">
+          {/* Refresh — data tabs only */}
+          {onRefresh && isDataTab && (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-5 py-2.5 rounded-xl font-medium transition-all whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shadow'
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg shadow-sm transition-all cursor-pointer font-medium text-sm ${
+                isRefreshing
+                  ? 'bg-green-600 text-white opacity-75 cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-700 text-white'
               }`}
+              title="Pull fresh data from Spark"
             >
-              {tab.label}
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
             </button>
-          ))}
-        </div>
-
-        {/* Active Filters Banner */}
-        {activeFilterCount > 0 && (
-          <div className="mb-4 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
-              <Filter className="w-4 h-4" />
-              <span className="font-medium">
-                {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} active
-              </span>
-              <span className="text-blue-500 dark:text-blue-400">
-                - Some data may be hidden
-              </span>
-            </div>
+          )}
+          {/* Filter — data tabs only */}
+          {isDataTab && (
             <button
               onClick={() => setFilterPanelOpen(true)}
+              className={`relative flex items-center gap-2 px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer text-sm font-medium ${
+                activeFilterCount > 0
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              <span className="hidden sm:inline">Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          )}
+        </div>
+      </header>
+
+      {/* Date Range — data tabs only */}
+      {isDataTab && <DateRangePicker dateRange={dateRange} onChange={setDateRange} />}
+
+      {/* Data Freshness Banner */}
+      {isDataTab && lastFetchedAt && (
+        <div className="mb-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>
+              {isCached ? 'Showing cached data' : 'Data loaded'} {formatTimeAgo(lastFetchedAt)}
+            </span>
+          </div>
+          {onRefresh && !isRefreshing && (
+            <button
+              onClick={onRefresh}
               className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
             >
-              Manage Filters
+              Refresh now
             </button>
-          </div>
-        )}
-
-        {/* Tab Content */}
-        <div className="transition-all duration-300">
-          {children}
+          )}
         </div>
+      )}
+
+      {/* Sub-tabs */}
+      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`px-4 py-2 rounded-lg font-medium text-sm transition-all whitespace-nowrap ${
+              activeTab === tab.id
+                ? 'bg-blue-600 text-white shadow'
+                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* Filter Panel */}
+      {/* Active Filters Banner */}
+      {activeFilterCount > 0 && isDataTab && (
+        <div className="mb-4 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
+            <Filter className="w-4 h-4" />
+            <span className="font-medium">
+              {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} active
+            </span>
+            <span className="text-blue-500 dark:text-blue-400">- Some data may be hidden</span>
+          </div>
+          <button
+            onClick={() => setFilterPanelOpen(true)}
+            className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 transition-colors"
+          >
+            Manage Filters
+          </button>
+        </div>
+      )}
+
+      {/* Tab Content */}
+      <div className="transition-all duration-300">{children}</div>
+
+      {/* Filter Panel (slide-over) */}
       <FilterPanel isOpen={isFilterPanelOpen} onClose={() => setFilterPanelOpen(false)} />
     </div>
   );
