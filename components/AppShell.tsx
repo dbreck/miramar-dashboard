@@ -230,9 +230,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:w-64 lg:w-72 flex-col border-r border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/60 backdrop-blur-xl">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900">
+      {/* Desktop sidebar — viewport-fixed so the user pill is always visible */}
+      <aside className="hidden md:flex fixed left-0 top-0 z-40 h-screen w-64 lg:w-72 flex-col border-r border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl">
         {sidebarBody}
       </aside>
 
@@ -261,8 +261,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Main column */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main column — pushed by sidebar width on desktop */}
+      <div className="md:ml-64 lg:ml-72 flex flex-col min-h-screen min-w-0">
         {/* Mobile top bar with hamburger */}
         <div className="md:hidden flex items-center gap-3 px-4 h-14 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/60 backdrop-blur-xl">
           <button

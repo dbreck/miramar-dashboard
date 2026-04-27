@@ -47,7 +47,10 @@ html:not([data-palette="classic"]) {
   --background-start-rgb:  255, 253, 251;
   --background-end-rgb:    239, 233, 228;
 
-  /* Neutrals — gray scale tuned to warm cream/oxblood family */
+  /* Neutrals — gray scale tuned to warm cream/oxblood family.
+     Dark steps spaced for clear card-vs-canvas contrast: gray-900
+     is the body BG, gray-800 is the raised card surface, gray-700
+     is hover/border. */
   --color-white:    #FFFDFB;
   --color-gray-50:  #FAF6F1;
   --color-gray-100: #F3ECE7;
@@ -56,10 +59,10 @@ html:not([data-palette="classic"]) {
   --color-gray-400: #9A928A;
   --color-gray-500: #65635F;
   --color-gray-600: #4B453F;
-  --color-gray-700: #2A2624;
-  --color-gray-800: #1E1C1C;
-  --color-gray-900: #161412;
-  --color-gray-950: #0E0C0B;
+  --color-gray-700: #3A332E;
+  --color-gray-800: #2A231F;
+  --color-gray-900: #14100E;
+  --color-gray-950: #0A0807;
 
   /* Blue → oxblood/rose tonal (primary CTAs, info) */
   --color-blue-50:  #FBE9EC;
@@ -114,10 +117,10 @@ html:not([data-palette="classic"]) {
 }
 
 html:not([data-palette="classic"]).dark {
-  /* Body gradient (dark) */
+  /* Body gradient (dark) — deeper than card surface for clear separation */
   --foreground-rgb:        243, 236, 231;
-  --background-start-rgb:  22, 20, 18;
-  --background-end-rgb:    30, 28, 28;
+  --background-start-rgb:  10, 8, 7;
+  --background-end-rgb:    20, 16, 14;
 }
 
 /* ============================================================
