@@ -3,17 +3,17 @@
 import { useState, useCallback } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
 import OverviewTab from '@/components/tabs/OverviewTab';
-import ContactsTab from '@/components/tabs/ContactsTab';
-import EngagementTab from '@/components/tabs/EngagementTab';
-import TeamTab from '@/components/tabs/TeamTab';
-import PipelineTab from '@/components/tabs/PipelineTab';
 import MarketingTab from '@/components/tabs/MarketingTab';
 import RatingsTab from '@/components/tabs/RatingsTab';
+import ReportsTab from '@/components/tabs/ReportsTab';
+import DesignSystemTab from '@/components/tabs/DesignSystemTab';
 import { DateRange } from '@/components/DateRangePicker';
 import { FilterProvider } from '@/lib/filter-context';
 
+export type TabId = 'overview' | 'marketing' | 'ratings' | 'reports' | 'design';
+
 export default function DashboardPage() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline' | 'marketing' | 'ratings'>('overview');
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [dateRange, setDateRange] = useState<DateRange>({
     start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
     end: new Date(),
@@ -47,12 +47,10 @@ export default function DashboardPage() {
         isRefreshing={isRefreshing}
       >
         {activeTab === 'overview' && <OverviewTab dateRange={dateRange} refreshTrigger={refreshTrigger} onDataStatus={handleDataStatus} />}
-        {activeTab === 'contacts' && <ContactsTab dateRange={dateRange} />}
-        {activeTab === 'engagement' && <EngagementTab dateRange={dateRange} />}
-        {activeTab === 'team' && <TeamTab dateRange={dateRange} />}
-        {activeTab === 'pipeline' && <PipelineTab dateRange={dateRange} />}
         {activeTab === 'marketing' && <MarketingTab dateRange={dateRange} refreshTrigger={refreshTrigger} onDataStatus={handleDataStatus} />}
         {activeTab === 'ratings' && <RatingsTab dateRange={dateRange} refreshTrigger={refreshTrigger} onDataStatus={handleDataStatus} />}
+        {activeTab === 'reports' && <ReportsTab />}
+        {activeTab === 'design' && <DesignSystemTab />}
       </DashboardLayout>
     </FilterProvider>
   );
