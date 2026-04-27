@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mira Mar — Performance Report · Animated</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Libre+Caslon+Display&family=Work+Sans:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Pinyon+Script&display=swap" rel="stylesheet">
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#0a0a0a; overflow:hidden; }
+  body { font-family: "Work Sans", sans-serif; }
+  #root { position: fixed; inset: 0; }
+  /* Hide React dev-build dev tooltips etc */
+  em { font-style: italic; }
+</style>
+</head>
+<body>
+<div id="root" data-screen-label="00:00"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="animations.jsx"></script>
+<script type="text/babel" src="scenes/SceneIntro.jsx"></script>
+<script type="text/babel" src="scenes/SceneHeadline.jsx"></script>
+<script type="text/babel" src="scenes/SceneGoogle.jsx"></script>
+<script type="text/babel" src="scenes/SceneOrganic.jsx"></script>
+<script type="text/babel" src="scenes/SceneMeta.jsx"></script>
+<script type="text/babel" src="scenes/ScenePhone.jsx"></script>
+<script type="text/babel" src="scenes/SceneRecs.jsx"></script>
+<script type="text/babel" src="scenes/SceneSignoff.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+  // Timestamp label updater for review comments
+  function TimestampLabel() {
+    const t = useTime();
+    React.useEffect(() => {
+      const root = document.getElementById('root');
+      if (!root) return;
+      const total = Math.max(0, t);
+      const m = Math.floor(total / 60);
+      const s = Math.floor(total % 60);
+      const lbl = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      if (root.dataset.screenLabel !== lbl) root.dataset.screenLabel = lbl;
+    }, [Math.floor(t)]);
+    return null;
+  }
+
+  function App() {
+    return (
+      <Stage width={1600} height={900} duration={60} background="#FFFDFB" persistKey="miramar-report-v1">
+        <TimestampLabel/>
+        <SceneIntro    start={0}  end={5}/>
+        <SceneHeadline start={5}  end={13}/>
+        <SceneGoogle   start={13} end={22}/>
+        <SceneOrganic  start={22} end={30}/>
+        <SceneMeta     start={30} end={37}/>
+        <ScenePhone    start={37} end={43}/>
+        <SceneRecs     start={43} end={53}/>
+        <SceneSignoff  start={53} end={60}/>
+      </Stage>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+</body>
+</html>

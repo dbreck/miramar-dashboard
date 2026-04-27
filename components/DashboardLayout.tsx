@@ -9,10 +9,12 @@ import DateRangePicker, { DateRange } from './DateRangePicker';
 import FilterPanel from './FilterPanel';
 import { useFilters } from '@/lib/filter-context';
 
+type TabId = 'overview' | 'marketing' | 'ratings' | 'reports' | 'design';
+
 interface DashboardLayoutProps {
   children: React.ReactNode;
-  activeTab: 'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline' | 'marketing' | 'ratings';
-  setActiveTab: (tab: 'overview' | 'contacts' | 'engagement' | 'team' | 'pipeline' | 'marketing' | 'ratings') => void;
+  activeTab: TabId;
+  setActiveTab: (tab: TabId) => void;
   dateRange: DateRange;
   setDateRange: (range: DateRange) => void;
   onRefresh?: () => void;
@@ -65,10 +67,12 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
     }
   };
 
-  const tabs = [
-    { id: 'overview' as const, label: 'Overview' },
-    { id: 'marketing' as const, label: 'Marketing' },
-    { id: 'ratings' as const, label: 'Ratings' },
+  const tabs: { id: TabId; label: string }[] = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'marketing', label: 'Marketing' },
+    { id: 'ratings', label: 'Ratings' },
+    { id: 'reports', label: 'Reports' },
+    { id: 'design', label: 'Design System' },
   ];
 
   return (
@@ -90,8 +94,8 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Refresh Data Button */}
-              {onRefresh && (
+              {/* Refresh Data Button — only on data tabs */}
+              {onRefresh && activeTab !== 'reports' && activeTab !== 'design' && (
                 <button
                   onClick={onRefresh}
                   disabled={isRefreshing}
@@ -183,11 +187,13 @@ export default function DashboardLayout({ children, activeTab, setActiveTab, dat
           </div>
         </div>
 
-        {/* Date Range Picker */}
-        <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
+        {/* Date Range Picker — hidden on tabs that don't consume a date range */}
+        {activeTab !== 'reports' && activeTab !== 'design' && (
+          <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
+        )}
 
         {/* Data Freshness Banner */}
-        {lastFetchedAt && (
+        {activeTab !== 'reports' && activeTab !== 'design' && lastFetchedAt && (
           <div className="mb-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
               <RefreshCw className="w-3.5 h-3.5" />

@@ -1,0 +1,851 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mira Mar Sarasota — Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Libre+Caslon+Display&family=Work+Sans:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Pinyon+Script&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* Brand color (figma exact) */
+    --oxblood:        #4B0108;   /* rgb(75,1,8)   */
+    --oxblood-deep:   #401516;   /* rgb(64,21,22) */
+    --rose:           #A4515E;   /* rgb(164,81,94) */
+    --rose-soft:      #97555F;   /* rgb(151,85,95) */
+    --cream:          #F3ECE7;   /* rgb(243,236,231) */
+    --cream-warm:     #FFF9EA;   /* rgb(255,249,234) */
+    --paper:          #FFFDFB;   /* rgb(255,253,251) */
+    --paper-2:        #EFE9E4;   /* rgb(239,233,228) */
+    --ink:            #161412;   /* rgb(22,20,18)   */
+    --ink-2:          #1E1C1C;   /* rgb(30,28,28)   */
+    --ash:            #65635F;   /* rgb(101,99,95)  */
+    --black:          #000000;
+    --white:          #FFFFFF;
+
+    /* Tokens */
+    --tracking-loose: 0.07em;   /* signature 7% letter-spacing */
+    --tracking-mid:   0.04em;
+    --rule:           1px solid color-mix(in oklab, var(--oxblood) 18%, transparent);
+    --rule-rose:      1px solid color-mix(in oklab, var(--rose) 35%, transparent);
+
+    /* Type families */
+    --f-display: "Pinyon Script", "Snell Roundhand", cursive;          /* stand-in for PP Playground */
+    --f-serif-sc: "Libre Caslon Display", "Baskervville SC", serif;    /* small caps display */
+    --f-serif-body: "Libre Baskerville", "Baskerville", Georgia, serif;
+    --f-serif-soft: "Cormorant Garamond", serif;
+    --f-sans:    "Work Sans", "Helvetica Neue", Arial, sans-serif;
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--paper);color:var(--oxblood);font-family:var(--f-serif-body);}
+  body{padding:0 0 160px 0;}
+  a{color:inherit}
+
+  /* ------------- top mast ------------- */
+  .mast{
+    background:var(--oxblood);
+    color:var(--cream);
+    padding:80px 96px 72px;
+    position:relative;
+    overflow:hidden;
+  }
+  .mast::after{
+    content:"";position:absolute;left:96px;right:96px;bottom:48px;height:1px;
+    background:color-mix(in oklab, var(--cream) 30%, transparent);
+  }
+  .mast .eyebrow{
+    font-family:var(--f-sans); font-weight:600; font-size:14px;
+    letter-spacing:var(--tracking-loose); text-transform:uppercase;
+    color:color-mix(in oklab, var(--cream) 75%, transparent);
+  }
+  .mast h1{
+    font-family:var(--f-display);
+    font-weight:500;
+    font-size:140px; line-height:1; margin:18px 0 6px; color:var(--cream);
+    letter-spacing:-0.005em;
+  }
+  .mast .subtitle{
+    font-family:var(--f-serif-sc); font-size:22px; letter-spacing:var(--tracking-loose);
+    text-transform:uppercase; color:var(--rose);
+  }
+  .mast .meta{
+    position:absolute; right:96px; top:80px; text-align:right;
+    font-family:var(--f-sans); font-size:13px; letter-spacing:var(--tracking-loose);
+    text-transform:uppercase; color:color-mix(in oklab, var(--cream) 70%, transparent);
+    line-height:1.9;
+  }
+  .mast .meta b{color:var(--cream); font-weight:600;}
+
+  /* ------------- shell ------------- */
+  main{max-width:1640px; margin:0 auto; padding:0 96px;}
+  section{padding:96px 0; border-bottom:var(--rule);}
+  section:last-of-type{border-bottom:none;}
+
+  .sec-head{
+    display:grid; grid-template-columns: 280px 1fr; gap:64px; align-items:start;
+    margin-bottom:56px;
+  }
+  .sec-num{
+    font-family:var(--f-serif-sc); font-size:18px; letter-spacing:var(--tracking-loose);
+    text-transform:uppercase; color:var(--rose);
+    border-top:1px solid var(--rose);
+    padding-top:14px;
+  }
+  .sec-num small{display:block; font-size:13px; color:var(--ash); margin-top:6px; letter-spacing:var(--tracking-mid);}
+  .sec-title{
+    font-family:var(--f-serif-sc);
+    font-size:64px; line-height:1.05; color:var(--oxblood); margin:0;
+    letter-spacing:0.005em; font-weight:400;
+  }
+  .sec-desc{
+    margin-top:18px; font-family:var(--f-serif-body); font-size:18px; line-height:1.75;
+    color:var(--ink-2); max-width:780px;
+  }
+  .sec-desc i{color:var(--rose); font-style:italic;}
+
+  /* ------------- typography specimens ------------- */
+  .type-list{display:flex; flex-direction:column; gap:0;}
+  .type-row{
+    display:grid; grid-template-columns: 280px 1fr 280px; gap:48px;
+    padding:36px 0; border-top:var(--rule);
+    align-items:baseline;
+  }
+  .type-row:last-child{border-bottom:var(--rule);}
+  .type-label{
+    font-family:var(--f-sans); font-size:11px; letter-spacing:var(--tracking-loose);
+    text-transform:uppercase; color:var(--rose); font-weight:600;
+  }
+  .type-label small{display:block; color:var(--ash); font-weight:400; margin-top:6px; letter-spacing:var(--tracking-mid);}
+  .type-meta{
+    font-family:var(--f-sans); font-size:11px; color:var(--ash);
+    letter-spacing:var(--tracking-loose); text-transform:uppercase; text-align:right;
+  }
+  .type-sample{color:var(--oxblood);}
+
+  .t-display     { font-family:var(--f-display); font-size:96px; line-height:1; font-weight:500;}
+  .t-h1          { font-family:var(--f-serif-sc); font-size:72px; line-height:1.04; }
+  .t-h2          { font-family:var(--f-serif-sc); font-size:50px; line-height:1.1; letter-spacing:0.005em; }
+  .t-h3          { font-family:var(--f-serif-sc); font-size:34px; line-height:1.18; letter-spacing:0.01em;}
+  .t-eyebrow     { font-family:var(--f-serif-sc); font-size:22px; letter-spacing:var(--tracking-loose); text-transform:uppercase; color:var(--rose);}
+  .t-lede        { font-family:var(--f-serif-body); font-size:22px; line-height:1.85; font-style:italic; }
+  .t-body        { font-family:var(--f-serif-body); font-size:18px; line-height:1.9; color:var(--ink-2); }
+  .t-caption     { font-family:var(--f-sans); font-weight:600; font-size:14px; letter-spacing:var(--tracking-loose); text-transform:uppercase;}
+  .t-meta        { font-family:var(--f-sans); font-size:12px; letter-spacing:var(--tracking-loose); text-transform:uppercase; color:var(--ash);}
+
+  /* ------------- colors ------------- */
+  .palette{display:grid; grid-template-columns:repeat(6, 1fr); gap:24px;}
+  .swatch{
+    border:var(--rule);
+    background:var(--paper);
+  }
+  .swatch .chip{
+    aspect-ratio: 4/5;
+    display:flex; align-items:flex-end; padding:18px;
+    color:var(--cream);
+  }
+  .swatch .chip.on-dark{color:var(--cream);}
+  .swatch .chip.on-light{color:var(--oxblood);}
+  .swatch .name{
+    font-family:var(--f-serif-sc); font-size:18px; letter-spacing:var(--tracking-loose); text-transform:uppercase;
+  }
+  .swatch .body{
+    padding:14px 18px 18px; border-top:var(--rule);
+  }
+  .swatch dl{display:grid; grid-template-columns:auto 1fr; gap:4px 14px; margin:0;
+    font-family:var(--f-sans); font-size:11px; letter-spacing:var(--tracking-mid);}
+  .swatch dt{color:var(--ash); text-transform:uppercase;}
+  .swatch dd{margin:0; color:var(--oxblood);}
+
+  /* role pairings */
+  .pairings{display:grid; grid-template-columns:repeat(3,1fr); gap:32px;}
+  .pair{
+    border:var(--rule); padding:36px;
+    min-height:220px; display:flex; flex-direction:column; justify-content:space-between;
+  }
+  .pair .lbl{font-family:var(--f-sans); font-size:11px; letter-spacing:var(--tracking-loose); text-transform:uppercase; color:inherit; opacity:.7;}
+  .pair .demo{font-family:var(--f-serif-sc); font-size:32px; letter-spacing:0.01em;}
+  .pair .meta{font-family:var(--f-sans); font-size:11px; letter-spacing:var(--tracking-loose); text-transform:uppercase; opacity:.7;}
+
+  /* ------------- buttons / links ------------- */
+  .row{display:flex; flex-wrap:wrap; gap:32px 56px; align-items:center;}
+  .row + .row{margin-top:36px;}
+  .btn{
+    font-family:var(--f-serif-sc); font-size:18px; letter-spacing:var(--tracking-loose);
+    text-transform:uppercase; padding:18px 38px; border:1px solid var(--oxblood);
+    background:transparent; color:var(--oxblood); cursor:pointer; transition:.2s ease;
+    text-decoration:none; display:inline-flex; align-items:center; gap:14px;
+  }
+  .btn:hover{background:var(--oxblood); color:var(--cream);}
+  .btn--solid{background:var(--oxblood); color:var(--cream);}
+  .btn--solid:hover{background:var(--rose); border-color:var(--rose);}
+  .btn--rose{border-color:var(--rose); color:var(--rose);}
+  .btn--rose:hover{background:var(--rose); color:var(--cream);}
+  .btn--cream{border-color:var(--cream); color:var(--cream); background:transparent;}
+  .btn--cream:hover{background:var(--cream); color:var(--oxblood);}
+  .btn--ghost{border:none; padding:18px 0; color:var(--rose);}
+  .btn--ghost:hover{background:transparent; color:var(--oxblood);}
+
+  .btn .arr{display:inline-block; width:32px; height:1px; background:currentColor; position:relative;}
+  .btn .arr::after{content:""; position:absolute; right:0; top:-3px; width:8px; height:8px; border-top:1px solid currentColor; border-right:1px solid currentColor; transform:rotate(45deg);}
+
+  .underlink{
+    font-family:var(--f-serif-body); font-style:italic; font-size:20px;
+    color:var(--rose); text-decoration:none;
+    border-bottom:1px solid var(--rose); padding-bottom:4px;
+    letter-spacing:var(--tracking-mid);
+  }
+  .uplink{
+    font-family:var(--f-sans); font-weight:600; font-size:13px; letter-spacing:var(--tracking-loose);
+    text-transform:uppercase; color:var(--rose); text-decoration:underline; text-underline-offset:6px;
+  }
+
+  /* dark variants */
+  .dark-pad{
+    background:var(--oxblood); padding:48px; color:var(--cream);
+    display:flex; gap:32px; align-items:center; flex-wrap:wrap; margin-top:36px;
+  }
+
+  /* ------------- forms ------------- */
+  .forms{display:grid; grid-template-columns: 1.2fr 1fr; gap:64px;}
+  .field{margin-bottom:36px;}
+  .field label{
+    display:block; font-family:var(--f-sans); font-weight:600; font-size:14px;
+    letter-spacing:var(--tracking-loose); text-transform:uppercase; color:var(--oxblood); margin-bottom:14px;
+  }
+  .field input[type=text], .field input[type=email]{
+    width:100%; border:none; border-bottom:2px solid var(--oxblood);
+    background:transparent; font-family:var(--f-serif-body); font-size:18px;
+    color:var(--oxblood); padding:6px 0 14px; outline:none;
+  }
+  .field input::placeholder{color:color-mix(in oklab, var(--oxblood) 35%, transparent); font-style:italic;}
+  .field input:focus{border-color:var(--rose);}
+
+  .radio-row{display:flex; gap:48px; align-items:center;}
+  .radio{display:flex; align-items:center; gap:14px; cursor:pointer;}
+  .radio .dot{
+    width:24px; height:24px; border-radius:50%; border:2px solid var(--oxblood);
+    display:inline-block; position:relative;
+  }
+  .radio.on .dot::after{
+    content:""; position:absolute; inset:4px; border-radius:50%; background:var(--oxblood);
+  }
+  .radio span{font-family:var(--f-serif-sc); font-size:20px; letter-spacing:var(--tracking-loose); text-transform:uppercase;}
+
+  .newsletter{
+    border-bottom:1.6px solid var(--oxblood); display:flex; align-items:flex-end;
+    gap:14px; padding-bottom:8px; max-width:520px;
+  }
+  .newsletter input{flex:1; border:none; background:transparent; font-family:var(--f-sans);
+    font-size:20px; color:var(--oxblood); outline:none; padding:8px 0;}
+  .newsletter input::placeholder{color:color-mix(in oklab, var(--oxblood) 50%, transparent);}
+  .newsletter .send{font-size:22px; line-height:1;}
+
+  /* ------------- cards & components ------------- */
+  .grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:32px;}
+  .grid-2{display:grid; grid-template-columns:repeat(2,1fr); gap:32px;}
+
+  .card-place{
+    border:var(--rule); padding:0; background:var(--paper);
+  }
+  .card-place .img{
+    aspect-ratio: 4/3; background:
+      repeating-linear-gradient(135deg, color-mix(in oklab, var(--rose) 12%, var(--cream)) 0 24px, var(--cream) 24px 48px);
+    border-bottom:var(--rule); position:relative;
+  }
+  .card-place .img::after{
+    content:"PHOTOGRAPHY"; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    font-family:var(--f-sans); font-size:11px; letter-spacing:var(--tracking-loose);
+    color:color-mix(in oklab, var(--oxblood) 45%, transparent);
+  }
+  .card-place .body{padding:28px 32px 32px;}
+  .card-place .kicker{
+    font-family:var(--f-sans); font-weight:600; font-size:12px; letter-spacing:var(--tracking-loose);
+    color:var(--rose); text-transform:uppercase;
+  }
+  .card-place h4{
+    font-family:var(--f-serif-sc); font-size:30px; line-height:1.15; letter-spacing:0.01em;
+    color:var(--oxblood); margin:14px 0 12px; font-weight:400;
+  }
+  .card-place p{
+    font-family:var(--f-serif-body); font-size:16px; line-height:1.85; color:var(--ink-2); margin:0 0 22px;
+  }
+
+  /* timeline */
+  .timeline{position:relative; padding-left:56px;}
+  .timeline::before{
+    content:""; position:absolute; left:8px; top:8px; bottom:8px; width:1px; background:var(--oxblood);
+  }
+  .tl-item{position:relative; padding-bottom:48px;}
+  .tl-item:last-child{padding-bottom:0;}
+  .tl-item .dot{
+    position:absolute; left:-52px; top:14px; width:17px; height:17px; border-radius:50%;
+    background:var(--cream); border:2px solid var(--oxblood);
+  }
+  .tl-item .yr{
+    font-family:var(--f-serif-sc); font-size:50px; line-height:1.05; color:var(--rose); font-weight:400;
+    margin:0 0 12px;
+  }
+  .tl-item p{
+    font-family:var(--f-serif-body); font-size:18px; line-height:1.85; color:var(--ink-2); margin:0; max-width:640px;
+  }
+
+  /* hero block */
+  .hero{
+    aspect-ratio: 16/7; background:
+      linear-gradient(rgba(0,0,0,.25), rgba(0,0,0,.35)),
+      repeating-linear-gradient(110deg, #5a3033 0 80px, #4B2025 80px 160px);
+    color:var(--cream); padding:80px; display:flex; flex-direction:column; justify-content:flex-end;
+    position:relative;
+  }
+  .hero .nav-mock{
+    position:absolute; top:36px; left:80px; right:80px;
+    display:flex; align-items:center; justify-content:space-between;
+    font-family:var(--f-sans); font-size:14px; letter-spacing:var(--tracking-loose); text-transform:uppercase;
+    color:var(--cream);
+  }
+  .hero .nav-mock .logo{
+    font-family:var(--f-serif-sc); font-size:22px; letter-spacing:var(--tracking-loose); color:var(--cream);
+  }
+  .hero .hero-eyebrow{
+    font-family:var(--f-serif-sc); font-size:22px; letter-spacing:var(--tracking-loose); text-transform:uppercase;
+    color:var(--rose); margin-bottom:18px;
+  }
+  .hero h2{
+    font-family:var(--f-display); font-size:120px; line-height:1; margin:0 0 28px;
+    color:var(--cream); font-weight:500;
+  }
+  .hero p{
+    font-family:var(--f-serif-body); font-style:italic; font-size:22px; max-width:620px;
+    line-height:1.7; margin:0 0 36px; color:color-mix(in oklab, var(--cream) 90%, transparent);
+  }
+
+  /* logo lockups */
+  .lockups{display:grid; grid-template-columns:repeat(3,1fr); gap:0;}
+  .lock{
+    aspect-ratio: 4/3; display:flex; align-items:center; justify-content:center; padding:48px;
+    border:var(--rule); margin-left:-1px; margin-top:-1px;
+  }
+  .lock-cream{background:var(--cream);}
+  .lock-oxblood{background:var(--oxblood);}
+  .lock-rose{background:var(--rose);}
+  .lock img{display:block; width:62%; max-width:240px; height:auto;}
+
+  .lock-meta{display:grid; grid-template-columns:repeat(3,1fr); gap:0; border-bottom:var(--rule); border-left:var(--rule); border-right:var(--rule);}
+  .lock-meta div{padding:20px 24px; border-left:var(--rule); font-family:var(--f-sans); font-size:11px; letter-spacing:var(--tracking-loose); text-transform:uppercase; color:var(--ash);}
+  .lock-meta div:first-child{border-left:none;}
+  .lock-meta b{display:block; font-weight:600; color:var(--oxblood); margin-bottom:6px; font-size:12px;}
+
+  .marks-strip{display:grid; grid-template-columns:repeat(4,1fr); margin-top:32px;}
+  .marks-strip .cell{aspect-ratio:1/1; display:flex; align-items:center; justify-content:center; padding:48px; border:var(--rule); margin-left:-1px; margin-top:-1px;}
+  .marks-strip .cell img{display:block; width:78%; height:auto;}
+  .marks-strip .cell.dark{background:var(--oxblood); color:var(--cream);}
+  .marks-strip .cell.cream{background:var(--cream); color:var(--oxblood);}
+  .marks-strip .cell.rose{background:var(--rose); color:var(--cream);}
+  .marks-strip .cell.paper{background:var(--paper); color:var(--oxblood);}
+
+  .logo-mark{text-align:center;}
+  .logo-mark .top{font-family:var(--f-serif-sc); font-size:38px; letter-spacing:0.18em; line-height:1;}
+  .logo-mark .div{
+    width:140px; height:1px; margin:14px auto;
+  }
+  .logo-mark .bot{font-family:var(--f-serif-body); font-style:italic; font-size:14px; letter-spacing:var(--tracking-loose); text-transform:uppercase;}
+  .lock-cream  .logo-mark{color:var(--oxblood);}
+  .lock-cream  .logo-mark .div{background:var(--rose);}
+  .lock-oxblood .logo-mark{color:var(--cream);}
+  .lock-oxblood .logo-mark .div{background:var(--rose);}
+  .lock-rose   .logo-mark{color:var(--cream);}
+  .lock-rose   .logo-mark .div{background:var(--cream);}
+
+  /* navigation specimen */
+  .nav-row{
+    background:var(--oxblood); color:var(--cream);
+    padding:28px 56px; display:flex; align-items:center; justify-content:space-between;
+    font-family:var(--f-sans); font-size:14px; letter-spacing:var(--tracking-loose); text-transform:uppercase;
+  }
+  .nav-row .left, .nav-row .right{display:flex; gap:36px; align-items:center;}
+  .nav-row .center{font-family:var(--f-serif-sc); font-size:22px; letter-spacing:var(--tracking-loose);}
+  .nav-row .menu-icon{display:inline-grid; gap:5px;}
+  .nav-row .menu-icon span{display:block; width:22px; height:1.5px; background:var(--cream);}
+
+  /* pull quote */
+  .pull{
+    border-left:1px solid var(--rose); padding:12px 0 12px 36px; max-width:880px;
+  }
+  .pull .q{
+    font-family:var(--f-serif-body); font-style:italic; font-size:34px; line-height:1.45; color:var(--oxblood);
+  }
+  .pull .attr{
+    font-family:var(--f-sans); font-weight:600; font-size:12px; letter-spacing:var(--tracking-loose);
+    text-transform:uppercase; color:var(--rose); margin-top:18px;
+  }
+
+  /* section labels & dividers */
+  .ornament{
+    display:flex; align-items:center; gap:14px;
+    font-family:var(--f-serif-sc); font-size:18px; letter-spacing:var(--tracking-loose); text-transform:uppercase;
+    color:var(--rose); margin:36px 0;
+  }
+  .ornament .line{flex:1; height:1px; background:var(--rose); opacity:.5;}
+  .ornament .dot{width:6px; height:6px; border-radius:50%; background:var(--rose);}
+
+  /* spacing scale */
+  .scale{display:grid; grid-template-columns:120px 1fr 80px; gap:24px; align-items:center;}
+  .scale .bar{height:18px; background:var(--rose); opacity:.85;}
+  .scale .name{font-family:var(--f-sans); font-weight:600; font-size:13px; letter-spacing:var(--tracking-loose); text-transform:uppercase; color:var(--oxblood);}
+  .scale .val{font-family:var(--f-sans); font-size:13px; color:var(--ash); text-align:right; letter-spacing:var(--tracking-mid);}
+
+  /* footnote */
+  .footplate{
+    margin-top:0; padding:80px 96px;
+    background:var(--cream); color:var(--oxblood);
+    border-top:1px solid var(--rose);
+  }
+  .footplate .grid{display:grid; grid-template-columns:1.2fr 1fr 1fr; gap:64px;}
+  .footplate h5{
+    font-family:var(--f-sans); font-weight:700; font-size:13px; letter-spacing:var(--tracking-loose);
+    text-transform:uppercase; color:var(--rose); margin:0 0 20px;
+  }
+  .footplate p, .footplate a{
+    font-family:var(--f-serif-body); font-size:18px; line-height:1.9; color:var(--oxblood); text-decoration:none; display:block;
+  }
+  .footplate .strip{
+    background:var(--rose); color:var(--cream-warm);
+    text-align:center; padding:18px 0; margin:60px -96px -80px;
+    font-family:var(--f-sans); font-size:12px; letter-spacing:var(--tracking-loose); text-transform:uppercase;
+  }
+</style>
+</head>
+<body>
+
+<header class="mast">
+  <div class="meta">
+    <div>53 S Palm Ave · Sarasota, FL</div>
+    <div><b>Design System</b> · v 0.1</div>
+    <div>Issued April 2026</div>
+  </div>
+  <div class="eyebrow">Mira Mar Sarasota</div>
+  <h1>The Brand Edition</h1>
+  <div class="subtitle">A Visual Language for a Century-Old Story</div>
+</header>
+
+<main>
+
+  <!-- 01 PRINCIPLES -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">01 — Principles<small>How the brand behaves</small></div>
+      <div>
+        <h2 class="sec-title">Heritage, held lightly.</h2>
+        <p class="sec-desc">Mira Mar's identity sits at the intersection of <i>1920s coastal romance</i> and <i>contemporary restraint</i>. Compositions breathe; type carries the weight; color is used sparingly and with intention. Imagery does the storytelling — chrome, ornament and gradients stay out of its way.</p>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div>
+        <div class="ornament"><span>Quiet</span><span class="line"></span><span class="dot"></span></div>
+        <p class="t-body">Generous whitespace. One idea per view. Never more than two type sizes in a single block. Let the page exhale before it speaks.</p>
+      </div>
+      <div>
+        <div class="ornament"><span>Ornate where it matters</span><span class="line"></span><span class="dot"></span></div>
+        <p class="t-body">Reserve the script display face for moments of arrival — hero, section openers, signature. Everywhere else, lean on small caps and Baskerville.</p>
+      </div>
+      <div>
+        <div class="ornament"><span>Coastal, not nautical</span><span class="line"></span><span class="dot"></span></div>
+        <p class="t-body">Colors come from sunset, terracotta and sea-grape. Avoid navy, rope, anchors, palm-tree iconography. The reference is Sarasota in 1922, not a yacht club.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 02 TYPOGRAPHY -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">02 — Typography<small>Four families, in concert</small></div>
+      <div>
+        <h2 class="sec-title">A serif-led hierarchy.</h2>
+        <p class="sec-desc">A script display face for emotional peaks, small-caps Caslon for titles and numerals, Baskerville for long-form prose, and Work Sans for utility. Keep loose 7% letter-spacing on caps; keep body line-height generous (1.85–1.9).</p>
+      </div>
+    </div>
+
+    <div class="type-list">
+      <div class="type-row">
+        <div class="type-label">Display script<small>Hero & marquee only</small></div>
+        <div class="type-sample t-display">A century reawakened</div>
+        <div class="type-meta">Pinyon Script · 96–140 / 1.0</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">H1 — Title<small>Page hero, section</small></div>
+        <div class="type-sample t-h1">An Address of Distinction</div>
+        <div class="type-meta">Caslon Display · 72 / 1.04</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">H2 — Subhead<small>Card, sub-section</small></div>
+        <div class="type-sample t-h2">A Past Reawakened, A Future Imagined</div>
+        <div class="type-meta">Caslon Display · 50 / 1.10</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">H3 — Inline<small>Article, list</small></div>
+        <div class="type-sample t-h3">The Story of South Palm Avenue</div>
+        <div class="type-meta">Caslon Display · 34 / 1.18</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Eyebrow<small>Section label</small></div>
+        <div class="type-sample t-eyebrow">A Century Old Story</div>
+        <div class="type-meta">Caslon Display SC · 22 / 100% · ts 7%</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Lede<small>Pull paragraph</small></div>
+        <div class="type-sample t-lede">Nestled along South Palm Avenue, the cultural heartbeat of downtown Sarasota, Mira Mar enjoys an extraordinary location.</div>
+        <div class="type-meta">Baskerville Italic · 22 / 1.85</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Body<small>Long-form copy</small></div>
+        <div class="type-sample t-body">Each home is designed to the highest standards, with sweeping views, refined interiors and private access to best-in-class amenities. This is more than a residence — it's a return to grace.</div>
+        <div class="type-meta">Baskerville Reg · 18 / 1.9</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Caption<small>Image label, nav</small></div>
+        <div class="type-sample t-caption">The Residences · Floor Plans</div>
+        <div class="type-meta">Work Sans 600 · 14 / ts 7%</div>
+      </div>
+      <div class="type-row">
+        <div class="type-label">Meta<small>Form labels, fine print</small></div>
+        <div class="type-sample t-meta">Tower II · 18 Stories · 70 Residences</div>
+        <div class="type-meta">Work Sans 400 · 12 / ts 7%</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 03 COLOR -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">03 — Color<small>Five hues. Held in balance.</small></div>
+      <div>
+        <h2 class="sec-title">A palette of dusk and limestone.</h2>
+        <p class="sec-desc">Every color in the system descends from two parents: a deep <i>oxblood</i> drawn from the brand mark and a <i>dusty rose</i> warmed by Florida sunset. Warm cream and paper neutrals carry the rest. Black and pure white are forbidden in body — use ink and paper instead.</p>
+      </div>
+    </div>
+
+    <div class="palette">
+      <div class="swatch">
+        <div class="chip on-dark" style="background:#4B0108"><span class="name">Oxblood</span></div>
+        <div class="body"><dl><dt>HEX</dt><dd>#4B0108</dd><dt>RGB</dt><dd>75 · 1 · 8</dd><dt>USE</dt><dd>Headings, ink, primary CTA</dd></dl></div>
+      </div>
+      <div class="swatch">
+        <div class="chip on-dark" style="background:#A4515E"><span class="name">Rose</span></div>
+        <div class="body"><dl><dt>HEX</dt><dd>#A4515E</dd><dt>RGB</dt><dd>164 · 81 · 94</dd><dt>USE</dt><dd>Eyebrows, accents, footer</dd></dl></div>
+      </div>
+      <div class="swatch">
+        <div class="chip on-dark" style="background:#401516"><span class="name">Burgundy</span></div>
+        <div class="body"><dl><dt>HEX</dt><dd>#401516</dd><dt>RGB</dt><dd>64 · 21 · 22</dd><dt>USE</dt><dd>Image overlay, deep ground</dd></dl></div>
+      </div>
+      <div class="swatch">
+        <div class="chip on-light" style="background:#F3ECE7"><span class="name">Cream</span></div>
+        <div class="body"><dl><dt>HEX</dt><dd>#F3ECE7</dd><dt>RGB</dt><dd>243 · 236 · 231</dd><dt>USE</dt><dd>Footer ground, surfaces</dd></dl></div>
+      </div>
+      <div class="swatch">
+        <div class="chip on-light" style="background:#FFFDFB; border-top:1px solid #EFE9E4; border-left:1px solid #EFE9E4;"><span class="name">Paper</span></div>
+        <div class="body"><dl><dt>HEX</dt><dd>#FFFDFB</dd><dt>RGB</dt><dd>255 · 253 · 251</dd><dt>USE</dt><dd>Page ground</dd></dl></div>
+      </div>
+      <div class="swatch">
+        <div class="chip on-dark" style="background:#161412"><span class="name">Ink</span></div>
+        <div class="body"><dl><dt>HEX</dt><dd>#161412</dd><dt>RGB</dt><dd>22 · 20 · 18</dd><dt>USE</dt><dd>Body copy, sub-text</dd></dl></div>
+      </div>
+    </div>
+
+    <div class="ornament" style="margin-top:64px;"><span>Role pairings</span><span class="line"></span><span class="dot"></span></div>
+
+    <div class="pairings">
+      <div class="pair" style="background:var(--paper); color:var(--oxblood);">
+        <span class="lbl">Default</span>
+        <span class="demo">Oxblood on Paper</span>
+        <span class="meta">Headings & body, primary surface</span>
+      </div>
+      <div class="pair" style="background:var(--oxblood); color:var(--cream);">
+        <span class="lbl">Inverted</span>
+        <span class="demo" style="color:var(--rose)">Rose on Oxblood</span>
+        <span class="meta">Hero, footer accents</span>
+      </div>
+      <div class="pair" style="background:var(--cream); color:var(--rose);">
+        <span class="lbl">Editorial</span>
+        <span class="demo">Rose on Cream</span>
+        <span class="meta">Calls-to-action, links</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 04 LOGO -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">04 — Mark<small>Lockups & clearspace</small></div>
+      <div>
+        <h2 class="sec-title">A wordmark, not a logo.</h2>
+        <p class="sec-desc">The mark is set in spaced small-caps with a hairline rule and an italic descriptor. Always reproduce on a single field — never on photography. Maintain a clearspace equal to the height of the wordmark on all four sides.</p>
+      </div>
+    </div>
+
+    <div class="lockups">
+      <div class="lock lock-cream">
+        <img src="assets/logo-oxblood.svg" alt="Mira Mar Sarasota — primary mark" />
+      </div>
+      <div class="lock lock-oxblood">
+        <img src="assets/logo-cream-v2.svg" alt="Mira Mar Sarasota — reverse mark" />
+      </div>
+      <div class="lock lock-rose">
+        <img src="assets/logo-cream-v2.svg" alt="Mira Mar Sarasota — on rose" />
+      </div>
+    </div>
+
+    <div class="lock-meta">
+      <div><b>Primary</b>Oxblood mark on cream · preferred</div>
+      <div><b>Reverse</b>Cream mark on oxblood</div>
+      <div><b>Editorial</b>Cream mark on rose · sparingly</div>
+    </div>
+
+    <div class="ornament" style="margin-top:64px;"><span>Secondary mark</span><span class="line"></span></div>
+    <p class="sec-desc" style="margin-bottom:24px;">A horizontal lockup for navigation, signatures and constrained surfaces. Reproduce in oxblood, cream or rose only — never in arbitrary tints, never on photography without a solid plate.</p>
+
+    <div class="marks-strip">
+      <div class="cell paper"><img src="assets/logo-mini-oxblood.svg" alt="" /></div>
+      <div class="cell cream"><img src="assets/logo-mini-oxblood.svg" alt="" /></div>
+      <div class="cell dark"><img src="assets/logo-mini-cream.svg" alt="" /></div>
+      <div class="cell rose"><img src="assets/logo-mini-cream.svg" alt="" /></div>
+    </div>
+  </section>
+
+  <!-- 05 BUTTONS / LINKS -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">05 — Actions<small>Buttons, links, fields</small></div>
+      <div>
+        <h2 class="sec-title">Restrained calls to action.</h2>
+        <p class="sec-desc">Primary actions are set in spaced small-caps with a hairline border. Italic Baskerville links carry secondary navigation. Avoid pill shapes, drop shadows or rounded corners — squared geometry signals confidence.</p>
+      </div>
+    </div>
+
+    <div class="ornament"><span>Primary on light</span><span class="line"></span></div>
+    <div class="row">
+      <a class="btn btn--solid">Inquire <span class="arr"></span></a>
+      <a class="btn">Schedule a Tour</a>
+      <a class="btn btn--rose">Download Brochure</a>
+      <a class="btn btn--ghost">View Floor Plans <span class="arr"></span></a>
+      <a class="underlink">Explore the neighborhood</a>
+      <a class="uplink">Full historic timeline</a>
+    </div>
+
+    <div class="dark-pad">
+      <a class="btn btn--cream">Reserve a residence <span class="arr"></span></a>
+      <a class="btn" style="border-color:var(--rose); color:var(--rose);">View Amenities</a>
+      <a style="font-family:var(--f-serif-body); font-style:italic; font-size:20px; color:var(--cream); border-bottom:1px solid var(--rose); padding-bottom:4px; text-decoration:none;">Read our story</a>
+    </div>
+  </section>
+
+  <!-- 06 FORMS -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">06 — Forms<small>Hairline inputs, no chrome</small></div>
+      <div>
+        <h2 class="sec-title">Conversation, not bureaucracy.</h2>
+        <p class="sec-desc">Inputs are a single hairline below the field. Labels sit above in spaced small-caps. Radio circles match the line weight of the inputs themselves. No background fills, no rounded corners.</p>
+      </div>
+    </div>
+
+    <div class="forms">
+      <div>
+        <div class="field">
+          <label>First Name</label>
+          <input type="text" placeholder="Bertha" />
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" placeholder="name@email.com" />
+        </div>
+        <div class="field">
+          <label>How did you hear about us?</label>
+          <input type="text" placeholder="Word of mouth, broker, press…" />
+        </div>
+        <div class="field">
+          <label>I am inquiring as</label>
+          <div class="radio-row">
+            <span class="radio on"><span class="dot"></span><span>Future Resident</span></span>
+            <span class="radio"><span class="dot"></span><span>Broker</span></span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="ornament"><span>Newsletter</span><span class="line"></span></div>
+        <div class="field">
+          <label>Be among the first to know</label>
+          <div class="newsletter">
+            <input type="email" placeholder="name@email.com" />
+            <span class="send">→</span>
+          </div>
+        </div>
+        <p class="t-body" style="margin-top:48px; max-width:480px;">We'll send a small handful of invitations to private events, gallery openings and milestone moments. Never more than once a month.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 07 COMPONENTS -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">07 — Components<small>Cards, navigation, timeline</small></div>
+      <div>
+        <h2 class="sec-title">Patterns of place.</h2>
+        <p class="sec-desc">A small kit covers most of the site: a navigation bar, an experience card, a chaptered timeline, a pull quote. Each leans on type and image; ornament is reserved for openings.</p>
+      </div>
+    </div>
+
+    <!-- nav -->
+    <div class="ornament"><span>Top navigation</span><span class="line"></span></div>
+    <div class="nav-row">
+      <div class="left">
+        <span class="menu-icon"><span></span><span></span><span></span></span>
+        <span>Menu</span>
+        <span>Search</span>
+      </div>
+      <div class="center" style="display:flex; align-items:center;"><img src="assets/logo-mini-cream.svg" alt="Mira Mar" style="height:38px; width:auto; display:block;" /></div>
+      <div class="right">
+        <span>Residences</span>
+        <span>Amenities</span>
+        <span>Inquire</span>
+      </div>
+    </div>
+
+    <!-- cards -->
+    <div class="ornament" style="margin-top:64px;"><span>Local experience cards</span><span class="line"></span></div>
+    <div class="grid-3">
+      <article class="card-place">
+        <div class="img"></div>
+        <div class="body">
+          <span class="kicker">Cultural · 4 min walk</span>
+          <h4>Sarasota Opera House</h4>
+          <p>61 N Pineapple Ave, Sarasota, FL 34236</p>
+          <a class="underlink">Visit</a>
+        </div>
+      </article>
+      <article class="card-place">
+        <div class="img"></div>
+        <div class="body">
+          <span class="kicker">Market · 6 min walk</span>
+          <h4>Sarasota Farmers Market</h4>
+          <p>N Lemon Ave, Sarasota, FL 34236</p>
+          <a class="underlink">Visit</a>
+        </div>
+      </article>
+      <article class="card-place">
+        <div class="img"></div>
+        <div class="body">
+          <span class="kicker">Garden · 9 min drive</span>
+          <h4>Marie Selby Botanical Gardens</h4>
+          <p>1534 Mound St, Sarasota, FL 34236</p>
+          <a class="underlink">Visit</a>
+        </div>
+      </article>
+    </div>
+
+    <!-- timeline -->
+    <div class="ornament" style="margin-top:80px;"><span>Historic timeline</span><span class="line"></span></div>
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="dot"></div>
+        <h3 class="yr">1902</h3>
+        <p>Sarasota is incorporated as a town under the motto, <i>"May Sarasota Prosper."</i></p>
+      </div>
+      <div class="tl-item">
+        <div class="dot"></div>
+        <h3 class="yr">1910</h3>
+        <p>Chicago socialite and philanthropist Bertha Palmer visits Sarasota, forging a powerful link between Sarasota and Chicago society.</p>
+      </div>
+      <div class="tl-item">
+        <div class="dot"></div>
+        <h3 class="yr">March 1922</h3>
+        <p>The Carman Company receives the largest construction contract in city history to build the Mira Mar Apartments.</p>
+      </div>
+      <div class="tl-item">
+        <div class="dot"></div>
+        <h3 class="yr">December 1922</h3>
+        <p>Ground is broken for the "Half Million Dollar Apartment House," the largest building permit in Sarasota's history at the time.</p>
+      </div>
+    </div>
+
+    <!-- pull -->
+    <div class="ornament" style="margin-top:80px;"><span>Pull quote</span><span class="line"></span></div>
+    <div class="pull">
+      <p class="q">A place where timeless architecture, coastal elegance and downtown vibrancy connect.</p>
+      <div class="attr">— Brand Statement</div>
+    </div>
+  </section>
+
+  <!-- 08 HERO PATTERN -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">08 — Hero pattern<small>Imagery + script display</small></div>
+      <div>
+        <h2 class="sec-title">An entrance, every time.</h2>
+        <p class="sec-desc">Hero compositions place a script headline against a darkened photograph — overlay opacity 20–35%. Eyebrow above, italic lede beneath, single CTA. Never crowd a hero with more than one action.</p>
+      </div>
+    </div>
+
+    <div class="hero">
+      <nav class="nav-mock">
+        <div><span style="margin-right:24px;">☰ MENU</span><span>SEARCH</span></div>
+        <div class="logo"><img src="assets/logo-mini-cream.svg" alt="Mira Mar" style="height:42px; width:auto; display:block;" /></div>
+        <div>INQUIRE</div>
+      </nav>
+      <div class="hero-eyebrow">A Century Old Story · Reawakened</div>
+      <h2>Sarasota, in repose.</h2>
+      <p>Seventy estate-style residences across two eighteen-story towers on South Palm Avenue, set against the bay.</p>
+      <div><a class="btn btn--cream">Reserve a residence <span class="arr"></span></a></div>
+    </div>
+  </section>
+
+  <!-- 09 SPACING -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-num">09 — Spacing<small>An 8-point base</small></div>
+      <div>
+        <h2 class="sec-title">Generous, deliberate.</h2>
+        <p class="sec-desc">All spacing derives from an 8px base. Section padding bottoms out at 96px desktop; cards never sit closer than 32px to their neighbors. Page gutters are 96px on desktop, 24px on mobile.</p>
+      </div>
+    </div>
+
+    <div style="display:grid; gap:14px; max-width:880px;">
+      <div class="scale"><span class="name">XS</span><span class="bar" style="width:8px"></span><span class="val">8px</span></div>
+      <div class="scale"><span class="name">SM</span><span class="bar" style="width:16px"></span><span class="val">16px</span></div>
+      <div class="scale"><span class="name">MD</span><span class="bar" style="width:24px"></span><span class="val">24px</span></div>
+      <div class="scale"><span class="name">LG</span><span class="bar" style="width:48px"></span><span class="val">48px</span></div>
+      <div class="scale"><span class="name">XL</span><span class="bar" style="width:96px"></span><span class="val">96px</span></div>
+      <div class="scale"><span class="name">XXL</span><span class="bar" style="width:160px"></span><span class="val">160px</span></div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footplate">
+  <div class="grid">
+    <div>
+      <h5>Sales Gallery</h5>
+      <p>+1 (941) 681 0311</p>
+      <p>53 S Palm Ave<br/>Sarasota, FL 34236</p>
+    </div>
+    <div>
+      <h5>Connect</h5>
+      <a>Facebook</a>
+      <a>Instagram</a>
+      <a>LinkedIn</a>
+    </div>
+    <div>
+      <h5>Be among the first to know</h5>
+      <div class="newsletter" style="margin-top:8px;">
+        <input type="email" placeholder="name@email.com" />
+        <span class="send">→</span>
+      </div>
+    </div>
+  </div>
+  <div class="strip">Accessibility · Privacy Policy · Terms &amp; Conditions</div>
+</footer>
+
+</body>
+</html>
