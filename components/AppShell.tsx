@@ -15,13 +15,28 @@ import {
   LogOut,
   Menu,
   X,
+  FileBarChart,
 } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 import { useAuth } from '@/lib/auth-provider';
 import { useBranding, BrandLogo } from '@/lib/branding';
 
-const NAV_ITEMS: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { href: '/', label: 'Spark Reporting', icon: LayoutDashboard },
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children?: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[];
+};
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    href: '/',
+    label: 'Spark Reporting',
+    icon: LayoutDashboard,
+    children: [
+      { href: '/executive-summary', label: 'Executive Summary', icon: FileBarChart },
+    ],
+  },
   { href: '/reconciliation', label: 'Reconcile', icon: GitCompareArrows },
   { href: '/design-system', label: 'Design System', icon: Palette },
 ];
@@ -102,24 +117,56 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Nav links */}
       <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = isActive(pathname, href);
+        {NAV_ITEMS.map(({ href, label, icon: Icon, children }) => {
+          const parentActive =
+            href === '/'
+              ? pathname === '/'
+              : isActive(pathname, href);
+          const childActive = (children || []).some((c) => isActive(pathname, c.href));
+          const active = parentActive && !childActive;
+          const showChildren =
+            !!children && (parentActive || childActive);
           return (
-            <Link
-              key={href}
-              href={href}
-              className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                active
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
-              }`}
-            >
-              {active && (
-                <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-blue-600 dark:bg-blue-400" />
+            <div key={href}>
+              <Link
+                href={href}
+                className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  active
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200'
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                {active && (
+                  <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-blue-600 dark:bg-blue-400" />
+                )}
+                <Icon className="w-4 h-4 shrink-0" />
+                <span>{label}</span>
+              </Link>
+              {showChildren && (
+                <div className="mt-1 ml-4 pl-4 border-l border-gray-200 dark:border-gray-800 space-y-1">
+                  {children!.map(({ href: childHref, label: childLabel, icon: ChildIcon }) => {
+                    const cActive = isActive(pathname, childHref);
+                    return (
+                      <Link
+                        key={childHref}
+                        href={childHref}
+                        className={`relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors ${
+                          cActive
+                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200'
+                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+                        }`}
+                      >
+                        {cActive && (
+                          <span className="absolute -left-4 top-2 bottom-2 w-0.5 rounded-r-full bg-blue-600 dark:bg-blue-400" />
+                        )}
+                        <ChildIcon className="w-3.5 h-3.5 shrink-0" />
+                        <span>{childLabel}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
-              <Icon className="w-4 h-4 shrink-0" />
-              <span>{label}</span>
-            </Link>
+            </div>
           );
         })}
       </nav>
