@@ -1,0 +1,47 @@
+name: Refresh Executive Summary Snapshot
+
+on:
+  # Weekday mornings — 10:00 UTC = 6am EDT / 5am EST
+  schedule:
+    - cron: "0 10 * * 1-5"
+  # Manual run from the Actions tab
+  workflow_dispatch:
+
+# Allow the action to push the refreshed snapshot back to main
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build snapshot
+        env:
+          SPARK_API_KEY: ${{ secrets.SPARK_API_KEY }}
+        run: npx tsx scripts/build-exec-snapshot.ts
+
+      - name: Commit + push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- public/exec-summary-snapshot.json; then
+            echo "No changes — skipping commit."
+            exit 0
+          fi
+          git add public/exec-summary-snapshot.json
+          git commit -m "data: refresh executive summary snapshot ($(date -u '+%Y-%m-%d %H:%M UTC'))"
+          git push origin main
