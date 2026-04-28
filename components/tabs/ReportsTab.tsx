@@ -23,14 +23,29 @@ type CardProps = {
   description: string;
   icon: React.ReactNode;
   cta: string;
+  /** Optional small icon link in the top-right corner that opens in a new tab. */
+  secondary?: { href: string; label: string };
 } & (
   | { href: string; onClick?: never }
   | { onClick: () => void; href?: never }
 );
 
-function ReportCard({ kicker, title, description, icon, cta, href, onClick }: CardProps) {
+function ReportCard({ kicker, title, description, icon, cta, href, onClick, secondary }: CardProps) {
   const inner = (
-    <div className="group h-full flex flex-col bg-white dark:bg-gray-900 rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 overflow-hidden">
+    <div className="group h-full flex flex-col bg-white dark:bg-gray-900 rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 overflow-hidden relative">
+      {secondary && (
+        <a
+          href={secondary.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={secondary.label}
+          title={secondary.label}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute top-2.5 right-2.5 p-1.5 rounded-md text-gray-400 hover:text-blue-600 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/40 transition-colors z-10"
+        >
+          <ExternalLink className="w-4 h-4" />
+        </a>
+      )}
       <div className="p-5 flex-1 flex flex-col">
         {kicker && (
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-600 dark:text-blue-400 mb-2">
@@ -59,6 +74,26 @@ function ReportCard({ kicker, title, description, icon, cta, href, onClick }: Ca
       <a href={href} target="_blank" rel="noopener noreferrer" className="block h-full">
         {inner}
       </a>
+    );
+  }
+  // When there's a secondary <a>, the outer must not be a <button> (nested
+  // interactive elements are invalid HTML). Use a div with role="button".
+  if (secondary && onClick) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick();
+          }
+        }}
+        className="block w-full text-left h-full cursor-pointer"
+      >
+        {inner}
+      </div>
     );
   }
   return (
@@ -96,6 +131,7 @@ export default function ReportsTab() {
             icon={<Play className="w-5 h-5" />}
             cta="Play video"
             onClick={() => setVideoOpen(true)}
+            secondary={{ href: VIDEO_SRC, label: 'Open video in a new tab' }}
           />
           <ReportCard
             kicker="Latest · Apr 25, 2026"
@@ -116,19 +152,17 @@ export default function ReportsTab() {
         </div>
       </section>
 
-      {isAdmin && (
+      {canViewLLR && (
         <section>
           <SectionHeader kicker="Admin · Operational" label="Lead-quality & integration health" />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {canViewLLR && (
-              <ReportCard
-                title="Lost Leads Report"
-                description="All-time CallRail submissions that never reached Spark, with rejection reasons."
-                icon={<FileSearch className="w-5 h-5" />}
-                cta="Open report"
-                href="/api/lost-leads-alltime"
-              />
-            )}
+            <ReportCard
+              title="Lost Leads Report"
+              description="All-time CallRail submissions that never reached Spark, with rejection reasons."
+              icon={<FileSearch className="w-5 h-5" />}
+              cta="Open report"
+              href="/api/lost-leads-alltime"
+            />
             <ReportCard
               title="Contact Comparison"
               description="Side-by-side CallRail vs. Spark for matched contacts — UTMs, dates, lag."
