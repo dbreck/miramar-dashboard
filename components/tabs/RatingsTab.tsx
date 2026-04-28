@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Star, Target, BarChart3, Users } from 'lucide-react';
-import LoadingProgress from '../LoadingProgress';
+import { useEffect, useMemo } from 'react';
+import { Star, Target, BarChart3, Users, RefreshCw } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -16,7 +15,8 @@ import {
 import { DateRange } from '../DateRangePicker';
 import InfoTooltip from '../InfoTooltip';
 import { useFilters } from '@/lib/filter-context';
-import { useDashboardStream } from '@/lib/use-dashboard-stream';
+import { useExecutiveSummary } from '@/lib/use-executive-summary';
+import { buildDashboardView } from '@/lib/dashboard-snapshot';
 
 interface RatingItem {
   rating: string;
@@ -55,8 +55,6 @@ const SCORECARD_RATINGS = [
 ];
 
 export default function RatingsTab({ dateRange, refreshTrigger, onDataStatus }: RatingsTabProps) {
-  const [sourcesUpdated, setSourcesUpdated] = useState(false);
-
   const {
     excludedSources,
     excludeAgents,
@@ -64,30 +62,28 @@ export default function RatingsTab({ dateRange, refreshTrigger, onDataStatus }: 
     setAvailableSources,
   } = useFilters();
 
-  const { data, loading, error, progress, startTime, refetch, isCached, lastFetchedAt } = useDashboardStream({
-    start: dateRange.start,
-    end: dateRange.end,
-    excludedSources,
-    excludeAgents,
-    excludeNoSource,
-    refreshTrigger,
-  });
+  const { data: payload, loading, error, isCached, lastFetchedAt, notFound } =
+    useExecutiveSummary(refreshTrigger ?? 0);
+
+  const data = useMemo(() => {
+    if (!payload) return null;
+    return buildDashboardView(
+      payload,
+      { start: dateRange.start, end: dateRange.end },
+      { excludedSources, excludeAgents, excludeNoSource },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload, dateRange.start.getTime(), dateRange.end.getTime(), excludedSources.join('|'), excludeAgents, excludeNoSource]);
 
   // Report data status to parent
   useEffect(() => {
     onDataStatus?.(isCached, lastFetchedAt, loading);
   }, [isCached, lastFetchedAt, loading, onDataStatus]);
 
-  // Update available sources when data loads (only once per data load)
+  // Push available sources to filter panel
   useEffect(() => {
-    if (data?.availableSources && !loading && !sourcesUpdated) {
-      setAvailableSources(data.availableSources);
-      setSourcesUpdated(true);
-    }
-    if (loading) {
-      setSourcesUpdated(false);
-    }
-  }, [data, loading, sourcesUpdated, setAvailableSources]);
+    if (data?.availableSources) setAvailableSources(data.availableSources);
+  }, [data, setAvailableSources]);
 
   // Prepare ratings by source data for the stacked chart - top 8 sources
   const ratingsBySourceData = useMemo(() => {
@@ -128,8 +124,13 @@ export default function RatingsTab({ dateRange, refreshTrigger, onDataStatus }: 
     return map;
   }, [data?.ratingDistribution]);
 
-  if (loading) {
-    return <LoadingProgress progress={progress} startTime={startTime} />;
+  if (loading && !data) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center">
+        <RefreshCw className="w-6 h-6 text-blue-600 mx-auto mb-3 animate-spin" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading snapshot…</p>
+      </div>
+    );
   }
 
   if (error) {
@@ -137,12 +138,6 @@ export default function RatingsTab({ dateRange, refreshTrigger, onDataStatus }: 
       <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-red-800 dark:text-red-300 mb-2">Error Loading Data</h3>
         <p className="text-red-600 dark:text-red-400">{error}</p>
-        <button
-          onClick={refetch}
-          className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-        >
-          Retry
-        </button>
       </div>
     );
   }
@@ -150,8 +145,13 @@ export default function RatingsTab({ dateRange, refreshTrigger, onDataStatus }: 
   if (!data) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center">
-        <p className="text-gray-500 dark:text-gray-400 text-lg">No data loaded yet.</p>
-        <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Click <span className="font-semibold text-green-600">Refresh Data</span> to pull from Spark.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-lg">
+          {notFound ? 'No snapshot deployed yet.' : 'No data loaded yet.'}
+        </p>
+        <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
+          Run <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-mono text-xs">npm run snapshot</code>{' '}
+          locally and push, or wait for the next 6am ET cron.
+        </p>
       </div>
     );
   }

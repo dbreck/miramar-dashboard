@@ -10,6 +10,8 @@ export interface ExecSummaryContact {
   city: string | null;
   state: string | null;
   country: string | null;
+  postcode: string | null;
+  areaCode: string | null;
   utmSource: string;
   utmMedium: string;
   utmCampaign: string;

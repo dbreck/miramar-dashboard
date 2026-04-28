@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { BarChart3, TrendingUp, Filter } from 'lucide-react';
-import LoadingProgress from '../LoadingProgress';
+import { useEffect, useMemo } from 'react';
+import { BarChart3, TrendingUp, Filter, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { DateRange } from '@/components/DateRangePicker';
 import { TrafficSource, Campaign } from '@/lib/types';
 import { useFilters } from '@/lib/filter-context';
-import { useDashboardStream } from '@/lib/use-dashboard-stream';
+import { useExecutiveSummary } from '@/lib/use-executive-summary';
+import { buildDashboardView } from '@/lib/dashboard-snapshot';
 
 interface MarketingData {
   trafficSources: TrafficSource[];
@@ -24,8 +24,6 @@ interface MarketingTabProps {
 }
 
 export default function MarketingTab({ dateRange, refreshTrigger, onDataStatus }: MarketingTabProps) {
-  const [sourcesUpdated, setSourcesUpdated] = useState(false);
-
   const {
     excludedSources,
     excludeAgents,
@@ -33,33 +31,36 @@ export default function MarketingTab({ dateRange, refreshTrigger, onDataStatus }
     setAvailableSources,
   } = useFilters();
 
-  const { data, loading, error, progress, startTime, isCached, lastFetchedAt } = useDashboardStream({
-    start: dateRange.start,
-    end: dateRange.end,
-    excludedSources,
-    excludeAgents,
-    excludeNoSource,
-    refreshTrigger,
-  });
+  const { data: payload, loading, error, isCached, lastFetchedAt, notFound } =
+    useExecutiveSummary(refreshTrigger ?? 0);
+
+  const data = useMemo(() => {
+    if (!payload) return null;
+    return buildDashboardView(
+      payload,
+      { start: dateRange.start, end: dateRange.end },
+      { excludedSources, excludeAgents, excludeNoSource },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payload, dateRange.start.getTime(), dateRange.end.getTime(), excludedSources.join('|'), excludeAgents, excludeNoSource]);
 
   // Report data status to parent
   useEffect(() => {
     onDataStatus?.(isCached, lastFetchedAt, loading);
   }, [isCached, lastFetchedAt, loading, onDataStatus]);
 
-  // Update available sources when data loads (only once per data load)
+  // Push available sources to filter panel
   useEffect(() => {
-    if (data?.availableSources && !loading && !sourcesUpdated) {
-      setAvailableSources(data.availableSources);
-      setSourcesUpdated(true);
-    }
-    if (loading) {
-      setSourcesUpdated(false);
-    }
-  }, [data, loading, sourcesUpdated, setAvailableSources]);
+    if (data?.availableSources) setAvailableSources(data.availableSources);
+  }, [data, setAvailableSources]);
 
-  if (loading) {
-    return <LoadingProgress progress={progress} startTime={startTime} />;
+  if (loading && !data) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center">
+        <RefreshCw className="w-6 h-6 text-blue-600 mx-auto mb-3 animate-spin" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading snapshot…</p>
+      </div>
+    );
   }
 
   if (error) {
@@ -73,8 +74,13 @@ export default function MarketingTab({ dateRange, refreshTrigger, onDataStatus }
   if (!data) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 text-center">
-        <p className="text-gray-500 dark:text-gray-400 text-lg">No data loaded yet.</p>
-        <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Click <span className="font-semibold text-green-600">Refresh Data</span> to pull from Spark.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-lg">
+          {notFound ? 'No snapshot deployed yet.' : 'No data loaded yet.'}
+        </p>
+        <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
+          Run <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-mono text-xs">npm run snapshot</code>{' '}
+          locally and push, or wait for the next 6am ET cron.
+        </p>
       </div>
     );
   }
