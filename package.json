@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "reconcile": "npx tsx scripts/reconciliation-report.ts"
+    "reconcile": "npx tsx scripts/reconciliation-report.ts",
+    "snapshot": "npx tsx --env-file=.env.local scripts/build-exec-snapshot.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.9.0",

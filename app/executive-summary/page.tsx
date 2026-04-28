@@ -28,7 +28,6 @@ import {
   Tooltip,
   Cell,
 } from 'recharts';
-import LoadingProgress from '@/components/LoadingProgress';
 import LeadGrowthChart from '@/components/executive-summary/LeadGrowthChart';
 import { useExecutiveSummary } from '@/lib/use-executive-summary';
 import {
@@ -86,7 +85,7 @@ function endOfDayUTC(d: Date): Date {
 
 export default function ExecutiveSummaryPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const { data, loading, error, progress, startTime, isCached, lastFetchedAt } =
+  const { data, loading, error, isCached, lastFetchedAt, notFound } =
     useExecutiveSummary(refreshTrigger);
 
   // Date filter state
@@ -196,8 +195,11 @@ export default function ExecutiveSummaryPage() {
             rangeLabel={null}
           />
           {loading && (
-            <div className="mt-6">
-              <LoadingProgress progress={progress} startTime={startTime} />
+            <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-10 text-center">
+              <RefreshCw className="w-8 h-8 text-blue-600 mx-auto mb-3 animate-spin" />
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Loading snapshot…
+              </p>
             </div>
           )}
           {!loading && error && (
@@ -205,22 +207,23 @@ export default function ExecutiveSummaryPage() {
               {error}
             </div>
           )}
-          {!loading && !error && (
+          {!loading && !error && notFound && (
             <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-10 text-center">
               <Activity className="w-10 h-10 text-blue-600 mx-auto mb-3" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                No report yet
+                No snapshot deployed yet
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Click the button below to pull all-time Mira Mar data into the report.
-                The first run will take 1–3 minutes; refreshes are cached after that.
+                Run <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-mono text-xs">npm run snapshot</code>{' '}
+                locally, then commit and push <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-mono text-xs">public/exec-summary-snapshot.json</code>.
+                Once Vercel redeploys, the report appears here.
               </p>
               <button
                 onClick={handleRefresh}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
-                Build Report
+                Try Again
               </button>
             </div>
           )}
@@ -719,12 +722,6 @@ export default function ExecutiveSummaryPage() {
             </div>
           </div>
         </div>
-
-        {loading && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4">
-            <LoadingProgress progress={progress} startTime={startTime} />
-          </div>
-        )}
 
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 rounded-xl p-4 text-sm">
