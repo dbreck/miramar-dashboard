@@ -130,7 +130,7 @@ export function useDashboardStream(options: UseDashboardStreamOptions): UseDashb
       eventSource.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [optionsKey, effectiveTrigger]);
+  }, [effectiveTrigger]);
 
   return { data, loading, error, progress, startTime, refetch, isCached, lastFetchedAt };
 }

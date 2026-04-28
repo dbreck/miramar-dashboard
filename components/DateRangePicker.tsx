@@ -60,10 +60,13 @@ export default function DateRangePicker({ dateRange, onChange }: DateRangePicker
   };
 
   const handleCustomDateChange = (type: 'start' | 'end', value: string) => {
+    if (!value) return;
     const newDate = new Date(value);
     if (type === 'start') {
+      newDate.setUTCHours(0, 0, 0, 0);
       onChange({ ...dateRange, start: newDate, preset: 'custom' });
     } else {
+      newDate.setUTCHours(23, 59, 59, 999);
       onChange({ ...dateRange, end: newDate, preset: 'custom' });
     }
   };
