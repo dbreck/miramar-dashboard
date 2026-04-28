@@ -192,6 +192,18 @@ export async function GET(request: Request) {
           progress: { current: 0, total: reservations.length },
         });
 
+        // Build contract_id → buyer-contact map from the contacts already fetched.
+        // The /contracts/{id} primary_purchaser embed doesn't expose contact_id, but
+        // each contact response carries a contracts[] array — invert that here.
+        const contractToContact = new Map<number, any>();
+        for (const c of dedupedContacts) {
+          if (c.agent === true) continue;
+          const cs = c.contracts || [];
+          for (const ct of cs) {
+            if (ct?.id) contractToContact.set(ct.id, c);
+          }
+        }
+
         const reservationDetails: any[] = [];
         const RES_BATCH = 10;
         for (let i = 0; i < reservations.length; i += RES_BATCH) {
@@ -210,9 +222,8 @@ export async function GET(request: Request) {
           for (let j = 0; j < batch.length; j++) {
             const r = batch[j];
             const contract = contracts[j];
-            const primary = contract?.primary_purchaser;
-            const contactId = primary?.contact_id ?? primary?.contact?.id ?? null;
-            const buyerContact = contactId ? contactById.get(contactId) : null;
+            const buyerContact = r.contract_id ? contractToContact.get(r.contract_id) : null;
+            const contactId = buyerContact?.id ?? null;
 
             const deposits = contract?.deposits || [];
             const depositsOwed = deposits.reduce((sum: number, d: any) => sum + (d.owed_amount || 0), 0);
