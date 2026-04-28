@@ -157,6 +157,19 @@ async function main() {
   });
   log('reservations', `Found ${reservations.length} reservations`);
 
+  // Build contract_id → buyer-contact map from the contacts we already fetched.
+  // Spark's primary_purchaser embed on /contracts/{id} doesn't expose contact_id,
+  // but each contact's response carries a contracts[] array, so we can invert
+  // that to look up the buyer for a given contract.
+  const contractToContact = new Map<number, any>();
+  for (const c of dedupedContacts) {
+    if (c.agent === true) continue; // skip agents — they're not buyers
+    const contracts = c.contracts || [];
+    for (const ct of contracts) {
+      if (ct?.id) contractToContact.set(ct.id, c);
+    }
+  }
+
   const reservationDetails: any[] = [];
   const RES_BATCH = 10;
   for (let i = 0; i < reservations.length; i += RES_BATCH) {
@@ -170,9 +183,9 @@ async function main() {
     for (let j = 0; j < batch.length; j++) {
       const r = batch[j];
       const contract = contracts[j];
-      const primary = contract?.primary_purchaser;
-      const contactId = primary?.contact_id ?? primary?.contact?.id ?? null;
-      const buyerContact = contactId ? contactById.get(contactId) : null;
+      // Resolve buyer via the contact-side index built above
+      const buyerContact = r.contract_id ? contractToContact.get(r.contract_id) : null;
+      const contactId = buyerContact?.id ?? null;
 
       const deposits = contract?.deposits || [];
       const depositsOwed = deposits.reduce(
