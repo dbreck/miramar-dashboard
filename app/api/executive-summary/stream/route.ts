@@ -32,6 +32,14 @@ function isWebsiteSourceName(name: string): boolean {
   return name.toLowerCase().startsWith('website');
 }
 
+function extractAreaCode(phoneNumber: string | null | undefined): string | null {
+  if (!phoneNumber) return null;
+  const cleaned = phoneNumber.replace(/\D/g, '');
+  if (cleaned.length === 10) return cleaned.substring(0, 3);
+  if (cleaned.length === 11 && cleaned[0] === '1') return cleaned.substring(1, 4);
+  return null;
+}
+
 export async function GET(request: Request) {
   const encoder = new TextEncoder();
 
@@ -307,6 +315,10 @@ export async function GET(request: Request) {
           const city = (contact.city || '').toString().trim() || null;
           const state = (contact.province || contact.state || '').toString().trim() || null;
           const country = (contact.country_iso || contact.country || '').toString().trim() || null;
+          const rawPostcode = (contact.postcode || '').toString().trim();
+          const postcode = rawPostcode ? rawPostcode.substring(0, 5) : null;
+          const phone = contact.mobile_phone || contact.phone || contact.work_phone || null;
+          const areaCode = extractAreaCode(phone);
 
           return {
             id: contact.id,
@@ -316,6 +328,8 @@ export async function GET(request: Request) {
             city,
             state,
             country,
+            postcode,
+            areaCode,
             utmSource: (fieldMap.get('utm_source') || '').toString().trim() || 'Direct',
             utmMedium: (fieldMap.get('utm_medium') || '').toString().trim() || 'None',
             utmCampaign: (fieldMap.get('utm_campaign') || '').toString().trim() || 'No Campaign',
