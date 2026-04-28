@@ -396,4 +396,38 @@ export class SparkAPIClient {
     const query = this.buildQueryString(params);
     return this.get(`/custom-fields${query}`);
   }
+
+  /**
+   * List ALL reservations with automatic pagination
+   */
+  async listAllReservations(params: Record<string, any> = {}): Promise<any[]> {
+    const all: any[] = [];
+    let page = 1;
+    let hasMore = true;
+    const maxPages = 20; // Safety limit (2,000 reservations)
+
+    while (hasMore && page <= maxPages) {
+      const pageParams = { ...params, page, per_page: 100 };
+      const query = this.buildQueryString(pageParams);
+      try {
+        const response = await this.get<any>(`/reservations${query}`);
+        const items = Array.isArray(response) ? response : response.data || [];
+        if (items.length === 0) break;
+        all.push(...items);
+        hasMore = items.length === 100;
+        page++;
+      } catch (error) {
+        console.error(`Failed to fetch reservations page ${page}:`, error);
+        break;
+      }
+    }
+    return all;
+  }
+
+  /**
+   * Get a single contract (includes deposits, primary_purchaser, etc.)
+   */
+  async getContract(contractId: number): Promise<any> {
+    return this.get(`/contracts/${contractId}`);
+  }
 }
