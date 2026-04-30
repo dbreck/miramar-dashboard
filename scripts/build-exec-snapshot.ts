@@ -10,7 +10,7 @@
  * Then: git add, commit, push — Vercel ships the JSON with the deploy.
  */
 
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { SparkAPIClient } from '../lib/spark-client';
@@ -19,6 +19,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT = join(__dirname, '..');
 const OUT_PATH = join(ROOT, 'public', 'exec-summary-snapshot.json');
+const HISTORY_PATH = join(ROOT, 'public', 'rating-history.json');
 
 const PROJECT_ID = 2855;
 
@@ -443,9 +444,72 @@ async function main() {
   const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
   const size = (JSON.stringify(responseData).length / 1024).toFixed(1);
   log('done', `Wrote ${OUT_PATH} (${size} KB) in ${elapsed}s`);
+
+  // ---------- Rating history (append-only time series) ----------
+  // Compute today's rating distribution from the same contacts that were
+  // just baked into the exec-summary snapshot. Append (or replace if same
+  // calendar day) into public/rating-history.json so the rating-over-time
+  // chart has real data to render. The first entry is created on the first
+  // run; subsequent runs accumulate history.
+  const todayISO = responseData.meta.snapshotAt;
+  const todayDate = todayISO.split('T')[0]; // YYYY-MM-DD
+
+  const ratingCounts: Record<string, number> = {};
+  for (const c of validContacts) {
+    const key = c.rating || 'Unrated';
+    ratingCounts[key] = (ratingCounts[key] || 0) + 1;
+  }
+
+  const todayEntry = {
+    date: todayDate,
+    snapshotAt: todayISO,
+    totalContacts: validContacts.length,
+    ratings: ratingCounts,
+  };
+
+  type HistoryEntry = typeof todayEntry;
+  type HistoryFile = {
+    version: number;
+    lastUpdated: string;
+    snapshots: HistoryEntry[];
+  };
+
+  let history: HistoryFile = {
+    version: 1,
+    lastUpdated: todayISO,
+    snapshots: [],
+  };
+  if (existsSync(HISTORY_PATH)) {
+    try {
+      const raw = readFileSync(HISTORY_PATH, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.snapshots)) {
+        history = parsed as HistoryFile;
+      }
+    } catch (e) {
+      console.warn('rating-history.json was unparseable; starting fresh.');
+    }
+  }
+
+  // Replace today's entry if the build runs more than once on the same day.
+  const existingIdx = history.snapshots.findIndex((s) => s.date === todayDate);
+  if (existingIdx >= 0) {
+    history.snapshots[existingIdx] = todayEntry;
+  } else {
+    history.snapshots.push(todayEntry);
+  }
+  history.snapshots.sort((a, b) => a.date.localeCompare(b.date));
+  history.lastUpdated = todayISO;
+
+  writeFileSync(HISTORY_PATH, JSON.stringify(history));
+  log(
+    'history',
+    `Wrote ${HISTORY_PATH} — ${history.snapshots.length} entr${history.snapshots.length === 1 ? 'y' : 'ies'}`,
+  );
+
   console.log('');
   console.log('Next:');
-  console.log('  git add public/exec-summary-snapshot.json');
+  console.log('  git add public/exec-summary-snapshot.json public/rating-history.json');
   console.log('  git commit -m "data: refresh executive summary snapshot"');
   console.log('  git push');
 }

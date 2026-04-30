@@ -369,6 +369,189 @@ export function reservationsBuckets(
   return { buckets, counts };
 }
 
+// ---------- Lead quality ----------
+//
+// Quality ratings are the "active pipeline" set: a contact in any of these
+// states has demonstrated real buying intent or has already converted.
+// The quality rate of a source/campaign = % of its leads that reached one
+// of these ratings. This is the headline number for ad-spend allocation.
+
+export const QUALITY_RATINGS = ['Hot', 'Warm', 'Reservation Holder', 'Contract Holder'] as const;
+const QUALITY_SET = new Set<string>(QUALITY_RATINGS);
+
+export interface QualityBucket {
+  name: string;
+  total: number;
+  hot: number;
+  warm: number;
+  resHolder: number;
+  contractHolder: number;
+  qualityCount: number;
+  qualityRate: number; // 0..100
+}
+
+function bumpRating(b: QualityBucket, rating: string) {
+  b.total++;
+  if (QUALITY_SET.has(rating)) b.qualityCount++;
+  if (rating === 'Hot') b.hot++;
+  else if (rating === 'Warm') b.warm++;
+  else if (rating === 'Reservation Holder') b.resHolder++;
+  else if (rating === 'Contract Holder') b.contractHolder++;
+}
+
+function finalizeQuality(buckets: Map<string, QualityBucket>, minN: number): QualityBucket[] {
+  const out: QualityBucket[] = [];
+  buckets.forEach((b) => {
+    if (b.total < minN) return;
+    b.qualityRate = b.total > 0 ? (b.qualityCount / b.total) * 100 : 0;
+    out.push(b);
+  });
+  // Primary sort: highest quality rate. Secondary: more leads breaks ties.
+  out.sort((a, b) => b.qualityRate - a.qualityRate || b.total - a.total);
+  return out;
+}
+
+export function qualityBySource(
+  payload: ExecSummaryPayload,
+  range: ExecDateRange,
+  options: { minN?: number } = {},
+): { buckets: QualityBucket[]; excluded: number } {
+  const minN = options.minN ?? 10;
+  const map = new Map<string, QualityBucket>();
+  let excluded = 0;
+  payload.contacts.forEach((c) => {
+    if (!inRange(c.createdAt, range)) return;
+    if (c.agent) return; // agents pollute quality math
+    const key = c.sourceName || 'No Source';
+    let b = map.get(key);
+    if (!b) {
+      b = {
+        name: key,
+        total: 0, hot: 0, warm: 0, resHolder: 0, contractHolder: 0,
+        qualityCount: 0, qualityRate: 0,
+      };
+      map.set(key, b);
+    }
+    bumpRating(b, c.rating);
+  });
+  // Count sources we're filtering out so the UI can show "+N below threshold"
+  map.forEach((b) => { if (b.total < minN) excluded++; });
+  return { buckets: finalizeQuality(map, minN), excluded };
+}
+
+export function qualityByCampaign(
+  payload: ExecSummaryPayload,
+  range: ExecDateRange,
+  options: { minN?: number } = {},
+): { buckets: (QualityBucket & { source: string; campaign: string })[]; excluded: number } {
+  const minN = options.minN ?? 5;
+  const map = new Map<
+    string,
+    QualityBucket & { source: string; campaign: string }
+  >();
+  let excluded = 0;
+  payload.contacts.forEach((c) => {
+    if (!inRange(c.createdAt, range)) return;
+    if (c.agent) return;
+    // Skip rows with no real campaign attribution — they swamp the chart.
+    if (
+      (c.utmSource === 'Direct' || !c.utmSource) &&
+      (c.utmCampaign === 'No Campaign' || !c.utmCampaign)
+    ) {
+      return;
+    }
+    const key = `${c.utmSource}|${c.utmCampaign}`;
+    let b = map.get(key);
+    if (!b) {
+      b = {
+        name: c.utmCampaign,
+        source: c.utmSource,
+        campaign: c.utmCampaign,
+        total: 0, hot: 0, warm: 0, resHolder: 0, contractHolder: 0,
+        qualityCount: 0, qualityRate: 0,
+      };
+      map.set(key, b);
+    }
+    bumpRating(b, c.rating);
+  });
+  map.forEach((b) => { if (b.total < minN) excluded++; });
+  // finalizeQuality returns QualityBucket[] but map values carry the extra fields
+  const filtered: (QualityBucket & { source: string; campaign: string })[] = [];
+  map.forEach((b) => {
+    if (b.total < minN) return;
+    b.qualityRate = b.total > 0 ? (b.qualityCount / b.total) * 100 : 0;
+    filtered.push(b);
+  });
+  filtered.sort((a, b) => b.qualityRate - a.qualityRate || b.total - a.total);
+  return { buckets: filtered, excluded };
+}
+
+// ---------- Cohort quality ----------
+//
+// "Of contacts who entered the funnel in month X, where are they now?"
+// X-axis = createdAt month bucket; stack = current rating distribution.
+// This is NOT rating-over-time — it's a snapshot of cohort outcomes today.
+
+export interface CohortRow {
+  monthKey: string;
+  label: string;
+  date: number;
+  total: number;
+  ratings: Record<string, number>;
+}
+
+export function cohortQuality(
+  payload: ExecSummaryPayload,
+  options: { excludeAgents?: boolean } = {},
+): { rows: CohortRow[]; ratingsSeen: string[] } {
+  const excludeAgents = options.excludeAgents ?? true;
+  const map = new Map<string, CohortRow>();
+  const ratingsSeen = new Set<string>();
+  payload.contacts.forEach((c) => {
+    if (excludeAgents && c.agent) return;
+    if (!c.createdAt) return;
+    const d = new Date(c.createdAt);
+    const monthKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    let row = map.get(monthKey);
+    if (!row) {
+      row = {
+        monthKey,
+        label: new Date(`${monthKey}-01T00:00:00Z`).toLocaleDateString('en-US', {
+          month: 'short',
+          year: '2-digit',
+          timeZone: 'UTC',
+        }),
+        date: new Date(`${monthKey}-01T00:00:00Z`).getTime(),
+        total: 0,
+        ratings: {},
+      };
+      map.set(monthKey, row);
+    }
+    row.total++;
+    row.ratings[c.rating] = (row.ratings[c.rating] || 0) + 1;
+    ratingsSeen.add(c.rating);
+  });
+  const rows = Array.from(map.values()).sort((a, b) => a.date - b.date);
+  return { rows, ratingsSeen: Array.from(ratingsSeen) };
+}
+
+// ---------- Current rating distribution ----------
+
+export function currentRatingDistribution(
+  payload: ExecSummaryPayload,
+  options: { excludeAgents?: boolean } = {},
+): { rating: string; count: number }[] {
+  const excludeAgents = options.excludeAgents ?? true;
+  const counts = new Map<string, number>();
+  payload.contacts.forEach((c) => {
+    if (excludeAgents && c.agent) return;
+    counts.set(c.rating, (counts.get(c.rating) || 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .map(([rating, count]) => ({ rating, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
 export function reservationSourcesInRange(
   payload: ExecSummaryPayload,
   range: ExecDateRange,

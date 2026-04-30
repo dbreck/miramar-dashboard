@@ -15,6 +15,12 @@ import {
   MapPin,
   Megaphone,
   Users,
+  Flame,
+  ThermometerSun,
+  Award,
+  Sparkles,
+  History,
+  Layers,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -27,9 +33,12 @@ import {
   YAxis,
   Tooltip,
   Cell,
+  Legend,
 } from 'recharts';
 import LeadGrowthChart from '@/components/executive-summary/LeadGrowthChart';
 import { useExecutiveSummary } from '@/lib/use-executive-summary';
+import { useRatingHistory } from '@/lib/use-rating-history';
+import { ratingHistorySeries } from '@/lib/rating-history';
 import {
   ExecDateRange,
   formatCurrency,
@@ -41,6 +50,11 @@ import {
   reservationsBuckets,
   reservationsInRange,
   summarize,
+  qualityBySource,
+  qualityByCampaign,
+  cohortQuality,
+  currentRatingDistribution,
+  QUALITY_RATINGS,
 } from '@/lib/executive-summary';
 
 type Preset = 'all' | '7d' | '30d' | '90d' | 'ytd' | 'custom';
@@ -87,6 +101,8 @@ export default function ExecutiveSummaryPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { data, loading, error, isCached, lastFetchedAt, notFound } =
     useExecutiveSummary(refreshTrigger);
+  const { data: history, notFound: historyNotFound } =
+    useRatingHistory(refreshTrigger);
 
   // Date filter state
   const [preset, setPreset] = useState<Preset>('all');
@@ -97,6 +113,9 @@ export default function ExecutiveSummaryPage() {
   const [reservationsActiveOnly, setReservationsActiveOnly] = useState<boolean>(false);
   // Reservation Detail table — independent All / Active toggle
   const [detailActiveOnly, setDetailActiveOnly] = useState<boolean>(false);
+  // Lead Quality threshold toggles
+  const [sourceMinN, setSourceMinN] = useState<number>(10);
+  const [campaignMinN, setCampaignMinN] = useState<number>(5);
 
   // Effective range — bounded by snapshot's data window
   const range: ExecDateRange | null = useMemo(() => {
@@ -183,6 +202,32 @@ export default function ExecutiveSummaryPage() {
     if (!data || !range) return { utmSources: [], utmMediums: [], topCampaigns: [] };
     return marketingInRange(data, range);
   }, [data, range]);
+
+  // Lead quality aggregations — all derived from the same snapshot.
+  const qualityBySrc = useMemo(() => {
+    if (!data || !range) return { buckets: [], excluded: 0 };
+    return qualityBySource(data, range, { minN: sourceMinN });
+  }, [data, range, sourceMinN]);
+
+  const qualityByCmp = useMemo(() => {
+    if (!data || !range) return { buckets: [], excluded: 0 };
+    return qualityByCampaign(data, range, { minN: campaignMinN });
+  }, [data, range, campaignMinN]);
+
+  const cohort = useMemo(() => {
+    if (!data) return { rows: [], ratingsSeen: [] };
+    return cohortQuality(data);
+  }, [data]);
+
+  const ratingDist = useMemo(() => {
+    if (!data) return [];
+    return currentRatingDistribution(data);
+  }, [data]);
+
+  const ratingTimeSeries = useMemo(() => {
+    if (!history) return null;
+    return ratingHistorySeries(history);
+  }, [history]);
 
   const handleRefresh = () => setRefreshTrigger((n) => n + 1);
 
@@ -431,6 +476,394 @@ export default function ExecutiveSummaryPage() {
               <span className="inline-block w-3 h-3 rounded-sm bg-emerald-500" /> Non-Website
             </span>
           </div>
+        </div>
+
+        {/* Lead Quality — current rating distribution scorecards */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Award className="w-5 h-5 text-amber-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Lead Quality Snapshot
+            </h3>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              (current ratings · all-time, agents excluded)
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            Today&apos;s state of every contact in the project. Funded ad spend
+            should chase Hot + Warm signal at the source level below.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {QUALITY_RATINGS.map((r) => {
+              const entry = ratingDist.find((d) => d.rating === r);
+              const count = entry?.count || 0;
+              const Icon =
+                r === 'Hot'
+                  ? Flame
+                  : r === 'Warm'
+                  ? ThermometerSun
+                  : r === 'Reservation Holder'
+                  ? Sparkles
+                  : Award;
+              const accent =
+                r === 'Hot'
+                  ? 'text-red-600'
+                  : r === 'Warm'
+                  ? 'text-orange-500'
+                  : r === 'Reservation Holder'
+                  ? 'text-blue-600'
+                  : 'text-purple-600';
+              return (
+                <div
+                  key={r}
+                  className="rounded-lg border border-gray-200 dark:border-gray-700 p-3"
+                >
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    <Icon className={`w-3.5 h-3.5 ${accent}`} />
+                    {r}
+                  </div>
+                  <div className="mt-1.5 text-2xl font-bold text-gray-900 dark:text-white">
+                    {formatNumber(count)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Lead Quality by Source */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-emerald-600" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Lead Quality by Source
+              </h3>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                ({qualityBySrc.buckets.length} sources shown
+                {qualityBySrc.excluded > 0
+                  ? ` · ${qualityBySrc.excluded} below threshold`
+                  : ''})
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <span>Min leads:</span>
+              {[5, 10, 25].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setSourceMinN(n)}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    sourceMinN === n
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            % of each source&apos;s leads that reached Hot, Warm, Reservation
+            Holder, or Contract Holder. Higher = better ad spend ROI.
+          </p>
+          {qualityBySrc.buckets.length === 0 ? (
+            <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+              No sources cleared the {sourceMinN}-lead threshold for this date range.
+            </div>
+          ) : (
+            <ResponsiveContainer
+              width="100%"
+              height={Math.max(220, qualityBySrc.buckets.length * 32)}
+            >
+              <BarChart data={qualityBySrc.buckets} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis
+                  type="number"
+                  domain={[0, 100]}
+                  unit="%"
+                  stroke="#9ca3af"
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  stroke="#9ca3af"
+                  width={210}
+                  tick={{ fontSize: 11 }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                  }}
+                  formatter={(value: any, _name: any, props: any) => {
+                    const b = props?.payload;
+                    return [
+                      `${Number(value).toFixed(1)}% (${b?.qualityCount}/${b?.total})`,
+                      'Quality Rate',
+                    ];
+                  }}
+                  labelFormatter={(label: any, payload: any) => {
+                    const b = payload?.[0]?.payload;
+                    if (!b) return label;
+                    return `${label} · Hot ${b.hot} · Warm ${b.warm} · Res ${b.resHolder} · Contract ${b.contractHolder}`;
+                  }}
+                />
+                <Bar dataKey="qualityRate" radius={[0, 6, 6, 0]} fill="#10b981" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Lead Quality by Campaign */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+            <div className="flex items-center gap-2">
+              <Megaphone className="w-5 h-5 text-purple-600" />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Lead Quality by Campaign
+              </h3>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                ({qualityByCmp.buckets.length} campaigns shown
+                {qualityByCmp.excluded > 0
+                  ? ` · ${qualityByCmp.excluded} below threshold`
+                  : ''})
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <span>Min leads:</span>
+              {[3, 5, 10].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setCampaignMinN(n)}
+                  className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                    campaignMinN === n
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            Same quality lens, scoped to attributed paid traffic
+            (utm_source × utm_campaign). Direct/Unknown rows are omitted.
+          </p>
+          {qualityByCmp.buckets.length === 0 ? (
+            <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+              No campaigns cleared the {campaignMinN}-lead threshold for this date range.
+            </div>
+          ) : (
+            <div className="overflow-x-auto -mx-2">
+              <table className="min-w-full text-xs">
+                <thead>
+                  <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                    <th className="px-2 py-2 font-medium">Campaign</th>
+                    <th className="px-2 py-2 font-medium">UTM Source</th>
+                    <th className="px-2 py-2 font-medium text-right">Leads</th>
+                    <th className="px-2 py-2 font-medium text-right">Hot</th>
+                    <th className="px-2 py-2 font-medium text-right">Warm</th>
+                    <th className="px-2 py-2 font-medium text-right">Res</th>
+                    <th className="px-2 py-2 font-medium text-right">Contract</th>
+                    <th className="px-2 py-2 font-medium text-right">Quality %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {qualityByCmp.buckets.map((b, i) => (
+                    <tr
+                      key={i}
+                      className="border-b border-gray-100 dark:border-gray-800 text-gray-700 dark:text-gray-200"
+                    >
+                      <td className="px-2 py-2 max-w-[260px] truncate" title={b.campaign}>
+                        {b.campaign}
+                      </td>
+                      <td className="px-2 py-2">{b.source}</td>
+                      <td className="px-2 py-2 text-right">{b.total}</td>
+                      <td className="px-2 py-2 text-right">{b.hot || '—'}</td>
+                      <td className="px-2 py-2 text-right">{b.warm || '—'}</td>
+                      <td className="px-2 py-2 text-right">{b.resHolder || '—'}</td>
+                      <td className="px-2 py-2 text-right">{b.contractHolder || '—'}</td>
+                      <td className="px-2 py-2 text-right font-semibold text-emerald-600 dark:text-emerald-400">
+                        {b.qualityRate.toFixed(1)}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Cohort Quality — current ratings of contacts grouped by signup month */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <Layers className="w-5 h-5 text-cyan-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Cohort Outcomes
+            </h3>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              (where each month&apos;s leads stand today)
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            For every month a contact entered the funnel, the stack shows
+            their <em>current</em> rating. Useful for spotting cohorts that
+            converted unusually well or that stalled.
+          </p>
+          {(() => {
+            // Order: most "buyer-positive" at the bottom of the stack,
+            // noise at the top. Use the snapshot's palette for fill colors.
+            const palette = data.meta.ratingPalette || {};
+            const RATING_ORDER = [
+              'Contract Holder',
+              'Reservation Holder',
+              'Hot',
+              'Warm',
+              'New',
+              'Cold',
+              'Not Interested',
+              'Not A Buyer',
+              'Influencer',
+              'Referral',
+              'Agent',
+              'CB Global Luxury Agent',
+              'Team',
+              'Legal',
+              'Unrated',
+            ];
+            const present = RATING_ORDER.filter((r) =>
+              cohort.ratingsSeen.includes(r),
+            );
+            // Append any unknown ratings we don't have in our order list
+            cohort.ratingsSeen.forEach((r) => {
+              if (!present.includes(r)) present.push(r);
+            });
+
+            const chartData = cohort.rows.map((row) => {
+              const obj: Record<string, any> = { label: row.label };
+              present.forEach((r) => {
+                obj[r] = row.ratings[r] || 0;
+              });
+              return obj;
+            });
+
+            if (chartData.length === 0) {
+              return (
+                <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+                  No contacts to bucket.
+                </div>
+              );
+            }
+
+            return (
+              <ResponsiveContainer width="100%" height={360}>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  {present.map((r) => (
+                    <Bar
+                      key={r}
+                      dataKey={r}
+                      stackId="cohort"
+                      fill={palette[r] || '#999999'}
+                    />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            );
+          })()}
+        </div>
+
+        {/* Rating Over Time — accumulates from rating-history.json */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <div className="flex items-center gap-2 mb-1">
+            <History className="w-5 h-5 text-indigo-600" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Rating Distribution Over Time
+            </h3>
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {ratingTimeSeries
+                ? `(${ratingTimeSeries.rows.length} snapshot${ratingTimeSeries.rows.length === 1 ? '' : 's'})`
+                : ''}
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            Each weekday cron writes today&apos;s rating counts to a committed
+            time-series file. The chart fills in as snapshots accumulate.
+          </p>
+          {historyNotFound ? (
+            <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+              No history file yet — run <code className="font-mono text-xs px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700">npm run snapshot</code> and commit to seed the first entry.
+            </div>
+          ) : !ratingTimeSeries ? (
+            <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+              Loading history…
+            </div>
+          ) : ratingTimeSeries.rows.length < 2 ? (
+            <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-4 text-sm text-gray-600 dark:text-gray-400">
+              Only one snapshot recorded so far ({ratingTimeSeries.rows[0]?.label}).
+              The line chart fills in starting tomorrow morning&apos;s cron run.
+              Counts captured today:{' '}
+              {QUALITY_RATINGS.map((r) => {
+                const v = ratingTimeSeries.rows[0]?.[r];
+                return (
+                  <span key={r} className="mr-2">
+                    <span className="font-semibold text-gray-900 dark:text-white">{r}</span>{' '}
+                    {typeof v === 'number' ? v : 0}
+                  </span>
+                );
+              })}
+            </div>
+          ) : (() => {
+            const palette = data.meta.ratingPalette || {};
+            // Show buyer-relevant ratings only — exclude high-noise non-buyer
+            // categories that would dominate the y-axis.
+            const NOISE = new Set(['Agent', 'CB Global Luxury Agent', 'Team', 'Legal', 'Unrated']);
+            const series = ratingTimeSeries.ratings.filter((r) => !NOISE.has(r));
+            return (
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={ratingTimeSeries.rows}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="label" stroke="#9ca3af" tick={{ fontSize: 11 }} />
+                  <YAxis stroke="#9ca3af" tick={{ fontSize: 11 }} allowDecimals={false} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  {series.map((r) => (
+                    <Line
+                      key={r}
+                      type="monotone"
+                      dataKey={r}
+                      stroke={palette[r] || '#9ca3af'}
+                      strokeWidth={2}
+                      dot={{ r: 2 }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            );
+          })()}
         </div>
 
         {/* Reservations section */}
