@@ -33,6 +33,32 @@ function isWebsiteSourceName(name: string): boolean {
   return name.toLowerCase().startsWith('website');
 }
 
+// Internal test buyers that should never appear in the executive summary.
+// Matched on email exact (lowercased) or full name (lowercased, whitespace-collapsed).
+const INTERNAL_TEST_EMAILS = new Set<string>([
+  'alison.sung@spark.re',
+  'hlvanworkum8@gmail.com',
+]);
+const INTERNAL_TEST_NAMES = new Set<string>([
+  'ali spark',
+  'heather van workum',
+]);
+
+function isInternalTestContact(contact: any): boolean {
+  if (!contact) return false;
+  const email = (contact.email || '').toString().trim().toLowerCase();
+  if (email && INTERNAL_TEST_EMAILS.has(email)) return true;
+  if (email.endsWith('@spark.re')) return true;
+  const name = [contact.first_name, contact.last_name]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (name && INTERNAL_TEST_NAMES.has(name)) return true;
+  return false;
+}
+
 function extractAreaCode(phoneNumber: string | null | undefined): string | null {
   if (!phoneNumber) return null;
   const cleaned = phoneNumber.replace(/\D/g, '');
@@ -179,21 +205,69 @@ async function main() {
   }
 
   const reservationDetails: any[] = [];
-  const RES_BATCH = 10;
+  const RES_BATCH = 5;
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const fetchWithRetry = async (fn: () => Promise<any>, label: string) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await fn();
+      } catch (err: any) {
+        const msg = err?.message || String(err);
+        if (msg.includes('Rate limit') && attempt < 2) {
+          await sleep(2000 * (attempt + 1));
+          continue;
+        }
+        console.error(`  ${label} failed:`, msg);
+        return null;
+      }
+    }
+    return null;
+  };
   for (let i = 0; i < reservations.length; i += RES_BATCH) {
     const batch = reservations.slice(i, i + RES_BATCH);
     log('contracts', `  ${Math.min(i + RES_BATCH, reservations.length)}/${reservations.length}`);
     const contracts = await Promise.all(
       batch.map((r: any) =>
-        r.contract_id ? client.getContract(r.contract_id).catch(() => null) : null,
+        r.contract_id
+          ? fetchWithRetry(() => client.getContract(r.contract_id), `getContract(${r.contract_id})`)
+          : Promise.resolve(null),
       ),
     );
+    if (i + RES_BATCH < reservations.length) await sleep(500);
+    const fullReservations = await Promise.all(
+      batch.map((r: any) =>
+        fetchWithRetry(() => client.getReservation(r.id), `getReservation(${r.id})`),
+      ),
+    );
+    if (i + RES_BATCH < reservations.length) await sleep(500);
     for (let j = 0; j < batch.length; j++) {
       const r = batch[j];
       const contract = contracts[j];
+      const fullRes = fullReservations[j];
       // Resolve buyer via the contact-side index built above
       const buyerContact = r.contract_id ? contractToContact.get(r.contract_id) : null;
+      // Skip internal test reservations entirely (invisible filter)
+      if (isInternalTestContact(buyerContact)) continue;
       const contactId = buyerContact?.id ?? null;
+
+      // Pull UTM custom-field values from the buyer contact
+      let utmSource = 'Direct';
+      let utmMedium = 'None';
+      let utmCampaign = 'No Campaign';
+      if (buyerContact) {
+        const buyerCfMap = new Map<string, any>();
+        (buyerContact.custom_field_values || []).forEach((cfv: any) => {
+          const fieldName = customFieldMap.get(cfv.custom_field_id);
+          if (fieldName) buyerCfMap.set(fieldName, cfv.value);
+        });
+        utmSource = (buyerCfMap.get('utm_source') || '').toString().trim() || 'Direct';
+        utmMedium = (buyerCfMap.get('utm_medium') || '').toString().trim() || 'None';
+        utmCampaign =
+          (buyerCfMap.get('utm_campaign') || '').toString().trim() || 'No Campaign';
+      }
+
+      const statusId = fullRes?.status?.id ?? r.status_id ?? null;
+      const statusValue = fullRes?.status?.value ?? null;
 
       const deposits = contract?.deposits || [];
       const depositsOwed = deposits.reduce(
@@ -240,7 +314,9 @@ async function main() {
         createdAt: r.created_at || null,
         executedAt: r.executed_at || null,
         convertedAt: r.converted_at || null,
-        statusId: r.status_id || null,
+        statusId,
+        statusValue,
+        cancelled: statusValue ? statusValue.toLowerCase() === 'cancelled' : false,
         priceCents: r.reservation_list_price || contract?.purchase_price || 0,
         depositsOwedCents: depositsOwed,
         depositsPaidCents: depositsPaid,
@@ -250,6 +326,9 @@ async function main() {
         isWebsiteSource: isWebsiteSourceName(sourceName),
         leadDate,
         daysFromLead,
+        utmSource,
+        utmMedium,
+        utmCampaign,
       });
     }
   }

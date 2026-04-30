@@ -93,6 +93,9 @@ export default function ExecutiveSummaryPage() {
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
 
+  // "Reservations Over Time" chart filter — exclude cancelled reservations when true
+  const [reservationsActiveOnly, setReservationsActiveOnly] = useState<boolean>(false);
+
   // Effective range — bounded by snapshot's data window
   const range: ExecDateRange | null = useMemo(() => {
     if (!data?.meta.dataMinDate || !data?.meta.dataMaxDate) return null;
@@ -161,8 +164,8 @@ export default function ExecutiveSummaryPage() {
 
   const resBuckets = useMemo(() => {
     if (!data || !range) return null;
-    return reservationsBuckets(data, range);
-  }, [data, range]);
+    return reservationsBuckets(data, range, { activeOnly: reservationsActiveOnly });
+  }, [data, range, reservationsActiveOnly]);
 
   const resBySource = useMemo(() => {
     if (!data || !range) return [];
@@ -440,9 +443,33 @@ export default function ExecutiveSummaryPage() {
           {/* Reservations over time */}
           {resBuckets && (
             <div>
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Reservations Over Time
-              </h4>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Reservations Over Time
+                </h4>
+                <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-0.5">
+                  <button
+                    onClick={() => setReservationsActiveOnly(false)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                      !reservationsActiveOnly
+                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setReservationsActiveOnly(true)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                      reservationsActiveOnly
+                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    Active
+                  </button>
+                </div>
+              </div>
               <ResponsiveContainer width="100%" height={260}>
                 <LineChart
                   data={resBuckets.buckets.map((b) => ({
@@ -518,8 +545,12 @@ export default function ExecutiveSummaryPage() {
                   <thead>
                     <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                       <th className="px-2 py-2 font-medium">Reserved</th>
+                      <th className="px-2 py-2 font-medium">Status</th>
                       <th className="px-2 py-2 font-medium">Buyer</th>
                       <th className="px-2 py-2 font-medium">Source</th>
+                      <th className="px-2 py-2 font-medium">UTM Source</th>
+                      <th className="px-2 py-2 font-medium">UTM Medium</th>
+                      <th className="px-2 py-2 font-medium">UTM Campaign</th>
                       <th className="px-2 py-2 font-medium text-right">Price</th>
                       <th className="px-2 py-2 font-medium text-right">Deposits Owed</th>
                       <th className="px-2 py-2 font-medium text-right">Deposits Paid</th>
@@ -547,8 +578,29 @@ export default function ExecutiveSummaryPage() {
                                 year: '2-digit',
                               })}
                           </td>
+                          <td className="px-2 py-2 whitespace-nowrap">
+                            {r.cancelled ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300">
+                                Cancelled
+                              </span>
+                            ) : r.statusValue ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                {r.statusValue}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
                           <td className="px-2 py-2 whitespace-nowrap">{r.buyerName || '—'}</td>
                           <td className="px-2 py-2 whitespace-nowrap">{r.sourceName}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{r.utmSource || '—'}</td>
+                          <td className="px-2 py-2 whitespace-nowrap">{r.utmMedium || '—'}</td>
+                          <td
+                            className="px-2 py-2 max-w-[220px] truncate"
+                            title={r.utmCampaign || ''}
+                          >
+                            {r.utmCampaign || '—'}
+                          </td>
                           <td className="px-2 py-2 text-right whitespace-nowrap">
                             {r.priceCents > 0 ? formatCurrency(r.priceCents) : '—'}
                           </td>
