@@ -430,4 +430,11 @@ export class SparkAPIClient {
   async getContract(contractId: number): Promise<any> {
     return this.get(`/contracts/${contractId}`);
   }
+
+  /**
+   * Get a single reservation (includes nested status object with value)
+   */
+  async getReservation(reservationId: number): Promise<any> {
+    return this.get(`/reservations/${reservationId}`);
+  }
 }

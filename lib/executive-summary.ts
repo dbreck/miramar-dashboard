@@ -27,6 +27,8 @@ export interface ExecSummaryReservation {
   executedAt: string | null;
   convertedAt: string | null;
   statusId: number | null;
+  statusValue?: string | null;
+  cancelled?: boolean;
   priceCents: number;
   depositsOwedCents: number;
   depositsPaidCents: number;
@@ -36,6 +38,9 @@ export interface ExecSummaryReservation {
   isWebsiteSource: boolean;
   leadDate: string | null;
   daysFromLead: number | null;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
 }
 
 export interface ExecSummaryPayload {
@@ -325,11 +330,13 @@ export function reservationsInRange(
 export function reservationsBuckets(
   payload: ExecSummaryPayload,
   range: ExecDateRange,
+  options: { activeOnly?: boolean } = {},
 ): { buckets: { key: string; label: string; date: number }[]; counts: Record<string, number> } {
   const bucket = pickBucketSize(range);
   const seenKeys = new Set<string>();
   const counts: Record<string, number> = {};
   payload.reservations.forEach((r) => {
+    if (options.activeOnly && r.cancelled) return;
     const dateStr = r.reservedAt || r.createdAt;
     if (!dateStr || !inRange(dateStr, range)) return;
     const key = bucketKey(new Date(dateStr), bucket);
