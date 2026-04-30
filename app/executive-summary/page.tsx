@@ -95,6 +95,8 @@ export default function ExecutiveSummaryPage() {
 
   // "Reservations Over Time" chart filter — exclude cancelled reservations when true
   const [reservationsActiveOnly, setReservationsActiveOnly] = useState<boolean>(false);
+  // Reservation Detail table — independent All / Active toggle
+  const [detailActiveOnly, setDetailActiveOnly] = useState<boolean>(false);
 
   // Effective range — bounded by snapshot's data window
   const range: ExecDateRange | null = useMemo(() => {
@@ -535,11 +537,39 @@ export default function ExecutiveSummaryPage() {
           </div>
 
           {/* Reservation detail table */}
-          {reservations.length > 0 && (
+          {reservations.length > 0 && (() => {
+            const detailRows = detailActiveOnly
+              ? reservations.filter((r) => !r.cancelled)
+              : reservations;
+            return (
             <div>
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Reservation Detail ({reservations.length})
-              </h4>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Reservation Detail ({detailRows.length})
+                </h4>
+                <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-0.5">
+                  <button
+                    onClick={() => setDetailActiveOnly(false)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                      !detailActiveOnly
+                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setDetailActiveOnly(true)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                      detailActiveOnly
+                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                    }`}
+                  >
+                    Active
+                  </button>
+                </div>
+              </div>
               <div className="overflow-x-auto -mx-2">
                 <table className="min-w-full text-xs">
                   <thead>
@@ -558,7 +588,7 @@ export default function ExecutiveSummaryPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {reservations
+                    {detailRows
                       .slice()
                       .sort((a, b) => {
                         const ad = new Date(a.reservedAt || a.createdAt || 0).getTime();
@@ -619,7 +649,8 @@ export default function ExecutiveSummaryPage() {
                 </table>
               </div>
             </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Geography */}
