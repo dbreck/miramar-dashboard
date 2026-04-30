@@ -38,10 +38,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- public/exec-summary-snapshot.json; then
+          if git diff --quiet -- public/exec-summary-snapshot.json public/rating-history.json; then
             echo "No changes — skipping commit."
             exit 0
           fi
-          git add public/exec-summary-snapshot.json
+          git add public/exec-summary-snapshot.json public/rating-history.json
           git commit -m "data: refresh executive summary snapshot ($(date -u '+%Y-%m-%d %H:%M UTC'))"
           git push origin main

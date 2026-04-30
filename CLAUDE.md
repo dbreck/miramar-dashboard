@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Architecture
+
+Architecture and flow diagrams live in `docs/diagrams/`.
+- See [architecture.md](docs/diagrams/architecture.md) for top-level structure.
+- Flow diagrams: @docs/diagrams/routing-flow.md · @docs/diagrams/data-fetching-flow.md · @docs/diagrams/auth-flow.md · @docs/diagrams/reconciliation-flow.md
+- Open `docs/diagrams/architecture.html` in a browser for the interactive viewer.
+- Run `./bin/cca` to start a Claude Code session with all diagrams pre-loaded into context.
+
 ## Overview
 
 Mira Mar Dashboard is a Next.js 15.5.7 real estate CRM analytics dashboard powered by the Spark.re API. It displays sales metrics, lead sources, team performance, and pipeline data for a single real estate project.
@@ -251,7 +259,7 @@ allContacts.forEach((contact: any) => {
 
 4. **Date Filtering**: Only filter interactions by date, NOT contacts. A contact created 6 months ago may have interactions today.
 
-5. **No Rating Change History**: The Spark UI shows "Rating changed from Hot to Warm" in the contact activity log, but **this data is NOT accessible via the API**. Tested endpoints: `/activities`, `/audit-logs`, `/contact-histories`, `/rating-changes`, `/contact-events`, `/contact-logs`, plus all contact sub-resources — all return 404. The `/contacts/{id}` response only includes the **current** rating. Workaround: snapshot-based tracking (see Rating Snapshot System below).
+5. **No Rating Change History**: The Spark UI shows "Rating changed from Hot to Warm" in the contact activity log, but **this data is NOT accessible via the API**. Tested endpoints: `/activities`, `/audit-logs`, `/contact-histories`, `/rating-changes`, `/contact-events`, `/contact-logs`, plus all contact sub-resources — all return 404. The `/contacts/{id}` response only includes the **current** rating. Workaround: append-only rating history written by the exec-summary build script (see Rating History below).
 
 6. **Actual Project ID**: The Spark project for Mira Mar is **2855** (not 1661 as referenced elsewhere in the dashboard code). The dashboard route uses 1661 which may be a project-contact join ID. The `/contact-ratings` and contact detail endpoints use `project_id: 2855`.
 
@@ -303,42 +311,51 @@ const dashboardCache = new Map<string, { data: any; timestamp: number }>();
 const cacheKey = `${start.getTime()}-${end.getTime()}`;
 ```
 
-## Rating Snapshot System (v1.6.0-dev)
+## Rating History (v1.7.x)
 
-Tracks contact rating changes over time by periodically snapshotting all contacts and diffing.
+Append-only time series of rating distributions, written by the exec-summary build script. The `/api/rating-snapshot` and `/api/rating-changes` endpoints from v1.6.0-dev have been removed — they wrote to `data/snapshots/` which is read-only on Vercel. The replacement piggybacks on the existing exec-summary cron, which already runs weekday mornings, fetches every contact, and commits to git.
 
-**Endpoints:**
-- `POST /api/rating-snapshot` — Takes a new snapshot, compares against previous, logs changes
-- `GET /api/rating-snapshot` — Returns latest snapshot info (rating distribution)
-- `GET /api/rating-changes` — Returns accumulated change history with filters: `start`, `end`, `rating`, `from_rating`, `source`, `limit`, `offset`
+**Pipeline:**
+- `scripts/build-exec-snapshot.ts` — at the end of each run, computes today's rating distribution from the contacts it just baked into the exec-summary snapshot, then appends (or replaces if same UTC date) an entry into `public/rating-history.json`.
+- `.github/workflows/snapshot.yml` — already runs `0 10 * * 1-5`. Now stages both `public/exec-summary-snapshot.json` and `public/rating-history.json` and pushes to `main` when either changes.
+- `public/rating-history.json` — committed JSON, served from CDN. Shape: `{ version, lastUpdated, snapshots: [{ date, snapshotAt, totalContacts, ratings: { Hot: 2, Warm: 56, ... } }] }`.
 
-**Key Files:**
-- `lib/rating-types.ts` — Type definitions, rating ID-to-name map for project 2855
-- `lib/snapshot-storage.ts` — Filesystem storage in `/data/snapshots/` and `/data/rating-changes.json`
-- `app/api/rating-snapshot/route.ts` — Snapshot capture endpoint
-- `app/api/rating-changes/route.ts` — Change history query endpoint
+**Runtime consumers:**
+- `lib/rating-history.ts` — types + `ratingHistorySeries()` helper that flattens snapshots for Recharts.
+- `lib/use-rating-history.ts` — client hook with localStorage hydration, cache key `miramar-rating-history-v1`. Mirrors `useExecutiveSummary`.
+- `app/executive-summary/page.tsx` — "Rating Distribution Over Time" line chart. Single-snapshot state shows captured counts and an "fills in tomorrow" message instead of a degenerate single-dot chart.
 
 **Rating Definitions (project 2855):**
 | ID | Value |
 |----|-------|
-| 58248 | Hot |
-| 58249 | Warm |
-| 58755 | Reservation Holder |
-| 58250 | Cold |
-| 58251 | Not Interested |
 | 58245 | New |
 | 58246 | Agent |
 | 58247 | Legal |
+| 58248 | Hot |
+| 58249 | Warm |
+| 58250 | Cold |
+| 58251 | Not Interested |
 | 58627 | Team |
-| 58866 | Influencer |
+| 58755 | Reservation Holder |
 | 58756 | Contract Holder |
+| 58866 | Influencer |
 | 59334 | CB Global Luxury Agent |
 | 59364 | Not A Buyer |
 | 59733 | Referral |
 
-**Important:** The `ratings` array on a contact uses `id` as the rating definition ID (not `rating_id`). The `value` field contains the human-readable name.
+The `ratings` array on a contact uses `id` as the rating definition ID (not `rating_id`). The `value` field contains the human-readable name. The same map lives at `RATING_NAMES_BY_ID` in `scripts/build-exec-snapshot.ts`.
 
-**Status:** Backend complete, NOT yet deployed. No first snapshot taken. No cron job configured. No UI tab built yet.
+## Lead Quality Aggregations (v1.7.x)
+
+Pure functions on `lib/executive-summary.ts` that compute "where to spend more, where to spend less" signal from the exec-summary snapshot. Quality ratings = `Hot`, `Warm`, `Reservation Holder`, `Contract Holder` (the same set used by `summarize().activePipeline`).
+
+- `qualityBySource(payload, range, { minN })` — returns sources whose total leads ≥ minN, sorted by % of leads that reached a quality rating. Default minN=10.
+- `qualityByCampaign(payload, range, { minN })` — same idea keyed by `utm_source × utm_campaign`. Skips Direct/No Campaign rows. Default minN=5.
+- `cohortQuality(payload)` — groups contacts by `createdAt` month and returns each cohort's CURRENT rating distribution. Powers the stacked-bar Cohort Outcomes chart.
+- `currentRatingDistribution(payload)` — counts of every rating in the live snapshot.
+- `QUALITY_RATINGS` — exported tuple for UI re-use.
+
+Each function excludes contacts with `agent === true` by default — agents pollute quality math.
 
 ## Ratings Tab (v1.6.0)
 
@@ -533,7 +550,18 @@ Cross-referencing CallRail (all-time, 71 Mira Mar form submissions) against Spar
 
 **Root cause (revised 2026-04-10):** The custom form JS (`spark-contact-form.js`) had bugs that caused silent failures in certain browsers. Originally blamed on cross-origin POST issues with Meta in-app browsers, but after switching back to Spark's vanilla form embed, submissions are NOT being dropped — even from Meta in-app browsers. The custom JS was the problem, not the browser environment.
 
-**Current status (2026-04-10):** Custom form and relay RETIRED. Now using Spark's native/vanilla form embed. No drops observed since the switch.
+**Current status (2026-04-14):** All main forms now use `[spark_vanilla_form]` (direct POST to Spark). Footer form and timed popup were the last two using `[spark_contact_form]` (relay) — switched to vanilla on 2026-04-14. Only `[community_workshop_form]` still uses the relay (unique fields).
+
+**Live shortcodes on production (2026-04-14):**
+| Shortcode | Source Param | Post Target |
+|-----------|-------------|-------------|
+| `[spark_vanilla_form]` | Website - Contact Page | Direct to Spark |
+| `[spark_vanilla_form]` | Website - Ad Landing Page | Direct to Spark |
+| `[spark_vanilla_form]` | Website - Brochure Form | Direct to Spark |
+| `[spark_vanilla_form]` | Website - Footer Form | Direct to Spark |
+| `[spark_vanilla_form]` | Website - Timed Popup | Direct to Spark |
+| `[community_workshop_form]` | Website - Community Workshop Landing | Relay → Spark |
+| `[broker_toolkit_form]` | (hardcoded: Website - Broker Toolkit) | Direct to Spark |
 
 ### CallRail Setup
 
@@ -756,4 +784,4 @@ Full cross-reference of CallRail API (603 all-time Mira Mar submissions, back to
 
 ---
 
-**Last Updated**: 2026-04-13 (Push via form URL with reCAPTCHA passthrough; full form data enrichment; LLR access control; agent detection; dismiss/restore; Meta Gaps rename)
+**Last Updated**: 2026-04-30 (Rating history + Lead Quality aggregations on Executive Summary; old `/api/rating-snapshot` + `/api/rating-changes` endpoints removed)
