@@ -975,6 +975,20 @@ export default function ExecutiveSummaryPage() {
             const detailRows = detailActiveOnly
               ? reservations.filter((r) => !r.cancelled)
               : reservations;
+            const totals = detailRows.reduce(
+              (acc, r) => {
+                acc.priceCents += r.priceCents || 0;
+                acc.depositsOwedCents += r.depositsOwedCents || 0;
+                acc.depositsPaidCents += r.depositsPaidCents || 0;
+                if (r.daysFromLead !== null && r.daysFromLead !== undefined) {
+                  acc.daysSum += r.daysFromLead;
+                  acc.daysCount += 1;
+                }
+                return acc;
+              },
+              { priceCents: 0, depositsOwedCents: 0, depositsPaidCents: 0, daysSum: 0, daysCount: 0 },
+            );
+            const avgDays = totals.daysCount > 0 ? Math.round(totals.daysSum / totals.daysCount) : null;
             return (
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -1080,6 +1094,31 @@ export default function ExecutiveSummaryPage() {
                         </tr>
                       ))}
                   </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900/40 font-semibold text-gray-900 dark:text-white">
+                      <td className="px-2 py-2 whitespace-nowrap">Totals</td>
+                      <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 font-normal">
+                        {detailRows.length} {detailRows.length === 1 ? 'reservation' : 'reservations'}
+                      </td>
+                      <td className="px-2 py-2">—</td>
+                      <td className="px-2 py-2">—</td>
+                      <td className="px-2 py-2">—</td>
+                      <td className="px-2 py-2">—</td>
+                      <td className="px-2 py-2">—</td>
+                      <td className="px-2 py-2 text-right whitespace-nowrap">
+                        {totals.priceCents > 0 ? formatCurrency(totals.priceCents) : '—'}
+                      </td>
+                      <td className="px-2 py-2 text-right whitespace-nowrap">
+                        {totals.depositsOwedCents > 0 ? formatCurrency(totals.depositsOwedCents) : '—'}
+                      </td>
+                      <td className="px-2 py-2 text-right whitespace-nowrap text-emerald-700 dark:text-emerald-400">
+                        {totals.depositsPaidCents > 0 ? formatCurrency(totals.depositsPaidCents) : '—'}
+                      </td>
+                      <td className="px-2 py-2 text-right whitespace-nowrap">
+                        {avgDays !== null ? `${avgDays} avg` : '—'}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>

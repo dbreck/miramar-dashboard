@@ -18,6 +18,7 @@ import InfoTooltip from '../InfoTooltip';
 import { useFilters } from '@/lib/filter-context';
 import { useExecutiveSummary } from '@/lib/use-executive-summary';
 import { buildDashboardView } from '@/lib/dashboard-snapshot';
+import { linearTrend } from '@/lib/executive-summary';
 
 interface DashboardData {
   keyMetrics: {
@@ -278,7 +279,13 @@ export default function OverviewTab({ dateRange, refreshTrigger, onDataStatus }:
           </select>
         </div>
         <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={selectedSource === 'All' ? dashboardData.leadGrowth : (dashboardData.leadGrowthBySource[selectedSource] || [])}>
+          <LineChart data={(() => {
+            const series = selectedSource === 'All'
+              ? dashboardData.leadGrowth
+              : (dashboardData.leadGrowthBySource[selectedSource] || []);
+            const trend = linearTrend(series.map((p) => p.leads || 0));
+            return series.map((p, i) => ({ ...p, trend: trend[i] }));
+          })()}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" />
             <XAxis dataKey="date" stroke="#9ca3af" />
             <YAxis stroke="#9ca3af" />
@@ -290,6 +297,16 @@ export default function OverviewTab({ dateRange, refreshTrigger, onDataStatus }:
               }}
             />
             <Line type="monotone" dataKey="leads" stroke="#3b82f6" strokeWidth={3} name="New Leads" />
+            <Line
+              type="linear"
+              dataKey="trend"
+              stroke="#94a3b8"
+              strokeWidth={2}
+              strokeDasharray="5 4"
+              dot={false}
+              activeDot={false}
+              name="Trend"
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>

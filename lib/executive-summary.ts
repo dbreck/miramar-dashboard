@@ -87,6 +87,28 @@ export function formatNumber(n: number): string {
   return new Intl.NumberFormat('en-US').format(n);
 }
 
+// Linear least-squares fit. Returns the trend value at each x = 0..n-1.
+// Returns an empty array when there are fewer than 2 points (no trend possible).
+export function linearTrend(values: number[]): number[] {
+  const n = values.length;
+  if (n < 2) return [];
+  let sumX = 0;
+  let sumY = 0;
+  let sumXY = 0;
+  let sumXX = 0;
+  for (let i = 0; i < n; i++) {
+    sumX += i;
+    sumY += values[i];
+    sumXY += i * values[i];
+    sumXX += i * i;
+  }
+  const denom = n * sumXX - sumX * sumX;
+  if (denom === 0) return values.map(() => sumY / n);
+  const slope = (n * sumXY - sumX * sumY) / denom;
+  const intercept = (sumY - slope * sumX) / n;
+  return values.map((_, i) => intercept + slope * i);
+}
+
 // Bucket size: pick weekly for >60d ranges, daily otherwise.
 export function pickBucketSize(range: ExecDateRange): 'day' | 'week' | 'month' {
   const days = (range.end.getTime() - range.start.getTime()) / 86400000;

@@ -18,6 +18,7 @@ import {
   ExecSummaryPayload,
   ExecDateRange,
   leadGrowthBuckets,
+  linearTrend,
 } from '@/lib/executive-summary';
 
 type ViewMode = 'combined' | 'all-sources' | 'website' | 'non-website' | 'single';
@@ -49,7 +50,7 @@ export default function LeadGrowthChart({ data, range }: Props) {
 
   // Build chart data depending on view
   const chartData = useMemo(() => {
-    return buckets.buckets.map((b) => {
+    const rows = buckets.buckets.map((b) => {
       const row: Record<string, any> = { label: b.label };
       if (view === 'combined') {
         row.leads = buckets.combined[b.key] || 0;
@@ -66,6 +67,14 @@ export default function LeadGrowthChart({ data, range }: Props) {
       }
       return row;
     });
+    // Add a least-squares trend line on the single-series views.
+    if (view !== 'all-sources') {
+      const trend = linearTrend(rows.map((r) => r.leads || 0));
+      trend.forEach((v, i) => {
+        rows[i].trend = v;
+      });
+    }
+    return rows;
   }, [buckets, view, selectedSource, sourceNames]);
 
   const buttons: { id: ViewMode; label: string }[] = [
@@ -172,6 +181,17 @@ export default function LeadGrowthChart({ data, range }: Props) {
               }
               dot={{ r: 3 }}
             />
+            <Line
+              type="linear"
+              dataKey="trend"
+              stroke="#94a3b8"
+              strokeWidth={2}
+              strokeDasharray="5 4"
+              dot={false}
+              activeDot={false}
+              name="Trend"
+            />
+            <Legend wrapperStyle={{ fontSize: 11 }} />
           </LineChart>
         )}
       </ResponsiveContainer>
