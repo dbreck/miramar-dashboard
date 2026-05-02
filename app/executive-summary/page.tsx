@@ -803,8 +803,9 @@ export default function ExecutiveSummaryPage() {
             </span>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            Each weekday cron writes today&apos;s rating counts to a committed
-            time-series file. The chart fills in as snapshots accumulate.
+            A cron writes the current rating counts to a committed time-series
+            file twice daily (6am and 6pm). The chart fills in as snapshots
+            accumulate.
           </p>
           {historyNotFound ? (
             <div className="text-sm text-gray-500 dark:text-gray-400 italic">
@@ -817,7 +818,7 @@ export default function ExecutiveSummaryPage() {
           ) : ratingTimeSeries.rows.length < 2 ? (
             <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-4 text-sm text-gray-600 dark:text-gray-400">
               Only one snapshot recorded so far ({ratingTimeSeries.rows[0]?.label}).
-              The line chart fills in starting tomorrow morning&apos;s cron run.
+              The line chart fills in starting with the next cron run.
               Counts captured today:{' '}
               {QUALITY_RATINGS.map((r) => {
                 const v = ratingTimeSeries.rows[0]?.[r];
