@@ -313,17 +313,19 @@ const cacheKey = `${start.getTime()}-${end.getTime()}`;
 
 ## Rating History (v1.7.x)
 
-Append-only time series of rating distributions, written by the exec-summary build script. The `/api/rating-snapshot` and `/api/rating-changes` endpoints from v1.6.0-dev have been removed — they wrote to `data/snapshots/` which is read-only on Vercel. The replacement piggybacks on the existing exec-summary cron, which already runs weekday mornings, fetches every contact, and commits to git.
+Append-only time series of rating distributions, written by the exec-summary build script. The `/api/rating-snapshot` and `/api/rating-changes` endpoints from v1.6.0-dev have been removed — they wrote to `data/snapshots/` which is read-only on Vercel. The replacement piggybacks on the existing exec-summary cron, fetches every contact, and commits to git.
 
 **Pipeline:**
-- `scripts/build-exec-snapshot.ts` — at the end of each run, computes today's rating distribution from the contacts it just baked into the exec-summary snapshot, then appends (or replaces if same UTC date) an entry into `public/rating-history.json`.
-- `.github/workflows/snapshot.yml` — already runs `0 10 * * 1-5`. Now stages both `public/exec-summary-snapshot.json` and `public/rating-history.json` and pushes to `main` when either changes.
-- `public/rating-history.json` — committed JSON, served from CDN. Shape: `{ version, lastUpdated, snapshots: [{ date, snapshotAt, totalContacts, ratings: { Hot: 2, Warm: 56, ... } }] }`.
+- `scripts/build-exec-snapshot.ts` — at the end of each run, computes the current rating distribution from the contacts it just baked into the exec-summary snapshot, then appends (or replaces if same `date+slot`) an entry into `public/rating-history.json`.
+- `.github/workflows/snapshot.yml` — runs `0 10,22 * * *` (twice daily, 7 days/week: 10:00 UTC = 6am EDT and 22:00 UTC = 6pm EDT). Stages both `public/exec-summary-snapshot.json` and `public/rating-history.json` and pushes to `main` when either changes.
+- `public/rating-history.json` — committed JSON, served from CDN. Shape: `{ version, lastUpdated, snapshots: [{ date, slot: 'am'|'pm', snapshotAt, totalContacts, ratings: { Hot: 2, Warm: 56, ... } }] }`. Older entries (pre-2026-05-02) have no `slot` field and are treated as `am`.
+
+**Slot derivation:** `slot = utcHour < 16 ? 'am' : 'pm'`. The 16:00 UTC cutoff sits at the midpoint between the 10:00 and 22:00 UTC cron ticks. Dedup key in the build script is `${date}-${slot}` so the evening run can't overwrite the morning's.
 
 **Runtime consumers:**
-- `lib/rating-history.ts` — types + `ratingHistorySeries()` helper that flattens snapshots for Recharts.
+- `lib/rating-history.ts` — types + `ratingHistorySeries()` helper that flattens snapshots for Recharts. X-axis label is `"${dayLabel} ${slot}"` (e.g. "May 2 am") so same-day AM/PM points don't collide.
 - `lib/use-rating-history.ts` — client hook with localStorage hydration, cache key `miramar-rating-history-v1`. Mirrors `useExecutiveSummary`.
-- `app/executive-summary/page.tsx` — "Rating Distribution Over Time" line chart. Single-snapshot state shows captured counts and an "fills in tomorrow" message instead of a degenerate single-dot chart.
+- `app/executive-summary/page.tsx` — "Rating Distribution Over Time" line chart. Single-snapshot state shows captured counts and an "fills in with the next cron run" message instead of a degenerate single-dot chart.
 
 **Rating Definitions (project 2855):**
 | ID | Value |
@@ -784,4 +786,4 @@ Full cross-reference of CallRail API (603 all-time Mira Mar submissions, back to
 
 ---
 
-**Last Updated**: 2026-04-30 (Rating history + Lead Quality aggregations on Executive Summary; old `/api/rating-snapshot` + `/api/rating-changes` endpoints removed)
+**Last Updated**: 2026-05-02 (Rating history cron now runs twice daily 7 days/week with am/pm slot dedup; was weekday-only)
