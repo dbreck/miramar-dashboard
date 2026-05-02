@@ -1,9 +1,9 @@
 name: Refresh Executive Summary Snapshot
 
 on:
-  # Weekday mornings — 10:00 UTC = 6am EDT / 5am EST
+  # Twice daily, every day — 10:00 UTC (6am EDT / 5am EST) and 22:00 UTC (6pm EDT / 5pm EST)
   schedule:
-    - cron: "0 10 * * 1-5"
+    - cron: "0 10,22 * * *"
   # Manual run from the Actions tab
   workflow_dispatch:
 

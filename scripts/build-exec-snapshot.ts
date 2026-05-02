@@ -447,12 +447,14 @@ async function main() {
 
   // ---------- Rating history (append-only time series) ----------
   // Compute today's rating distribution from the same contacts that were
-  // just baked into the exec-summary snapshot. Append (or replace if same
-  // calendar day) into public/rating-history.json so the rating-over-time
-  // chart has real data to render. The first entry is created on the first
-  // run; subsequent runs accumulate history.
+  // just baked into the exec-summary snapshot. Cron runs twice daily (10:00
+  // and 22:00 UTC), so each day produces an `am` and a `pm` entry; the
+  // dedup key is `${date}-${slot}` so the second run doesn't overwrite the
+  // first.
   const todayISO = responseData.meta.snapshotAt;
   const todayDate = todayISO.split('T')[0]; // YYYY-MM-DD
+  const utcHour = new Date(todayISO).getUTCHours();
+  const slot: 'am' | 'pm' = utcHour < 16 ? 'am' : 'pm';
 
   const ratingCounts: Record<string, number> = {};
   for (const c of validContacts) {
@@ -462,6 +464,7 @@ async function main() {
 
   const todayEntry = {
     date: todayDate,
+    slot,
     snapshotAt: todayISO,
     totalContacts: validContacts.length,
     ratings: ratingCounts,
@@ -491,14 +494,20 @@ async function main() {
     }
   }
 
-  // Replace today's entry if the build runs more than once on the same day.
-  const existingIdx = history.snapshots.findIndex((s) => s.date === todayDate);
+  // Replace this slot's entry if the build runs more than once on the same
+  // day in the same slot (e.g. manual rerun).
+  const existingIdx = history.snapshots.findIndex(
+    (s) => s.date === todayDate && (s.slot ?? 'am') === slot,
+  );
   if (existingIdx >= 0) {
     history.snapshots[existingIdx] = todayEntry;
   } else {
     history.snapshots.push(todayEntry);
   }
-  history.snapshots.sort((a, b) => a.date.localeCompare(b.date));
+  history.snapshots.sort((a, b) => {
+    if (a.date !== b.date) return a.date.localeCompare(b.date);
+    return (a.slot ?? 'am').localeCompare(b.slot ?? 'am');
+  });
   history.lastUpdated = todayISO;
 
   writeFileSync(HISTORY_PATH, JSON.stringify(history));
