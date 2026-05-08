@@ -400,7 +400,10 @@ export class SparkAPIClient {
   /**
    * List ALL reservations with automatic pagination
    */
-  async listAllReservations(params: Record<string, any> = {}): Promise<any[]> {
+  async listAllReservations(
+    params: Record<string, any> = {},
+    options: { throwOnError?: boolean } = {},
+  ): Promise<any[]> {
     const all: any[] = [];
     let page = 1;
     let hasMore = true;
@@ -418,6 +421,7 @@ export class SparkAPIClient {
         page++;
       } catch (error) {
         console.error(`Failed to fetch reservations page ${page}:`, error);
+        if (options.throwOnError) throw error;
         break;
       }
     }
