@@ -83,6 +83,31 @@ async function main() {
   const startedAt = Date.now();
   const client = new SparkAPIClient(apiKey);
 
+  // Shared throttling helpers. Spark's per-second rate limit is undocumented
+  // but empirically trips around ~10 concurrent requests; the contacts phase
+  // used to burn the entire window in 50-wide bursts and 429 the very next
+  // call (reservations). Lower concurrency + a small inter-batch sleep keeps
+  // the budget topped up for downstream stages.
+  const CONTACT_BATCH = 20;
+  const CONTACT_BATCH_SLEEP_MS = 500;
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const fetchWithRetry = async (fn: () => Promise<any>, label: string) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await fn();
+      } catch (err: any) {
+        const msg = err?.message || String(err);
+        if (msg.includes('Rate limit') && attempt < 2) {
+          await sleep(2000 * (attempt + 1));
+          continue;
+        }
+        console.error(`  ${label} failed:`, msg);
+        return null;
+      }
+    }
+    return null;
+  };
+
   // Stage 1: registration sources
   log('sources', 'Fetching registration sources…');
   const registrationSources = await client.listRegistrationSources({
@@ -137,9 +162,8 @@ async function main() {
     });
     if (contactsForSource.length === 0) continue;
 
-    const BATCH = 50;
-    for (let i = 0; i < contactsForSource.length; i += BATCH) {
-      const batch = contactsForSource.slice(i, i + BATCH);
+    for (let i = 0; i < contactsForSource.length; i += CONTACT_BATCH) {
+      const batch = contactsForSource.slice(i, i + CONTACT_BATCH);
       const detailed = await Promise.all(
         batch.map((c: any) => client.getContact(c.id).catch(() => null)),
       );
@@ -150,7 +174,8 @@ async function main() {
           allContactsForProject.push(c);
         }
       });
-      log('details', `  ${Math.min(i + BATCH, contactsForSource.length)}/${contactsForSource.length}`);
+      log('details', `  ${Math.min(i + CONTACT_BATCH, contactsForSource.length)}/${contactsForSource.length}`);
+      if (i + CONTACT_BATCH < contactsForSource.length) await sleep(CONTACT_BATCH_SLEEP_MS);
     }
   }
 
@@ -160,9 +185,8 @@ async function main() {
     registration_source_id_null: true,
   });
   if (noSourceContacts.length > 0) {
-    const BATCH = 50;
-    for (let i = 0; i < noSourceContacts.length; i += BATCH) {
-      const batch = noSourceContacts.slice(i, i + BATCH);
+    for (let i = 0; i < noSourceContacts.length; i += CONTACT_BATCH) {
+      const batch = noSourceContacts.slice(i, i + CONTACT_BATCH);
       const detailed = await Promise.all(
         batch.map((c: any) => client.getContact(c.id).catch(() => null)),
       );
@@ -173,7 +197,8 @@ async function main() {
           allContactsForProject.push(c);
         }
       });
-      log('details', `  no-source ${Math.min(i + BATCH, noSourceContacts.length)}/${noSourceContacts.length}`);
+      log('details', `  no-source ${Math.min(i + CONTACT_BATCH, noSourceContacts.length)}/${noSourceContacts.length}`);
+      if (i + CONTACT_BATCH < noSourceContacts.length) await sleep(CONTACT_BATCH_SLEEP_MS);
     }
   }
 
@@ -186,10 +211,33 @@ async function main() {
   log('contacts', `Deduped to ${dedupedContacts.length} unique contacts`);
 
   // Stage 4: reservations + contracts
+  // Give Spark's rate-limit window a chance to refill before the next API
+  // call — the contacts phase tends to push us right up against the limit.
+  await sleep(3000);
   log('reservations', 'Fetching reservations…');
-  const reservations = await client.listAllReservations({
-    project_id_eq: PROJECT_ID,
-  });
+  let reservations: any[] = [];
+  let reservationsAttempts = 0;
+  while (true) {
+    reservationsAttempts += 1;
+    try {
+      reservations = await client.listAllReservations(
+        { project_id_eq: PROJECT_ID },
+        { throwOnError: true },
+      );
+      break;
+    } catch (err: any) {
+      const msg = err?.message || String(err);
+      if (msg.includes('Rate limit') && reservationsAttempts < 3) {
+        const backoff = 2000 * Math.pow(2, reservationsAttempts - 1); // 2s, 4s
+        log('reservations', `Rate limited, retrying in ${backoff}ms (attempt ${reservationsAttempts}/3)`);
+        await sleep(backoff);
+        continue;
+      }
+      console.error('Failed to fetch reservations after retries:', msg);
+      console.error('Aborting snapshot build — refusing to write a snapshot with empty reservations.');
+      process.exit(1);
+    }
+  }
   log('reservations', `Found ${reservations.length} reservations`);
 
   // Build contract_id → buyer-contact map from the contacts we already fetched.
@@ -207,23 +255,6 @@ async function main() {
 
   const reservationDetails: any[] = [];
   const RES_BATCH = 5;
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  const fetchWithRetry = async (fn: () => Promise<any>, label: string) => {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        return await fn();
-      } catch (err: any) {
-        const msg = err?.message || String(err);
-        if (msg.includes('Rate limit') && attempt < 2) {
-          await sleep(2000 * (attempt + 1));
-          continue;
-        }
-        console.error(`  ${label} failed:`, msg);
-        return null;
-      }
-    }
-    return null;
-  };
   for (let i = 0; i < reservations.length; i += RES_BATCH) {
     const batch = reservations.slice(i, i + RES_BATCH);
     log('contracts', `  ${Math.min(i + RES_BATCH, reservations.length)}/${reservations.length}`);
