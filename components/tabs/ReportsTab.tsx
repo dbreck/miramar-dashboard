@@ -14,7 +14,7 @@ import { useAuth } from '@/lib/auth-provider';
 import Modal from '@/components/Modal';
 
 const VIDEO_SRC = '/embed/Performance%20Report%20Video.html';
-const LATEST_REPORT_URL = 'https://mira-mar-report.vercel.app/reports/2026-04-25/';
+const LATEST_REPORT_URL = 'https://mira-mar-report.vercel.app/reports/2026-06-04/';
 const REPORT_ARCHIVE_URL = 'https://mira-mar-report.vercel.app/';
 
 type CardProps = {
@@ -134,7 +134,7 @@ export default function ReportsTab() {
             secondary={{ href: VIDEO_SRC, label: 'Open video in a new tab' }}
           />
           <ReportCard
-            kicker="Latest · Apr 25, 2026"
+            kicker="Latest · Jun 4, 2026"
             title="Marketing Performance Report"
             description="The current period's full editorial report — KPIs, channel deep dives, and recommendations."
             icon={<ExternalLink className="w-5 h-5" />}
