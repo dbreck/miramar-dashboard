@@ -130,6 +130,16 @@ async function main() {
     if (name.toLowerCase().includes('agent import')) excludedSourceIds.add(id);
   }
 
+  // The registration source we auto-relabel sourceless agent imports to.
+  // Bulk realtor lists periodically get imported with no source (e.g.
+  // 2026-07-03) and land in the "No Source" bucket; the guard in the no-source
+  // stage below moves them here so both Spark and the dashboard categorize them
+  // correctly instead of counting them as sourceless leads.
+  const agentImportSourceId =
+    [...sourceMap.entries()].find(([, name]) =>
+      name.toLowerCase().includes('agent import'),
+    )?.[0] ?? null;
+
   // Stage 2: custom field defs
   log('fields', 'Fetching custom field definitions…');
   const customFields = await client.listCustomFields({
@@ -184,6 +194,13 @@ async function main() {
   const noSourceContacts = await client.listAllContacts({
     registration_source_id_null: true,
   });
+  // Sourceless AGENT contacts are almost always a bulk realtor import that
+  // arrived without a source. Collect them separately: real (non-agent)
+  // no-source contacts are legitimate walk-ins / direct traffic and stay in
+  // the snapshot as "No Source", but sourceless agents get relabeled to
+  // "Agent Import" (below) and dropped from this run — treated exactly like
+  // every other Agent Import contact, which the by-source loop already skips.
+  const sourcelessAgents: any[] = [];
   if (noSourceContacts.length > 0) {
     for (let i = 0; i < noSourceContacts.length; i += CONTACT_BATCH) {
       const batch = noSourceContacts.slice(i, i + CONTACT_BATCH);
@@ -193,13 +210,43 @@ async function main() {
       detailed.forEach((c: any) => {
         if (!c) return;
         const projects = c.projects || [];
-        if (projects.some((p: any) => p.project_id === PROJECT_ID)) {
+        if (!projects.some((p: any) => p.project_id === PROJECT_ID)) return;
+        if (c.agent === true && agentImportSourceId) {
+          sourcelessAgents.push(c);
+        } else {
           allContactsForProject.push(c);
         }
       });
       log('details', `  no-source ${Math.min(i + CONTACT_BATCH, noSourceContacts.length)}/${noSourceContacts.length}`);
       if (i + CONTACT_BATCH < noSourceContacts.length) await sleep(CONTACT_BATCH_SLEEP_MS);
     }
+  }
+
+  // Auto-heal: assign the "Agent Import" source to sourceless agents so future
+  // runs (and Spark's own reports) categorize them correctly. Best effort — a
+  // failed write just means we retry on the next run; it is never fatal to the
+  // snapshot. These contacts are intentionally excluded from this run's payload
+  // above regardless of write outcome (they're agents, not leads).
+  if (sourcelessAgents.length > 0 && agentImportSourceId) {
+    log('agent-heal', `Relabeling ${sourcelessAgents.length} sourceless agent(s) → "Agent Import"…`);
+    let healed = 0;
+    for (let i = 0; i < sourcelessAgents.length; i += CONTACT_BATCH) {
+      const batch = sourcelessAgents.slice(i, i + CONTACT_BATCH);
+      const outcomes = await Promise.all(
+        batch.map((c: any) =>
+          fetchWithRetry(
+            () =>
+              client.updateContact(c.id, {
+                registration_source_id: agentImportSourceId,
+              }),
+            `updateContact(${c.id})`,
+          ),
+        ),
+      );
+      healed += outcomes.filter((o) => o !== null).length;
+      if (i + CONTACT_BATCH < sourcelessAgents.length) await sleep(CONTACT_BATCH_SLEEP_MS);
+    }
+    log('agent-heal', `Relabeled ${healed}/${sourcelessAgents.length}`);
   }
 
   // Dedupe

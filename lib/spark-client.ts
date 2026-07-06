@@ -368,6 +368,19 @@ export class SparkAPIClient {
   }
 
   /**
+   * Partially update a contact. Spark applies only the fields present in the
+   * body (e.g. `{ registration_source_id }`); everything else is untouched.
+   * A plain PUT does NOT fire form-level automations (auto-assignment,
+   * auto-reply), so it's safe for back-office data cleanup.
+   */
+  async updateContact(contactId: number, body: Record<string, any>): Promise<any> {
+    return this.request(`/contacts/${contactId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+  }
+
+  /**
    * List interaction types
    */
   async listInteractionTypes(): Promise<any> {
