@@ -154,8 +154,16 @@ function formatBucketLabel(key: string, bucket: 'day' | 'week' | 'month'): strin
 export function summarize(
   payload: ExecSummaryPayload,
   range: ExecDateRange,
+  options: { excludeAgents?: boolean } = {},
 ) {
-  const contacts = payload.contacts.filter((c) => inRange(c.createdAt, range));
+  // Agents are not buyer leads. Excluding them by default keeps the headline
+  // lead count, conversion rate, and active pipeline from being skewed by
+  // bulk agent imports (e.g. the 2026-07-03 realtor list that landed with no
+  // registration source). Callers can pass { excludeAgents: false } to opt in.
+  const excludeAgents = options.excludeAgents ?? true;
+  const contacts = payload.contacts.filter(
+    (c) => inRange(c.createdAt, range) && !(excludeAgents && c.agent),
+  );
   const reservations = payload.reservations.filter((r) =>
     inRange(r.reservedAt || r.createdAt, range),
   );
@@ -197,6 +205,7 @@ export function summarize(
 export function leadGrowthBuckets(
   payload: ExecSummaryPayload,
   range: ExecDateRange,
+  options: { excludeAgents?: boolean } = {},
 ): {
   buckets: { key: string; label: string; date: number }[];
   combined: Record<string, number>;
@@ -204,6 +213,7 @@ export function leadGrowthBuckets(
   websiteCombined: Record<string, number>;
   nonWebsiteCombined: Record<string, number>;
 } {
+  const excludeAgents = options.excludeAgents ?? true;
   const bucket = pickBucketSize(range);
   const seenKeys = new Set<string>();
   const combined: Record<string, number> = {};
@@ -213,6 +223,7 @@ export function leadGrowthBuckets(
 
   payload.contacts.forEach((c) => {
     if (!inRange(c.createdAt, range)) return;
+    if (excludeAgents && c.agent) return;
     const d = new Date(c.createdAt);
     const key = bucketKey(d, bucket);
     seenKeys.add(key);
@@ -254,10 +265,15 @@ export function leadGrowthBuckets(
 export function leadSourcesInRange(
   payload: ExecSummaryPayload,
   range: ExecDateRange,
+  options: { excludeAgents?: boolean } = {},
 ): { name: string; leads: number; isWebsite: boolean }[] {
+  // Exclude agents by default — a sourceless agent import would otherwise show
+  // up here as a giant "No Source" bar and drown out real lead attribution.
+  const excludeAgents = options.excludeAgents ?? true;
   const counts = new Map<string, { leads: number; isWebsite: boolean }>();
   payload.contacts.forEach((c) => {
     if (!inRange(c.createdAt, range)) return;
+    if (excludeAgents && c.agent) return;
     const entry = counts.get(c.sourceName) || { leads: 0, isWebsite: c.isWebsiteSource };
     entry.leads++;
     counts.set(c.sourceName, entry);
@@ -270,14 +286,17 @@ export function leadSourcesInRange(
 export function geographyInRange(
   payload: ExecSummaryPayload,
   range: ExecDateRange,
+  options: { excludeAgents?: boolean } = {},
 ): {
   topCities: { name: string; leads: number }[];
   topStates: { name: string; leads: number }[];
 } {
+  const excludeAgents = options.excludeAgents ?? true;
   const cities = new Map<string, number>();
   const states = new Map<string, number>();
   payload.contacts.forEach((c) => {
     if (!inRange(c.createdAt, range)) return;
+    if (excludeAgents && c.agent) return;
     if (c.city && c.state) {
       const cKey = `${c.city}, ${c.state}`;
       cities.set(cKey, (cities.get(cKey) || 0) + 1);
@@ -304,17 +323,20 @@ export function geographyInRange(
 export function marketingInRange(
   payload: ExecSummaryPayload,
   range: ExecDateRange,
+  options: { excludeAgents?: boolean } = {},
 ): {
   utmSources: { name: string; leads: number }[];
   utmMediums: { name: string; leads: number }[];
   topCampaigns: { campaign: string; source: string; medium: string; leads: number }[];
 } {
+  const excludeAgents = options.excludeAgents ?? true;
   const utmSources = new Map<string, number>();
   const utmMediums = new Map<string, number>();
   const campaigns = new Map<string, { campaign: string; source: string; medium: string; leads: number }>();
 
   payload.contacts.forEach((c) => {
     if (!inRange(c.createdAt, range)) return;
+    if (excludeAgents && c.agent) return;
     utmSources.set(c.utmSource, (utmSources.get(c.utmSource) || 0) + 1);
     utmMediums.set(c.utmMedium, (utmMediums.get(c.utmMedium) || 0) + 1);
     const key = `${c.utmCampaign}|${c.utmSource}|${c.utmMedium}`;

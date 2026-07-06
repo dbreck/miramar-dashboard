@@ -93,6 +93,14 @@ export function buildDashboardView(
   // 2. User filters
   const contacts = applyFilters(dateFiltered, filters);
 
+  // Agents are not buyer leads. A sourceless agent import (e.g. the 2026-07-03
+  // realtor list, which landed with no registration source) otherwise shows up
+  // as a giant "No Source" bar and inflates every lead metric. Lead-focused
+  // sections below use `leadContacts`; the agent-inclusive `contacts` set is
+  // retained for the Agent Distribution + rating breakdowns.
+  const leadContacts = contacts.filter((c) => !c.agent);
+  const dateFilteredLeads = dateFiltered.filter((c) => !c.agent);
+
   // ---- Trend (current vs previous equal-length window) ----
   const days = Math.max(
     1,
@@ -103,8 +111,8 @@ export function buildDashboardView(
   const previousDateFiltered = payload.contacts.filter((c) =>
     inRange(c.createdAt, { start: prevStart, end: prevEnd }),
   );
-  const previous = applyFilters(previousDateFiltered, filters);
-  const currentTotal = contacts.length;
+  const previous = applyFilters(previousDateFiltered, filters).filter((c) => !c.agent);
+  const currentTotal = leadContacts.length;
   const previousTotal = previous.length;
   const trendValue =
     previousTotal === 0 ? 0 : Math.round(((currentTotal - previousTotal) / previousTotal) * 100);
@@ -113,7 +121,7 @@ export function buildDashboardView(
 
   // ---- Lead sources (bar chart) ----
   const sourceCounts = new Map<string, number>();
-  contacts.forEach((c) => {
+  leadContacts.forEach((c) => {
     sourceCounts.set(c.sourceName, (sourceCounts.get(c.sourceName) || 0) + 1);
   });
   const leadSources = Array.from(sourceCounts.entries())
@@ -123,7 +131,7 @@ export function buildDashboardView(
   // ---- Lead growth (per-day) ----
   const leadsByDate = new Map<string, number>();
   const leadsByDateAndSource = new Map<string, Map<string, number>>();
-  contacts.forEach((c) => {
+  leadContacts.forEach((c) => {
     const dateKey = c.createdAt.split('T')[0];
     leadsByDate.set(dateKey, (leadsByDate.get(dateKey) || 0) + 1);
     if (!leadsByDateAndSource.has(dateKey)) leadsByDateAndSource.set(dateKey, new Map());
@@ -160,7 +168,7 @@ export function buildDashboardView(
   // ---- Leads by Location (area code) ----
   const locationCounts = new Map<string, number>();
   let noLocationCount = 0;
-  contacts.forEach((c) => {
+  leadContacts.forEach((c) => {
     if (c.areaCode && AREA_CODE_TO_LOCATION[c.areaCode]) {
       const loc = AREA_CODE_TO_LOCATION[c.areaCode];
       locationCounts.set(loc, (locationCounts.get(loc) || 0) + 1);
@@ -179,7 +187,7 @@ export function buildDashboardView(
   // ---- Leads by ZIP ----
   const zipCounts = new Map<string, { count: number; city: string }>();
   let noZipCount = 0;
-  contacts.forEach((c) => {
+  leadContacts.forEach((c) => {
     if (c.postcode) {
       const existing = zipCounts.get(c.postcode);
       if (existing) {
@@ -220,7 +228,7 @@ export function buildDashboardView(
     string,
     { campaign: string; source: string; medium: string; count: number }
   >();
-  contacts.forEach((c) => {
+  leadContacts.forEach((c) => {
     utmSourceCounts.set(c.utmSource, (utmSourceCounts.get(c.utmSource) || 0) + 1);
     const key = `${c.utmCampaign}|${c.utmSource}|${c.utmMedium}`;
     const existing = campaignKeys.get(key);
@@ -284,7 +292,7 @@ export function buildDashboardView(
     keyMetrics: {
       totalLeads: currentTotal,
       trend: { value: Math.abs(trendValue), direction: trendDirection },
-      unfilteredTotal: dateFiltered.length,
+      unfilteredTotal: dateFilteredLeads.length,
     },
     leadSources,
     leadGrowth,
@@ -302,7 +310,7 @@ export function buildDashboardView(
       excludedSources: filters.excludedSources,
       excludeAgents: filters.excludeAgents,
       excludeNoSource: filters.excludeNoSource,
-      filteredOutCount: dateFiltered.length - currentTotal,
+      filteredOutCount: dateFilteredLeads.length - currentTotal,
     },
   };
 }
