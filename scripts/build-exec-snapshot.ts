@@ -30,6 +30,19 @@ const RATING_NAMES_BY_ID: Record<number, string> = {
   59364: 'Not A Buyer', 59733: 'Referral',
 };
 
+const AGENT_RATING_ID = 58246;
+
+// A raw Spark contact counts as an agent when EITHER signal is present: the
+// boolean `agent` flag or the "Agent" rating. Bulk realtor imports don't
+// reliably set both — the 2026-07-03 list set the flag only, the 2026-07-24
+// list (Premier Sotheby's / Smith & Associates) set the rating only.
+function isAgentContact(c: any): boolean {
+  return (
+    c.agent === true ||
+    (c.ratings || []).some((r: any) => r?.id === AGENT_RATING_ID)
+  );
+}
+
 function isWebsiteSourceName(name: string): boolean {
   return name.toLowerCase().startsWith('website');
 }
@@ -211,7 +224,7 @@ async function main() {
         if (!c) return;
         const projects = c.projects || [];
         if (!projects.some((p: any) => p.project_id === PROJECT_ID)) return;
-        if (c.agent === true && agentImportSourceId) {
+        if (isAgentContact(c) && agentImportSourceId) {
           sourcelessAgents.push(c);
         } else {
           allContactsForProject.push(c);
@@ -238,6 +251,9 @@ async function main() {
             () =>
               client.updateContact(c.id, {
                 registration_source_id: agentImportSourceId,
+                // Normalize the boolean too — rating-only imports (2026-07-24)
+                // otherwise keep slipping past `agent`-flag checks in Spark.
+                agent: true,
               }),
             `updateContact(${c.id})`,
           ),
@@ -293,7 +309,7 @@ async function main() {
   // that to look up the buyer for a given contract.
   const contractToContact = new Map<number, any>();
   for (const c of dedupedContacts) {
-    if (c.agent === true) continue; // skip agents — they're not buyers
+    if (isAgentContact(c)) continue; // skip agents — they're not buyers
     const contracts = c.contracts || [];
     for (const ct of contracts) {
       if (ct?.id) contractToContact.set(ct.id, c);
@@ -467,7 +483,7 @@ async function main() {
       utmCampaign:
         (fieldMap.get('utm_campaign') || '').toString().trim() || 'No Campaign',
       rating: ratingName,
-      agent: contact.agent === true,
+      agent: isAgentContact(contact),
       hasReservation: reservationContactIds.has(contact.id),
     };
   });

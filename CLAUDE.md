@@ -322,6 +322,8 @@ Append-only time series of rating distributions, written by the exec-summary bui
 
 **Slot derivation:** `slot = utcHour < 16 ? 'am' : 'pm'`. The 16:00 UTC cutoff sits at the midpoint between the 10:00 and 22:00 UTC cron ticks. Dedup key in the build script is `${date}-${slot}` so the evening run can't overwrite the morning's.
 
+**Snapshot script throttling (2026-05-08):** Contacts loop runs at concurrency 20 with 500ms between batches (was 50, no sleep — that was burning the rate-limit budget and silently 429ing the very next call to `listAllReservations`). A 3s pause now sits before the reservations stage, and `client.listAllReservations()` is invoked with `{ throwOnError: true }` wrapped in its own 3-attempt 2s/4s retry. If reservations still fail, the script `process.exit(1)`s rather than writing a snapshot with empty reservations. Total runtime ~80s (was ~36s). Symptom of the old behavior: every snapshot from 2026-05-02 to 2026-05-08 had 0 reservations on a project that has 20.
+
 **Runtime consumers:**
 - `lib/rating-history.ts` — types + `ratingHistorySeries()` helper that flattens snapshots for Recharts. X-axis label is `"${dayLabel} ${slot}"` (e.g. "May 2 am") so same-day AM/PM points don't collide.
 - `lib/use-rating-history.ts` — client hook with localStorage hydration, cache key `miramar-rating-history-v1`. Mirrors `useExecutiveSummary`.
@@ -726,6 +728,8 @@ The reconciliation page header has 4 reports in an **admin-only dropdown** (File
 
 **Default date range**: 7 days (changed from 30d on 2026-04-09)
 
+**Note (2026-06-04):** The dashboard's Reports tab no longer links these 4 reports — its admin "Lead-quality & integration health" section and the Performance Report Video card were removed from `components/tabs/ReportsTab.tsx`. The recon-page dropdown above and the `/api/*` routes are now the only ways in. ReportsTab now has just 2 cards: latest period report + archive.
+
 ### Relay Health Monitoring (2026-03-26) — DEPLOYED TO PRODUCTION
 
 Server-side form relay now logs every submission outcome for ongoing monitoring.
@@ -777,6 +781,47 @@ Full cross-reference of CallRail API (603 all-time Mira Mar submissions, back to
 | `scripts/contact-comparison.mjs` | Fetches Spark contacts by name, cross-refs with CallRail CSV |
 | `scripts/generate-comparison-html.mjs` | Generates styled HTML from comparison CSV |
 
+## Reports Tab + mira-mar-report Repo (2026-06-04)
+
+- `components/tabs/ReportsTab.tsx` → `LATEST_REPORT_URL` is a **hardcoded** link to the newest report at mira-mar-report.vercel.app. **Every time a new period report ships, update this constant + the card kicker date** (e.g. "Latest · Jun 4, 2026").
+- Period reports are generated in the **separate repo** at `~/Documents/Clear ph/Clients/Mira Mar/Looker Analysis` (`dbreck/mira-mar-report`) via `/regen-report` there — Looker Studio scrape → `/data/<END>.json` + `/reports/<END>/index.html` → push → Vercel.
+- Reports to date: 2026-03-11, 2026-04-25, 2026-06-04 (Apr 26–Jun 4, full 6-week gap, period-mismatch banner vs prior 30d).
+- Looker gotcha: the CallRail page has two "Data Set Configuration Error" widgets (connector half-broken); the Meta campaign table's Link Clicks column repeats one value per row — use the KPI cards instead.
+
+## Local Build Gotcha (2026-06-04)
+
+`npm run build` can fail with `Cannot find module '../lightningcss.darwin-arm64.node'` — npm's optional-deps bug dropped the native binary. Fix: `npm install lightningcss-darwin-arm64@<lightningcss version> --no-save` (check version with `npm ls lightningcss`). Same npm-cache flakiness family as the `-32000` MCP reconnect failures (corrupted `~/.npm/_npx/<hash>` — rm the dir).
+
+## Agent Exclusion from Lead Reporting + Self-Healing Import Guard (2026-07-06)
+
+**Symptom (client-reported):** reports showed an "excessive" amount of lead source = "No Source". **Root cause:** a 2026-07-03 ~18:35 UTC bulk import of **181 realtor agents** (Coldwell Banker / Florida Moves, all `agent: true`, rating "Agent") into Spark project 2855 with **no registration source** → bucketed as "No Source". Because the top-line aggregations counted agents as leads, they dominated the lead-source chart (July was 91% No Source; real non-agent leads are only ~10%, which is normal). Not a website-form regression. Verified via live Spark API (`registration_sources: []`).
+
+**Two-layer fix:**
+
+1. **Code — agents excluded from lead metrics by default** (commit `e7aaf4d`). `lib/executive-summary.ts`: `summarize`, `leadSourcesInRange`, `leadGrowthBuckets`, `geographyInRange`, `marketingInRange` now take `options.excludeAgents` (default `true`) — aligning them with `currentRatingDistribution` / `cohortQuality` / `qualityBy*`, which already excluded agents (the exec page was internally inconsistent before). `lib/dashboard-snapshot.ts` `buildDashboardView` derives `leadContacts = contacts.filter(c => !c.agent)` for lead sources / marketing UTMs / lead growth / geography / zip / `totalLeads`+trend; the **Agent Distribution chart** and **Ratings-tab rating distribution** deliberately keep the agent-inclusive `contacts` set (the "Agent" rating must stay visible there). `unfilteredTotal` / `filteredOutCount` use the non-agent basis so agents aren't miscounted as user-filtered.
+
+2. **Data + self-heal** (commit `c12a24d`). All 201 sourceless agents (181 July-3 import + 20 older stragglers) relabeled to the existing **"Agent Import" source (id 17981)** via `PUT /v2/contacts/{id}` `{registration_source_id}`. `scripts/build-exec-snapshot.ts` now **auto-heals every run**: it splits `agent===true` contacts out of the no-source bucket, relabels them to Agent Import (id derived from `sourceMap`, not hardcoded), drops them from the payload (the by-source loop already skips the Agent Import source), and keeps real (agent=false) no-source leads. Added `SparkAPIClient.updateContact(id, body)` (partial PUT). Best-effort / non-fatal / retried — a failed write just retries next run.
+
+**Spark API notes (verified this session):**
+- Registration-sources endpoint is `/registration-sources` (hyphen, NOT `registration_sources`), `?project_id_eq=2855`. 24 sources; "Agent Import" = 17981.
+- Contact PUT accepts a **partial** body `{registration_source_id}`; it does NOT wipe other fields and does NOT fire form-level automations (no auto-reply emails) — safe for back-office cleanup.
+- **Both** `Authorization: Bearer <key>` and `Authorization: Token token="<key>"` work for reads AND writes. The `SparkAPIClient` uses the Token scheme.
+- Spark MCP (`mcp__spark-re__*`) was not connected; all work used the direct HTTP API with `SPARK_API_KEY` from `.env.local`.
+
+**Snapshot staleness gotcha:** the twice-daily cron commits fresh snapshots to `origin/main` as `github-actions[bot]`. A local checkout goes stale fast — always `git show origin/main:public/exec-summary-snapshot.json` (or pull) to see what production actually serves, not the working-tree file. Morning cron runs (12:00 UTC) intermittently fail on Spark rate limits; evening runs succeed, so production stays fresh within ~12h.
+
+## Rating-Only Agent Imports — `isAgentContact()` (2026-07-25)
+
+**Symptom:** dashboard showed 426 "new leads" for 2026-07-24 (normal is 2–8/day). **Root cause:** a bulk import at 12:24 UTC of **424 realtor agents** (~92% Premier Sotheby's `@premiersir.com`, ~8% Smith & Associates) with rating **"Agent" (58246)** but **`agent: false`** and no registration source. The 2026-07-06 fix keyed everything off the `agent` boolean, so rating-only imports sailed past both the lead-metric exclusion and the snapshot self-heal and landed as "No Source" leads.
+
+**Fix — agent = flag OR rating, everywhere:**
+- `lib/executive-summary.ts` exports `isAgentContact(c)` → `c.agent === true || c.rating === 'Agent'`. All agent checks in `lib/executive-summary.ts` and `lib/dashboard-snapshot.ts` now use it (exact match on `'Agent'`; `'CB Global Luxury Agent'` is deliberately NOT matched).
+- `scripts/build-exec-snapshot.ts` has its own raw-contact version (checks `ratings[]` for id 58246), used in the no-source heal classification, the buyer/contract map, and the compact-contact `agent:` field — so published snapshots carry `agent: true` for rating-only agents and old runtime code also benefits.
+- The heal PUT now also sets `agent: true` (normalizes the boolean in Spark, not just the source).
+- Data fix: all 424 contacts relabeled via `PUT {registration_source_id: 17981, agent: true}` — 424/424 succeeded.
+
+**Spark list-index lag gotcha:** `?registration_source_id_null=true` lags PUT writes by ~15–30 min. A snapshot run right after a bulk relabel will re-fetch (and the heal will harmlessly re-PUT) contacts that were already fixed — individual `GET /contacts/{id}` shows fresh data immediately, the list filter doesn't. Don't interpret a big heal count right after a manual relabel as failure.
+
 ## References
 
 - **Spark API Documentation**: Reference the `spark-api` Claude Code skill
@@ -786,4 +831,4 @@ Full cross-reference of CallRail API (603 all-time Mira Mar submissions, back to
 
 ---
 
-**Last Updated**: 2026-05-02 (Rating history cron now runs twice daily 7 days/week with am/pm slot dedup; was weekday-only)
+**Last Updated**: 2026-07-25 (Rating-only agent import fix: 2026-07-24 bulk import of 424 agents had rating "Agent" but `agent: false`, bypassing the boolean-based exclusion. Agent detection is now flag-OR-rating via `isAgentContact()`; heal also normalizes `agent: true` in Spark.)

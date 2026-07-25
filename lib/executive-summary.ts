@@ -20,6 +20,16 @@ export interface ExecSummaryContact {
   hasReservation: boolean;
 }
 
+// A contact counts as an agent when EITHER signal is present: the boolean
+// `agent` flag or the project's "Agent" rating. Bulk realtor imports don't
+// reliably set both — the 2026-07-03 list set the flag only, the 2026-07-24
+// list set the rating only — so every lead/agent split must check both.
+export function isAgentContact(
+  c: Pick<ExecSummaryContact, 'agent' | 'rating'>,
+): boolean {
+  return c.agent === true || c.rating === 'Agent';
+}
+
 export interface ExecSummaryReservation {
   id: number;
   reservedAt: string | null;
@@ -162,7 +172,7 @@ export function summarize(
   // registration source). Callers can pass { excludeAgents: false } to opt in.
   const excludeAgents = options.excludeAgents ?? true;
   const contacts = payload.contacts.filter(
-    (c) => inRange(c.createdAt, range) && !(excludeAgents && c.agent),
+    (c) => inRange(c.createdAt, range) && !(excludeAgents && isAgentContact(c)),
   );
   const reservations = payload.reservations.filter((r) =>
     inRange(r.reservedAt || r.createdAt, range),
@@ -223,7 +233,7 @@ export function leadGrowthBuckets(
 
   payload.contacts.forEach((c) => {
     if (!inRange(c.createdAt, range)) return;
-    if (excludeAgents && c.agent) return;
+    if (excludeAgents && isAgentContact(c)) return;
     const d = new Date(c.createdAt);
     const key = bucketKey(d, bucket);
     seenKeys.add(key);
@@ -273,7 +283,7 @@ export function leadSourcesInRange(
   const counts = new Map<string, { leads: number; isWebsite: boolean }>();
   payload.contacts.forEach((c) => {
     if (!inRange(c.createdAt, range)) return;
-    if (excludeAgents && c.agent) return;
+    if (excludeAgents && isAgentContact(c)) return;
     const entry = counts.get(c.sourceName) || { leads: 0, isWebsite: c.isWebsiteSource };
     entry.leads++;
     counts.set(c.sourceName, entry);
@@ -296,7 +306,7 @@ export function geographyInRange(
   const states = new Map<string, number>();
   payload.contacts.forEach((c) => {
     if (!inRange(c.createdAt, range)) return;
-    if (excludeAgents && c.agent) return;
+    if (excludeAgents && isAgentContact(c)) return;
     if (c.city && c.state) {
       const cKey = `${c.city}, ${c.state}`;
       cities.set(cKey, (cities.get(cKey) || 0) + 1);
@@ -336,7 +346,7 @@ export function marketingInRange(
 
   payload.contacts.forEach((c) => {
     if (!inRange(c.createdAt, range)) return;
-    if (excludeAgents && c.agent) return;
+    if (excludeAgents && isAgentContact(c)) return;
     utmSources.set(c.utmSource, (utmSources.get(c.utmSource) || 0) + 1);
     utmMediums.set(c.utmMedium, (utmMediums.get(c.utmMedium) || 0) + 1);
     const key = `${c.utmCampaign}|${c.utmSource}|${c.utmMedium}`;
@@ -465,7 +475,7 @@ export function qualityBySource(
   let excluded = 0;
   payload.contacts.forEach((c) => {
     if (!inRange(c.createdAt, range)) return;
-    if (c.agent) return; // agents pollute quality math
+    if (isAgentContact(c)) return; // agents pollute quality math
     const key = c.sourceName || 'No Source';
     let b = map.get(key);
     if (!b) {
@@ -496,7 +506,7 @@ export function qualityByCampaign(
   let excluded = 0;
   payload.contacts.forEach((c) => {
     if (!inRange(c.createdAt, range)) return;
-    if (c.agent) return;
+    if (isAgentContact(c)) return;
     // Skip rows with no real campaign attribution — they swamp the chart.
     if (
       (c.utmSource === 'Direct' || !c.utmSource) &&
@@ -552,7 +562,7 @@ export function cohortQuality(
   const map = new Map<string, CohortRow>();
   const ratingsSeen = new Set<string>();
   payload.contacts.forEach((c) => {
-    if (excludeAgents && c.agent) return;
+    if (excludeAgents && isAgentContact(c)) return;
     if (!c.createdAt) return;
     const d = new Date(c.createdAt);
     const monthKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -588,7 +598,7 @@ export function currentRatingDistribution(
   const excludeAgents = options.excludeAgents ?? true;
   const counts = new Map<string, number>();
   payload.contacts.forEach((c) => {
-    if (excludeAgents && c.agent) return;
+    if (excludeAgents && isAgentContact(c)) return;
     counts.set(c.rating, (counts.get(c.rating) || 0) + 1);
   });
   return Array.from(counts.entries())
