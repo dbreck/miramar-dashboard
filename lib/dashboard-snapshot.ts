@@ -7,6 +7,7 @@ import {
   ExecSummaryPayload,
   ExecDateRange,
   inRange,
+  isAgentContact,
 } from '@/lib/executive-summary';
 
 // ---------- area-code → city/region map (mirrors the dashboard route) ----------
@@ -47,7 +48,7 @@ export interface DashboardFilters {
 function applyFilters(contacts: ExecSummaryContact[], filters: DashboardFilters): ExecSummaryContact[] {
   const excluded = new Set(filters.excludedSources);
   return contacts.filter((c) => {
-    if (filters.excludeAgents && c.agent) return false;
+    if (filters.excludeAgents && isAgentContact(c)) return false;
     if (filters.excludeNoSource && c.sourceName === 'No Source') return false;
     if (excluded.size > 0 && excluded.has(c.sourceName)) return false;
     // Always-on: exclude Agent Import
@@ -98,8 +99,8 @@ export function buildDashboardView(
   // as a giant "No Source" bar and inflates every lead metric. Lead-focused
   // sections below use `leadContacts`; the agent-inclusive `contacts` set is
   // retained for the Agent Distribution + rating breakdowns.
-  const leadContacts = contacts.filter((c) => !c.agent);
-  const dateFilteredLeads = dateFiltered.filter((c) => !c.agent);
+  const leadContacts = contacts.filter((c) => !isAgentContact(c));
+  const dateFilteredLeads = dateFiltered.filter((c) => !isAgentContact(c));
 
   // ---- Trend (current vs previous equal-length window) ----
   const days = Math.max(
@@ -111,7 +112,7 @@ export function buildDashboardView(
   const previousDateFiltered = payload.contacts.filter((c) =>
     inRange(c.createdAt, { start: prevStart, end: prevEnd }),
   );
-  const previous = applyFilters(previousDateFiltered, filters).filter((c) => !c.agent);
+  const previous = applyFilters(previousDateFiltered, filters).filter((c) => !isAgentContact(c));
   const currentTotal = leadContacts.length;
   const previousTotal = previous.length;
   const trendValue =
@@ -214,7 +215,7 @@ export function buildDashboardView(
   }
 
   // ---- Agent distribution ----
-  const agentCount = contacts.filter((c) => c.agent).length;
+  const agentCount = contacts.filter((c) => isAgentContact(c)).length;
   const nonAgentCount = contacts.length - agentCount;
   const agentDistribution = [
     { category: 'All Leads', count: contacts.length },
