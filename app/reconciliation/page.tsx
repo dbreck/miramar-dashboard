@@ -1143,7 +1143,7 @@ function ContactRow({ contact: c, expanded, onToggle, selected, onSelect, utmSel
                   {c.sparkContactId && (
                     <div className="col-span-2">
                       <a
-                        href={`https://spark.re/mira-mar-acquisitions-company-llc/mira-mar/contacts/${c.sparkContactId}`}
+                        href={`https://app.spark.re/projects/2855/contacts?&direction=&display=&order=&q=${encodeURIComponent(c.sparkEmail || c.email || '')}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors"
