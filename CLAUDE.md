@@ -263,6 +263,14 @@ allContacts.forEach((contact: any) => {
 
 6. **Actual Project ID**: The Spark project for Mira Mar is **2855** (not 1661 as referenced elsewhere in the dashboard code). The dashboard route uses 1661 which may be a project-contact join ID. The `/contact-ratings` and contact detail endpoints use `project_id: 2855`.
 
+7. **`/contacts?project_id_eq=2855` returns the WRONG subset** (verified 2026-08-05): the param is accepted and changes the result set (6,326 contacts vs 8,971 unfiltered), but the filtered set is 6,325 agents + 1 non-agent — essentially only the agent-import universe. Real website leads are missing from it. `project_id_eq=1661` returns empty. **For a full contact pull on this project-scoped key, paginate `/contacts` with NO project filter** — the unfiltered total (8,971) exactly matches the project's `contacts_count`, so unfiltered = the complete Mira Mar set. ~90 pages × 100, Link header carries `rel="last"`.
+
+8. **`order` param is ignored on `/contacts`** (verified 2026-08-05): `order=created_at ASC` still returns the default ordering (newest bulk-import blocks first). Sort client-side.
+
+9. **Spark's "Original Marketing Source" export column = `marketing_source` AT CREATION, not current** (verified 2026-08-05 vs `Leads_All Time.xlsx`): the UI export column is a creation-time snapshot. Website-form leads created before ~2026-05-01 have it blank even though their *current* API `marketing_source` is populated (417 of 493 "blank" export rows had values like Social Media/Google/Friend-Family — the "How did you hear about us?" answer only started stamping `marketing_source` at creation around May 1–6, 2026). Contacts created via API with `marketing_source` in the POST (e.g. our 2026-03-24 reconciliation pushes) show it as "Original" even pre-cutoff. Channels with no creation-time source (Meta/Instagram/Google lead ads, Display Sweet, Walk-In, Phone Call, Reconciliation Import) stay blank permanently.
+
+10. **`/contacts` LIST payload is richer than the skill doc suggests** (38 fields, verified 2026-08-05): includes `created_at`, `registered_at`, `registration_source_id`, `marketing_source`, `email`, `first_name`, `last_name`, `agent`, `origin`. No `ratings` (individual endpoint only). `registered_at` is null for ~97% of imported agents and present for ~79% of organic leads; it can differ from `created_at` (re-registration re-stamps it) — treat `created_at` as the authoritative age column.
+
 ## Data Aggregation Architecture
 
 **Server-Side Aggregation** (`app/api/dashboard/route.ts`):
@@ -581,7 +589,7 @@ Cross-referencing CallRail (all-time, 71 Mira Mar form submissions) against Spar
 ### Key Files (Mira Mar WordPress site)
 
 - `salient-child/partials/spark-contact-form.php` — Form that POSTs to Spark.re with UTM hidden fields (IDs 22408/22409/22410)
-- `salient-child/js/utm-tracker.js` — Captures UTMs from URL/referrer, stores in cookie, first-touch attribution
+- `salient-child/js/utm-tracker.js` — Captures UTMs from URL/referrer, stores in cookie, first-touch attribution. **v1.2.0 (deployed 2026-08-10):** untagged external referrers now fall back to referrer-domain attribution — search engines → `<engine>/organic`, known social domains → `<brand>/social`, everything else → `<host>/referral`. Before this, any untagged referral (e.g. a mansionglobal.com listing click) stored as `(direct)`.
 - `salient-child/js/spark-contact-form.js` — Populates UTM hidden fields from cookie on form load, handles validation + Clarity tracking
 
 ### Data Notes
@@ -781,12 +789,15 @@ Full cross-reference of CallRail API (603 all-time Mira Mar submissions, back to
 | `scripts/contact-comparison.mjs` | Fetches Spark contacts by name, cross-refs with CallRail CSV |
 | `scripts/generate-comparison-html.mjs` | Generates styled HTML from comparison CSV |
 
-## Reports Tab + mira-mar-report Repo (2026-06-04)
+## Reports Page + mira-mar-report Repo (updated 2026-08-13)
 
-- `components/tabs/ReportsTab.tsx` → `LATEST_REPORT_URL` is a **hardcoded** link to the newest report at mira-mar-report.vercel.app. **Every time a new period report ships, update this constant + the card kicker date** (e.g. "Latest · Jun 4, 2026").
-- Period reports are generated in the **separate repo** at `~/Documents/Clear ph/Clients/Mira Mar/Looker Analysis` (`dbreck/mira-mar-report`) via `/regen-report` there — Looker Studio scrape → `/data/<END>.json` + `/reports/<END>/index.html` → push → Vercel.
-- Reports to date: 2026-03-11, 2026-04-25, 2026-06-04 (Apr 26–Jun 4, full 6-week gap, period-mismatch banner vs prior 30d).
-- Looker gotcha: the CallRail page has two "Data Set Configuration Error" widgets (connector half-broken); the Meta campaign table's Link Clicks column repeats one value per row — use the KPI cards instead.
+- **Reports is its own sidebar page at `/reports`** (since 2026-08-13, commit `e501cca`) — no longer a tab on `/`. `app/reports/page.tsx` wraps `components/tabs/ReportsTab.tsx`; the `/` tab strip is Overview / Marketing / Ratings only.
+- `ReportsTab.tsx` → `LATEST_REPORT_URL` is a **hardcoded** link to the newest report at mira-mar-report.vercel.app. **Every time a new period report ships, update this constant + the card kicker date** (this is a mandated post-ship step in `/regen-report`).
+- Period reports are generated in the **separate repo** at `~/Documents/Clear ph/Clients/Mira Mar/Looker Analysis` (`dbreck/mira-mar-report`) via `/regen-report` (a kickoff wrapper also exists in THIS repo's `.claude/commands/`) — Looker Studio scrape → `/data/<END>.json` + `/reports/<END>/index.html` + Visualization modal → push → Vercel → update `/reports` pointer here.
+- **Every report ships a full-viewport "Visualization" command-view modal** (canonical implementation: `/reports/2026-08-13/`) — funnel, campaign-efficiency scatter, threshold gauges, creative-thumbnail tooltips, call timeline. Built only from the period JSON + extraction notes.
+- **SOP hard rules** (in the report repo's regen-report.md): no fabricated/estimated numbers ever; if Data Studio hides needed data (virtualized rows, unlabeled bars, broken widgets) STOP and ask Danny; cross-check KPI tiles vs their detail tables — the self-consistent table wins.
+- Reports to date: 2026-03-11, 2026-04-25, 2026-06-04, 2026-07-14, 2026-07-27, 2026-07-30, 2026-07-full, 2026-08-13 (Jul 30–Aug 13 fortnight).
+- Looker gotchas: the CallRail page's **summary tiles can contradict the daily table** (2026-08-13: tile said 3 answered, table proved 2 — sum the daily table); two "Data Set Configuration Error" widgets on that page (connector half-broken); the Meta campaign table's Link Clicks column repeats one value per row — use the KPI cards instead. **Looker date-filter state is per-tab** — a fresh Claude-controlled tab won't inherit ranges set in the user's own tab; fastest flow is the date handoff (user sets ranges in Claude's tab, then extraction sweeps with `get_page_text`).
 
 ## Local Build Gotcha (2026-06-04)
 
@@ -822,6 +833,29 @@ Full cross-reference of CallRail API (603 all-time Mira Mar submissions, back to
 
 **Spark list-index lag gotcha:** `?registration_source_id_null=true` lags PUT writes by ~15–30 min. A snapshot run right after a bulk relabel will re-fetch (and the heal will harmlessly re-PUT) contacts that were already fixed — individual `GET /contacts/{id}` shows fresh data immediately, the list filter doesn't. Don't interpret a big heal count right after a manual relabel as failure.
 
+## Client Leads Export Enrichment (2026-08-05)
+
+Client (Heather) exported `Leads_All Time.xlsx` (Spark "Project Contact" report, 683 rows, Aug 2025–Aug 2026: names, rating, Original Marketing Source, UTMs — no dates/email/ID) and asked why 100+ rows had blank UTM source. Deliverable: `Leads_All_Time_enriched.xlsx` (project root; shared via Google Sheets) adding Date Added / Registration Date / Registration Source / Email / Match Status / Match Notes.
+
+- **Matching**: normalized first+last name against a full API pull. 657 unique, 13 resolved by preferring the non-agent record, 10 xlsx-internal dupes paired 1:1 by recency (yellow), 2 ambiguous with candidates in Notes (yellow), 1 blank-name unmatched (red). Pull cached at scratchpad `spark-contacts-all.json` (session-scoped; re-pull is ~90 requests, ~1 min).
+- **Blank "Original Marketing Source" (493 rows) explained**: see Known API Limitations item 9 — export column = marketing_source at creation; Spark only began stamping it ~May 1–6, 2026. 417/493 have current marketing_source in Spark; 76 truly blank (offline/lead-ad channels).
+- **Missing UTMs (~212 rows) explained**: ~100 offline/manual channels (Walk-In, Phone, Referral, Display Sweet), ~85 early generic "Website" source (Aug–Nov 2025, predates UTM capture — only 2/87 have UTMs), remainder mostly lead-ad imports. The in-app-browser/cookie-loss issue accounts for only ~4–5 rows — deliberately NOT mentioned to client.
+- **Client comms**: Gmail draft replied to Heather's "Blank UTM Source Question" thread (cc Richard) — framing: untrackable channels + Spark report quirk; nothing broken, no Clear pH fault.
+- **Enrichment script pattern**: python3 + openpyxl inline (no repo script); rebuild by re-pulling `/contacts` unfiltered and re-running the match.
+
+## Attribution Forensics — "(direct)" Leads (2026-08-10)
+
+Client asked why a lead (hanafiarab02@gmail.com, Spark 8622139) showed source "(direct)". Findings, reusable for future "why is this direct?" questions:
+
+- **Spark request logs** (contact → Request Log in UI) show IP, UA, referrer, and every form field incl. `tracking_*` — first stop for forensics. IP geolocate via `ip-api.com`.
+- **GA4 can't search by IP** (dropped at collection) — but city-level geo (this case: Annaba, Algeria) can isolate a single session. GA4's Gemini assistant answered channel/pages/duration questions well.
+- **This lead's true journey:** referral from **mansionglobal.com** (WSJ luxury listings), 7 pages, ~43 min — high intent, not junk. The listing link HAD UTMs but they were malformed (raw spaces + caps) and got dropped in transit → tracker fell back to `(direct)`. GA caught it via referrer header. Client has since fixed the tag formatting.
+- **Microsoft Clarity:** already installed on the site (utm-tracker stamps `utm_cookie`/`utm_browser`/`utm_src` custom tags). Recordings retained only **30 days**; the official Clarity MCP connector is aggregate-only (~1–3 days back) — individual session hunting must happen in the Clarity web dashboard.
+- **utm-tracker.js v1.2.0** (see CallRail Integration → Key Files) closes the gap for future untagged referrals.
+- **"Open in Spark" contact links:** the `spark.re/.../contacts/{id}` URL scheme does NOT resolve. Working format: `https://app.spark.re/projects/2855/contacts?&direction=&display=&order=&q=<search>` (email or name as query). Fixed on /reconciliation in commit `93e676f`.
+
+**Flywheel SSH gotcha (2026-08-10):** the mira-mar container intermittently fails to boot — auth succeeds then session closes instantly, eventually returning "We're having trouble connecting to your site" + a reference ID. Pure Flywheel-side flake; retrying minutes later worked. Don't burn time debugging the pipe method when this happens.
+
 ## References
 
 - **Spark API Documentation**: Reference the `spark-api` Claude Code skill
@@ -831,4 +865,4 @@ Full cross-reference of CallRail API (603 all-time Mira Mar submissions, back to
 
 ---
 
-**Last Updated**: 2026-07-25 (Rating-only agent import fix: 2026-07-24 bulk import of 424 agents had rating "Agent" but `agent: false`, bypassing the boolean-based exclusion. Agent detection is now flag-OR-rating via `isAgentContact()`; heal also normalizes `agent: true` in Spark.)
+**Last Updated**: 2026-08-13 (Jul 30–Aug 13 report shipped with Visualization command-view modal; CallRail answered-calls corrected 3→2 via daily table; Reports moved to /reports sidebar page; /regen-report SOP hardened with viz + no-fake-data rules.)
