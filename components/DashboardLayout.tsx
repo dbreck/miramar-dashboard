@@ -5,7 +5,7 @@ import DateRangePicker, { DateRange } from './DateRangePicker';
 import FilterPanel from './FilterPanel';
 import { useFilters } from '@/lib/filter-context';
 
-type TabId = 'overview' | 'marketing' | 'ratings' | 'reports';
+type TabId = 'overview' | 'marketing' | 'ratings';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -48,10 +48,7 @@ export default function DashboardLayout({
     { id: 'overview', label: 'Overview' },
     { id: 'marketing', label: 'Marketing' },
     { id: 'ratings', label: 'Ratings' },
-    { id: 'reports', label: 'Reports' },
   ];
-
-  const isDataTab = activeTab !== 'reports';
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
@@ -71,8 +68,7 @@ export default function DashboardLayout({
 
         {/* Page-level controls */}
         <div className="flex items-center gap-2">
-          {/* Refresh — data tabs only */}
-          {onRefresh && isDataTab && (
+          {onRefresh && (
             <button
               onClick={onRefresh}
               disabled={isRefreshing}
@@ -87,8 +83,7 @@ export default function DashboardLayout({
               <span className="hidden sm:inline">{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
             </button>
           )}
-          {/* Filter — data tabs only */}
-          {isDataTab && (
+          {(
             <button
               onClick={() => setFilterPanelOpen(true)}
               className={`relative flex items-center gap-2 px-3.5 py-2 rounded-lg shadow-sm transition-all cursor-pointer text-sm font-medium ${
@@ -109,11 +104,10 @@ export default function DashboardLayout({
         </div>
       </header>
 
-      {/* Date Range — data tabs only */}
-      {isDataTab && <DateRangePicker dateRange={dateRange} onChange={setDateRange} />}
+      <DateRangePicker dateRange={dateRange} onChange={setDateRange} />
 
       {/* Data Freshness Banner */}
-      {isDataTab && lastFetchedAt && (
+      {lastFetchedAt && (
         <div className="mb-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <RefreshCw className="w-3.5 h-3.5" />
@@ -150,7 +144,7 @@ export default function DashboardLayout({
       </div>
 
       {/* Active Filters Banner */}
-      {activeFilterCount > 0 && isDataTab && (
+      {activeFilterCount > 0 && (
         <div className="mb-4 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-300">
             <Filter className="w-4 h-4" />

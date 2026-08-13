@@ -16,6 +16,7 @@ import {
   Menu,
   X,
   FileBarChart,
+  FileText,
 } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 import { useAuth } from '@/lib/auth-provider';
@@ -37,6 +38,7 @@ const NAV_ITEMS: NavItem[] = [
       { href: '/executive-summary', label: 'Executive Summary', icon: FileBarChart },
     ],
   },
+  { href: '/reports', label: 'Reports', icon: FileText },
   { href: '/reconciliation', label: 'Reconcile', icon: GitCompareArrows },
   { href: '/design-system', label: 'Design System', icon: Palette },
 ];
