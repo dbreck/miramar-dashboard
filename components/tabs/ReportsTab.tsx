@@ -2,7 +2,7 @@
 
 import { ExternalLink, Archive } from 'lucide-react';
 
-const LATEST_REPORT_URL = 'https://mira-mar-report.vercel.app/reports/2026-06-04/';
+const LATEST_REPORT_URL = 'https://mira-mar-report.vercel.app/reports/2026-08-13/';
 const REPORT_ARCHIVE_URL = 'https://mira-mar-report.vercel.app/';
 
 type CardProps = {
@@ -109,7 +109,7 @@ export default function ReportsTab() {
         <SectionHeader kicker="Marketing Performance" label="Period reports" />
         <div className="grid gap-4 sm:grid-cols-2">
           <ReportCard
-            kicker="Latest · Jun 4, 2026"
+            kicker="Latest · Aug 13, 2026"
             title="Marketing Performance Report"
             description="The current period's full editorial report — KPIs, channel deep dives, and recommendations."
             icon={<ExternalLink className="w-5 h-5" />}
