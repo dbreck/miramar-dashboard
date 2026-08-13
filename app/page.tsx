@@ -5,11 +5,10 @@ import DashboardLayout from '@/components/DashboardLayout';
 import OverviewTab from '@/components/tabs/OverviewTab';
 import MarketingTab from '@/components/tabs/MarketingTab';
 import RatingsTab from '@/components/tabs/RatingsTab';
-import ReportsTab from '@/components/tabs/ReportsTab';
 import { DateRange } from '@/components/DateRangePicker';
 import { FilterProvider } from '@/lib/filter-context';
 
-export type TabId = 'overview' | 'marketing' | 'ratings' | 'reports';
+export type TabId = 'overview' | 'marketing' | 'ratings';
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
@@ -48,7 +47,6 @@ export default function DashboardPage() {
         {activeTab === 'overview' && <OverviewTab dateRange={dateRange} refreshTrigger={refreshTrigger} onDataStatus={handleDataStatus} />}
         {activeTab === 'marketing' && <MarketingTab dateRange={dateRange} refreshTrigger={refreshTrigger} onDataStatus={handleDataStatus} />}
         {activeTab === 'ratings' && <RatingsTab dateRange={dateRange} refreshTrigger={refreshTrigger} onDataStatus={handleDataStatus} />}
-        {activeTab === 'reports' && <ReportsTab />}
       </DashboardLayout>
     </FilterProvider>
   );
