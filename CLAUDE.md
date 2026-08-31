@@ -332,6 +332,20 @@ Append-only time series of rating distributions, written by the exec-summary bui
 
 **Snapshot script throttling (2026-05-08):** Contacts loop runs at concurrency 20 with 500ms between batches (was 50, no sleep — that was burning the rate-limit budget and silently 429ing the very next call to `listAllReservations`). A 3s pause now sits before the reservations stage, and `client.listAllReservations()` is invoked with `{ throwOnError: true }` wrapped in its own 3-attempt 2s/4s retry. If reservations still fail, the script `process.exit(1)`s rather than writing a snapshot with empty reservations. Total runtime ~80s (was ~36s). Symptom of the old behavior: every snapshot from 2026-05-02 to 2026-05-08 had 0 reservations on a project that has 20.
 
+**Rate-limit truncation fix (2026-08-31) — READ BEFORE TOUCHING THE FETCH PATH.** The 2026-05-08 throttling above only protected the *reservations* stage. Contacts had no such guard: `listAllContacts()` caught every error (429s included), logged it, and `break`ed out of pagination, and the build's `getContact(...).catch(() => null)` dropped detail fetches the same way. A 429 late in the contacts phase therefore produced a **structurally valid but truncated snapshot on a GREEN run** — production served 971 of 1362 contacts from 2026-08-28 to 2026-08-30, and 15 of August's rating-history points are truncated artifacts. The red "All jobs have failed" emails were the *good* outcome; the green ones were the dangerous ones.
+
+Four changes (commit `6f7dfc4`):
+- `SparkAPIClient.request()` is now a retry wrapper around `requestOnce()`; **429s retry 4× at 1/2/4/8s for every endpoint**. Non-429s (401/403/404) are not retried. Put retry logic here, not in individual callers — per-caller retry is exactly how this bug happened.
+- `listAllContacts()` takes `options.throwOnError`, matching `listAllReservations()`. **Default is still the legacy truncating behavior** (runtime `/api/*` callers rely on it); only the snapshot build opts in.
+- Failed `getContact` fetches collect into `failedContactIds` and abort the build.
+- Pre-write guard refuses to shrink the committed snapshot by >10%. Override with `ALLOW_SNAPSHOT_SHRINK=1` for a genuine bulk deletion.
+
+Verified in CI (run `33390435696`): hit **32 real 429s, retried all, produced the full 1362 contacts, exited success**. Expect the new failure mode to be a *loud* red run under heavy rate limiting. If red runs become frequent rather than occasional, lower `CONTACT_BATCH` (20) or raise `CONTACT_BATCH_SLEEP_MS` (500) — retry absorbs bursts, but sustained limiting means the request rate itself is too high.
+
+**Open decision:** the 15 truncated August points remain in `public/rating-history.json` (08-04 am 971, 08-05 am/pm, 08-12 pm 994, 08-19 pm, 08-20 pm, 08-22 am/pm 971, 08-24 am/pm, 08-26 am 1019, 08-28 pm 971, 08-29 am/pm) against neighbours of ~1250–1360. They render as phantom dips in the exec-summary "Rating Distribution Over Time" chart. Danny has not yet decided whether to scrub them; the proposal was to drop the entries outright rather than interpolate.
+
+**GitHub cron drift (2026-08-31):** the `0 10,22 * * *` schedule now fires at arbitrary hours (03:25, 21:01, 05:52 UTC observed). Run *count* holds at ~2/day so data stays fresh within ~12h. Accepted as-is — don't "fix" the cron.
+
 **Runtime consumers:**
 - `lib/rating-history.ts` — types + `ratingHistorySeries()` helper that flattens snapshots for Recharts. X-axis label is `"${dayLabel} ${slot}"` (e.g. "May 2 am") so same-day AM/PM points don't collide.
 - `lib/use-rating-history.ts` — client hook with localStorage hydration, cache key `miramar-rating-history-v1`. Mirrors `useExecutiveSummary`.
@@ -865,4 +879,4 @@ Client asked why a lead (hanafiarab02@gmail.com, Spark 8622139) showed source "(
 
 ---
 
-**Last Updated**: 2026-08-13 (Jul 30–Aug 13 report shipped with Visualization command-view modal; CallRail answered-calls corrected 3→2 via daily table; Reports moved to /reports sidebar page; /regen-report SOP hardened with viz + no-fake-data rules.)
+**Last Updated**: 2026-08-31 (Snapshot cron was silently publishing rate-limit-truncated contact sets on green runs — fixed with client-level 429 retry, `throwOnError` on `listAllContacts`, abort-on-failed-detail-fetch, and a >10% shrink guard. See "Rate-limit truncation fix" under Rating History. Cron time drift accepted.)
