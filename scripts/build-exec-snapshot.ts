@@ -104,6 +104,12 @@ async function main() {
   const CONTACT_BATCH = 20;
   const CONTACT_BATCH_SLEEP_MS = 500;
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  // Contacts whose detail fetch failed even after the client's 429 retries.
+  // These used to be swallowed with `.catch(() => null)`, which quietly shrank
+  // the snapshot; now they abort the run instead. Keyed by id so a contact
+  // retried in a later stage overwrites its own earlier failure.
+  const failedContactIds = new Map<number, string>();
   const fetchWithRetry = async (fn: () => Promise<any>, label: string) => {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
@@ -180,15 +186,21 @@ async function main() {
     const sourceName = source.name;
     log('contacts', `[${s + 1}/${sourcesToFetch.length}] "${sourceName}"`);
 
-    const contactsForSource = await client.listAllContacts({
-      registration_source_id_eq: sourceId,
-    });
+    const contactsForSource = await client.listAllContacts(
+      { registration_source_id_eq: sourceId },
+      { throwOnError: true },
+    );
     if (contactsForSource.length === 0) continue;
 
     for (let i = 0; i < contactsForSource.length; i += CONTACT_BATCH) {
       const batch = contactsForSource.slice(i, i + CONTACT_BATCH);
       const detailed = await Promise.all(
-        batch.map((c: any) => client.getContact(c.id).catch(() => null)),
+        batch.map((c: any) =>
+          client.getContact(c.id).catch((err: any) => {
+            failedContactIds.set(c.id, err?.message || String(err));
+            return null;
+          }),
+        ),
       );
       detailed.forEach((c: any) => {
         if (!c) return;
@@ -204,9 +216,10 @@ async function main() {
 
   // No-source bucket
   log('no-source', 'Fetching contacts with no registration source…');
-  const noSourceContacts = await client.listAllContacts({
-    registration_source_id_null: true,
-  });
+  const noSourceContacts = await client.listAllContacts(
+    { registration_source_id_null: true },
+    { throwOnError: true },
+  );
   // Sourceless AGENT contacts are almost always a bulk realtor import that
   // arrived without a source. Collect them separately: real (non-agent)
   // no-source contacts are legitimate walk-ins / direct traffic and stay in
@@ -218,7 +231,12 @@ async function main() {
     for (let i = 0; i < noSourceContacts.length; i += CONTACT_BATCH) {
       const batch = noSourceContacts.slice(i, i + CONTACT_BATCH);
       const detailed = await Promise.all(
-        batch.map((c: any) => client.getContact(c.id).catch(() => null)),
+        batch.map((c: any) =>
+          client.getContact(c.id).catch((err: any) => {
+            failedContactIds.set(c.id, err?.message || String(err));
+            return null;
+          }),
+        ),
       );
       detailed.forEach((c: any) => {
         if (!c) return;
@@ -273,33 +291,62 @@ async function main() {
   const dedupedContacts = Array.from(contactById.values());
   log('contacts', `Deduped to ${dedupedContacts.length} unique contacts`);
 
+  // Guard 1: every contact we listed must have been fetched. A partial contact
+  // set still produces a structurally valid snapshot, so without this the run
+  // goes green and publishes under-counted leads.
+  if (failedContactIds.size > 0) {
+    const sample = Array.from(failedContactIds.entries()).slice(0, 5);
+    console.error(
+      `Aborting snapshot build — ${failedContactIds.size} contact detail fetch(es) failed after retries.`,
+    );
+    sample.forEach(([id, msg]) => console.error(`  contact ${id}: ${msg}`));
+    if (failedContactIds.size > sample.length) {
+      console.error(`  …and ${failedContactIds.size - sample.length} more.`);
+    }
+    process.exit(1);
+  }
+
+  // Guard 2: a sudden drop in contact count almost always means we lost data to
+  // rate limiting rather than that leads actually vanished. Compare against the
+  // currently committed snapshot and refuse to shrink it by more than 10%.
+  // Set ALLOW_SNAPSHOT_SHRINK=1 to override for a genuine bulk deletion.
+  if (existsSync(OUT_PATH) && !process.env.ALLOW_SNAPSHOT_SHRINK) {
+    try {
+      const previous = JSON.parse(readFileSync(OUT_PATH, 'utf8'));
+      const previousCount = Array.isArray(previous?.contacts) ? previous.contacts.length : 0;
+      const floor = Math.floor(previousCount * 0.9);
+      if (previousCount > 0 && dedupedContacts.length < floor) {
+        console.error(
+          `Aborting snapshot build — contact count dropped from ${previousCount} to ${dedupedContacts.length} ` +
+            `(below the ${floor} floor). This is usually silent rate-limit truncation. ` +
+            `Re-run, or set ALLOW_SNAPSHOT_SHRINK=1 if the drop is real.`,
+        );
+        process.exit(1);
+      }
+      log('contacts', `Count check OK (previous snapshot: ${previousCount})`);
+    } catch (err: any) {
+      // A malformed/missing previous snapshot shouldn't block a good build.
+      console.warn(`  Could not read previous snapshot for count check: ${err?.message || err}`);
+    }
+  }
+
   // Stage 4: reservations + contracts
   // Give Spark's rate-limit window a chance to refill before the next API
   // call — the contacts phase tends to push us right up against the limit.
   await sleep(3000);
   log('reservations', 'Fetching reservations…');
+  // 429 retries now live in SparkAPIClient.request(), so this only needs to
+  // turn a genuine failure into an abort rather than an empty-reservation write.
   let reservations: any[] = [];
-  let reservationsAttempts = 0;
-  while (true) {
-    reservationsAttempts += 1;
-    try {
-      reservations = await client.listAllReservations(
-        { project_id_eq: PROJECT_ID },
-        { throwOnError: true },
-      );
-      break;
-    } catch (err: any) {
-      const msg = err?.message || String(err);
-      if (msg.includes('Rate limit') && reservationsAttempts < 3) {
-        const backoff = 2000 * Math.pow(2, reservationsAttempts - 1); // 2s, 4s
-        log('reservations', `Rate limited, retrying in ${backoff}ms (attempt ${reservationsAttempts}/3)`);
-        await sleep(backoff);
-        continue;
-      }
-      console.error('Failed to fetch reservations after retries:', msg);
-      console.error('Aborting snapshot build — refusing to write a snapshot with empty reservations.');
-      process.exit(1);
-    }
+  try {
+    reservations = await client.listAllReservations(
+      { project_id_eq: PROJECT_ID },
+      { throwOnError: true },
+    );
+  } catch (err: any) {
+    console.error('Failed to fetch reservations after retries:', err?.message || String(err));
+    console.error('Aborting snapshot build — refusing to write a snapshot with empty reservations.');
+    process.exit(1);
   }
   log('reservations', `Found ${reservations.length} reservations`);
 

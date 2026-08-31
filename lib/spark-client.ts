@@ -6,6 +6,9 @@
 import { APIError, PaginatedResponse } from './types';
 
 export class SparkAPIClient {
+  /** Number of retries after a 429 before giving up (4 → ~15s of backoff). */
+  private static readonly RATE_LIMIT_RETRIES = 4;
+
   private baseURL: string;
   private apiKey: string;
   private interactionTypeCache: Map<number, Map<number, string>>;
@@ -48,9 +51,33 @@ export class SparkAPIClient {
   }
 
   /**
-   * Make an authenticated request to the Spark.re API
+   * Make an authenticated request to the Spark.re API.
+   *
+   * Retries 429s with exponential backoff. Spark's per-second limit is
+   * undocumented and trips easily during the snapshot build's contacts phase;
+   * without a retry here every caller had to implement its own (and most
+   * didn't, so they silently returned partial data instead).
    */
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    let lastError: any;
+
+    for (let attempt = 0; attempt <= SparkAPIClient.RATE_LIMIT_RETRIES; attempt++) {
+      try {
+        return await this.requestOnce<T>(endpoint, options);
+      } catch (error: any) {
+        lastError = error;
+        if (error?.status !== 429 || attempt === SparkAPIClient.RATE_LIMIT_RETRIES) break;
+        // 1s, 2s, 4s, 8s — Spark's 429s clear in seconds, not minutes.
+        const backoff = 1000 * 2 ** attempt;
+        console.warn(`  Rate limited on ${endpoint} — retrying in ${backoff}ms (attempt ${attempt + 1}/${SparkAPIClient.RATE_LIMIT_RETRIES})`);
+        await new Promise((r) => setTimeout(r, backoff));
+      }
+    }
+
+    throw lastError;
+  }
+
+  private async requestOnce<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
 
     const response = await fetch(url, {
@@ -324,7 +351,10 @@ export class SparkAPIClient {
    * Fetches all pages until no more results
    * Supports date filtering via created_at_gteq and created_at_lteq
    */
-  async listAllContacts(params: Record<string, any> = {}): Promise<any[]> {
+  async listAllContacts(
+    params: Record<string, any> = {},
+    options: { throwOnError?: boolean } = {},
+  ): Promise<any[]> {
     const allContacts: any[] = [];
     let page = 1;
     let hasMore = true;
@@ -352,6 +382,9 @@ export class SparkAPIClient {
         page++;
       } catch (error) {
         console.error(`Failed to fetch contacts page ${page}:`, error);
+        // Breaking here returns a silently truncated list. Callers that care
+        // about completeness (the snapshot build) must pass throwOnError.
+        if (options.throwOnError) throw error;
         break;
       }
     }
