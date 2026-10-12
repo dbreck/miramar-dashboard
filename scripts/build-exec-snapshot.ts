@@ -27,7 +27,9 @@ const RATING_NAMES_BY_ID: Record<number, string> = {
   58245: 'New', 58246: 'Agent', 58247: 'Legal', 58248: 'Hot', 58249: 'Warm',
   58250: 'Cold', 58251: 'Not Interested', 58627: 'Team', 58755: 'Reservation Holder',
   58756: 'Contract Holder', 58866: 'Influencer', 59334: 'CB Global Luxury Agent',
-  59364: 'Not A Buyer', 59733: 'Referral',
+  59364: 'Not A Buyer', 59733: 'Referral', 60092: 'Project Update Attendee',
+  60402: 'Past Reservation Holder / Past Contract Holder', 60513: 'Groundbreaking Invitee',
+  60954: 'Lead', 61168: 'Non Responsive', 61307: 'Do Not Disturb',
 };
 
 const AGENT_RATING_ID = 58246;
@@ -571,6 +573,9 @@ async function main() {
         'Reservation Holder': '#2380c4', 'Contract Holder': '#a038cc',
         Influencer: '#000000', 'CB Global Luxury Agent': '#f5e8e8',
         'Not A Buyer': '#055707', Referral: '#e759a0',
+        Lead: '#9EC5AB', 'Non Responsive': '#B0A8B9', 'Do Not Disturb': '#6B4F4F',
+        'Past Reservation Holder / Past Contract Holder': '#7FA7C9',
+        'Project Update Attendee': '#F2C57C', 'Groundbreaking Invitee': '#C9A227',
         Unrated: '#999999',
       },
     },
