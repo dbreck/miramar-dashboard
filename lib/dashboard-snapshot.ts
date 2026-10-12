@@ -33,6 +33,9 @@ const RATING_COLORS: Record<string, string> = {
   'Reservation Holder': '#2380c4', 'Contract Holder': '#a038cc',
   Influencer: '#000000', 'CB Global Luxury Agent': '#f5e8e8',
   'Not A Buyer': '#055707', Referral: '#e759a0',
+  Lead: '#9EC5AB', 'Non Responsive': '#B0A8B9', 'Do Not Disturb': '#6B4F4F',
+  'Past Reservation Holder / Past Contract Holder': '#7FA7C9',
+  'Project Update Attendee': '#F2C57C', 'Groundbreaking Invitee': '#C9A227',
   Unrated: '#999999',
 };
 

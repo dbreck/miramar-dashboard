@@ -9,7 +9,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-const CALLRAIL_API_TOKEN = process.env.CALLRAIL_API_TOKEN || 'REDACTED_CALLRAIL_TOKEN';
+// Token must come from the environment (Vercel + .env.local). No hard-coded fallback.
+const CALLRAIL_API_TOKEN = process.env.CALLRAIL_API_TOKEN;
 const CALLRAIL_ACCOUNT_ID = process.env.CALLRAIL_ACCOUNT_ID || 'ACC2fd0a83431e1451cba08cdc21d851925';
 const CALLRAIL_COMPANY_ID = process.env.CALLRAIL_COMPANY_ID || 'COM01985c132b03722996a8a09a1343b248';
 const SPARK_API_KEY = process.env.SPARK_API_KEY!;
@@ -301,6 +302,13 @@ function getFormType(formUrl: string): string {
 // --- Main Handler ---
 
 export async function GET(request: NextRequest) {
+  if (!CALLRAIL_API_TOKEN) {
+    return NextResponse.json(
+      { error: 'CALLRAIL_API_TOKEN is not configured. Set it in Vercel and .env.local.' },
+      { status: 500 },
+    );
+  }
+
   const { searchParams } = new URL(request.url);
   const startDate = searchParams.get('start') || undefined;
   const endDate = searchParams.get('end') || undefined;

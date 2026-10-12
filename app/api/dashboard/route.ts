@@ -928,6 +928,9 @@ export async function GET(request: Request) {
       'Reservation Holder': '#2380c4', 'Contract Holder': '#a038cc',
       'Influencer': '#000000', 'CB Global Luxury Agent': '#f5e8e8',
       'Not A Buyer': '#055707', 'Referral': '#e759a0',
+      'Lead': '#9EC5AB', 'Non Responsive': '#B0A8B9', 'Do Not Disturb': '#6B4F4F',
+      'Past Reservation Holder / Past Contract Holder': '#7FA7C9',
+      'Project Update Attendee': '#F2C57C', 'Groundbreaking Invitee': '#C9A227',
       'Unrated': '#999999',
     };
 
@@ -937,7 +940,7 @@ export async function GET(request: Request) {
 
     allContacts.forEach((contact: any) => {
       const ratings = contact.ratings || [];
-      const projectRating = ratings.find((r: any) => r.id === 58245 || r.id === 58246 || r.id === 58247 || r.id === 58248 || r.id === 58249 || r.id === 58250 || r.id === 58251 || r.id === 58627 || r.id === 58755 || r.id === 58756 || r.id === 58866 || r.id === 59334 || r.id === 59364 || r.id === 59733);
+      const projectRating = ratings.find((r: any) => r.id === 58245 || r.id === 58246 || r.id === 58247 || r.id === 58248 || r.id === 58249 || r.id === 58250 || r.id === 58251 || r.id === 58627 || r.id === 58755 || r.id === 58756 || r.id === 58866 || r.id === 59334 || r.id === 59364 || r.id === 59733 || r.id === 60092 || r.id === 60402 || r.id === 60513 || r.id === 60954 || r.id === 61168 || r.id === 61307);
       const ratingName = projectRating ? (projectRating.value || 'Unrated') : 'Unrated';
 
       ratingCounts.set(ratingName, (ratingCounts.get(ratingName) || 0) + 1);
