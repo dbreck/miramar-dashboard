@@ -17,6 +17,7 @@ import {
   X,
   FileBarChart,
   FileText,
+  MessageSquareReply,
 } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 import { useAuth } from '@/lib/auth-provider';
@@ -39,6 +40,7 @@ const NAV_ITEMS: NavItem[] = [
     ],
   },
   { href: '/reports', label: 'Reports', icon: FileText },
+  { href: '/lead-inquiry', label: 'Lead Inquiry', icon: MessageSquareReply },
   { href: '/reconciliation', label: 'Reconcile', icon: GitCompareArrows },
   { href: '/design-system', label: 'Design System', icon: Palette },
 ];
