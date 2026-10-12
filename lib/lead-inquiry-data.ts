@@ -228,12 +228,6 @@ export const FIXES: FixItem[] = [
       'Lead, Non Responsive and Do Not Disturb were missing from our dashboard and showed as Unrated. They now display correctly.',
   },
   {
-    status: 'needs-you',
-    title: 'Google Ads access',
-    detail:
-      'GA4 is not linked to a Google Ads account, and we do not have access to the Mira Mar Google Ads account. Who owns it? Once we are added, we can link it so Google Ads can use the new conversion.',
-  },
-  {
     status: 'next',
     title: 'Spark cleanup',
     detail:
