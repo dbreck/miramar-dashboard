@@ -1,0 +1,28 @@
+name: Missing Lead Alerts
+
+# Hourly. Vercel Hobby crons only run once a day, so GitHub Actions pings the
+# dashboard's cron route instead. The route dedupes against the lead_alerts
+# table, so extra or late ticks never double-send.
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  alert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger alert check
+        env:
+          DASHBOARD_URL: ${{ secrets.DASHBOARD_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$DASHBOARD_URL" || { echo "DASHBOARD_URL secret missing"; exit 1; }
+          test -n "$CRON_SECRET"   || { echo "CRON_SECRET secret missing"; exit 1; }
+          http_code=$(curl -sS -o response.json -w '%{http_code}' --max-time 120 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$DASHBOARD_URL/api/cron/missing-lead-alerts")
+          cat response.json; echo
+          test "$http_code" = "200" || { echo "Route returned $http_code"; exit 1; }
