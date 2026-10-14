@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET() {
-  // Auth check: require admin or can_view_llr permission
+  // Auth check: admin only (moved under /admin/reports 2026-10-13)
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -20,7 +20,7 @@ export async function GET() {
     .eq('id', user.id)
     .single();
 
-  if (!profile || (profile.role !== 'admin' && !profile.can_view_llr)) {
+  if (!profile || profile.role !== 'admin') {
     return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 

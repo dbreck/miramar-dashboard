@@ -1,8 +1,13 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/require-admin';
 
 export async function GET() {
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+  }
+
   const htmlPath = join(process.cwd(), 'data', 'lost-leads-report.html');
 
   if (!existsSync(htmlPath)) {

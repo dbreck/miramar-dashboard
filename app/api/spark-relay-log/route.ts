@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/require-admin';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 
@@ -63,6 +64,10 @@ async function saveCache(data: CachedData): Promise<void> {
 }
 
 export async function GET(request: NextRequest) {
+  if (!(await requireAdmin())) {
+    return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const sync = searchParams.get('sync') === 'true';
   const start = searchParams.get('start') || '';
