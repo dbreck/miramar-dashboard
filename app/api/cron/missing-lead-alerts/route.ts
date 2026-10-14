@@ -21,6 +21,7 @@ import { requireAdmin } from '@/lib/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { callrailConfigured, runReconciliation, type ReconContact } from '@/lib/reconciliation';
 import { alertHtml, alertSubject, sendAlertEmail } from '@/lib/lead-alert-email';
+import { getAlertRecipients } from '@/lib/alert-recipients';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -50,12 +51,12 @@ export async function GET(request: NextRequest) {
   }
 
   const dryRun = new URL(request.url).searchParams.get('dryRun') === '1';
-  const recipients = (process.env.LEAD_ALERT_TO || '')
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
+  const { to: recipients, source: recipientSource } = await getAlertRecipients();
   if (!dryRun && recipients.length === 0) {
-    return NextResponse.json({ error: 'LEAD_ALERT_TO is not configured (comma-separated emails).' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'No alert recipients. Add one on /admin or set LEAD_ALERT_TO.' },
+      { status: 500 },
+    );
   }
 
   const dashboardUrl = (process.env.DASHBOARD_URL || new URL(request.url).origin).replace(/\/$/, '');
@@ -125,6 +126,7 @@ export async function GET(request: NextRequest) {
       missingInWindow: missing.length,
       newAlerts: newMissing.map(c => ({ email: c.email, name: c.name, captureGaps: c.captureGaps })),
       resolved: resolved.map(r => r.email),
+      recipients: { to: recipients, source: recipientSource },
       emailed: emailId ? { id: emailId, to: recipients, subject } : null,
       ...(dryRun ? { previewSubject: subject, previewHtml: html } : {}),
     });
