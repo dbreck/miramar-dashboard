@@ -28,6 +28,7 @@ type NavItem = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   children?: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[];
+  requires?: 'reconcile';
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -41,7 +42,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   { href: '/reports', label: 'Reports', icon: FileText },
   { href: '/lead-inquiry', label: 'Lead Inquiry', icon: MessageSquareReply },
-  { href: '/reconciliation', label: 'Reconcile', icon: GitCompareArrows },
+  { href: '/reconciliation', label: 'Reconcile', icon: GitCompareArrows, requires: 'reconcile' },
   { href: '/design-system', label: 'Design System', icon: Palette },
 ];
 
@@ -62,6 +63,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const canReconcile = isAdmin || !!profile?.can_reconcile;
+  const visibleNav = NAV_ITEMS.filter((item) => item.requires !== 'reconcile' || canReconcile);
 
   // Close user menu on outside click
   useEffect(() => {
@@ -121,7 +124,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Nav links */}
       <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, children }) => {
+        {visibleNav.map(({ href, label, icon: Icon, children }) => {
           const parentActive =
             href === '/'
               ? pathname === '/'

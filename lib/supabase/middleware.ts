@@ -51,5 +51,33 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // Role / permission enforcement for protected pages (API routes enforce their own).
+  // /admin/*          -> role = admin
+  // /reconciliation/* -> role = admin OR can_reconcile
+  if (user) {
+    const path = request.nextUrl.pathname;
+    const needsAdmin = path === "/admin" || path.startsWith("/admin/");
+    const needsReconcile =
+      path === "/reconciliation" || path.startsWith("/reconciliation/");
+
+    if (needsAdmin || needsReconcile) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role, can_reconcile")
+        .eq("id", user.id)
+        .single();
+
+      const isAdmin = profile?.role === "admin";
+      const allowed = needsAdmin ? isAdmin : isAdmin || !!profile?.can_reconcile;
+
+      if (!allowed) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/";
+        url.search = "?denied=1";
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
   return supabaseResponse;
 }

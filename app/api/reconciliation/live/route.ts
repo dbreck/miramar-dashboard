@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireReconcile } from '@/lib/require-admin';
 
 // Token must come from the environment (Vercel + .env.local). No hard-coded fallback.
 const CALLRAIL_API_TOKEN = process.env.CALLRAIL_API_TOKEN;
@@ -302,6 +303,10 @@ function getFormType(formUrl: string): string {
 // --- Main Handler ---
 
 export async function GET(request: NextRequest) {
+  if (!(await requireReconcile())) {
+    return NextResponse.json({ error: 'Reconcile access required' }, { status: 403 });
+  }
+
   if (!CALLRAIL_API_TOKEN) {
     return NextResponse.json(
       { error: 'CALLRAIL_API_TOKEN is not configured. Set it in Vercel and .env.local.' },

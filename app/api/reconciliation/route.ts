@@ -1,8 +1,13 @@
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { NextResponse } from 'next/server';
+import { requireReconcile } from '@/lib/require-admin';
 
 export async function GET() {
+  if (!(await requireReconcile())) {
+    return NextResponse.json({ error: 'Reconcile access required' }, { status: 403 });
+  }
+
   const htmlPath = join(process.cwd(), 'data', 'reconciliation-report.html');
 
   if (!existsSync(htmlPath)) {

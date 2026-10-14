@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireReconcile } from '@/lib/require-admin';
 import { logPush } from '@/lib/push-logger';
 
 export const maxDuration = 60;
@@ -48,6 +49,10 @@ interface PushResult {
 }
 
 export async function POST(request: NextRequest) {
+  if (!(await requireReconcile())) {
+    return NextResponse.json({ error: 'Reconcile access required' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const contacts: PushContact[] = body.contacts || [];
