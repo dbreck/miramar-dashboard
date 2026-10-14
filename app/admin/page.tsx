@@ -11,38 +11,18 @@ import {
   Activity,
   ArrowLeft,
   Loader2,
-  ExternalLink,
   ChevronRight,
 } from 'lucide-react';
 import { BrandLogo } from '@/lib/branding';
 import { useAuth } from '@/lib/auth-provider';
+import { ADMIN_REPORTS } from '@/lib/admin-reports';
 
-const REPORTS = [
-  {
-    href: '/api/lost-leads-alltime',
-    label: 'Lost Leads Report',
-    description: 'All-time CallRail submissions that never reached Spark (Dec 2025 – Mar 2026).',
-    Icon: FileSearch,
-  },
-  {
-    href: '/api/contact-comparison',
-    label: 'Contact Comparison',
-    description: 'Side-by-side CallRail vs Spark for 33 contacts with dates, UTMs, and lag.',
-    Icon: FileSpreadsheet,
-  },
-  {
-    href: '/api/utm-cookie-log',
-    label: 'UTM Cookies',
-    description: 'Live UTM cookie diagnostics synced from the WordPress site.',
-    Icon: Cookie,
-  },
-  {
-    href: '/api/spark-relay-log',
-    label: 'Relay Health',
-    description: 'Form relay success and failure monitoring from the WordPress site.',
-    Icon: Activity,
-  },
-];
+const REPORT_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  'lost-leads': FileSearch,
+  'contact-comparison': FileSpreadsheet,
+  'utm-cookies': Cookie,
+  'relay-health': Activity,
+};
 
 export default function AdminPage() {
   const router = useRouter();
@@ -103,30 +83,31 @@ export default function AdminPage() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Internal Reports</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-            Admin-only diagnostics. These open in a new tab and are not visible to viewers.
+            Admin-only diagnostics. Not visible to viewers.
           </p>
           <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-            {REPORTS.map(({ href, label, description, Icon }) => (
-              <li key={href}>
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-between gap-4 py-3.5 group"
-                >
-                  <div className="flex items-start gap-3">
-                    <Icon className="w-4.5 h-4.5 mt-0.5 text-gray-500 dark:text-gray-400" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                        {label}
+            {ADMIN_REPORTS.map(({ slug, label, description }) => {
+              const Icon = REPORT_ICONS[slug] ?? FileSearch;
+              return (
+                <li key={slug}>
+                  <Link
+                    href={`/admin/reports/${slug}`}
+                    className="flex items-center justify-between gap-4 py-3.5 group"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Icon className="w-4.5 h-4.5 mt-0.5 text-gray-500 dark:text-gray-400" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                          {label}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{description}</div>
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{description}</div>
                     </div>
-                  </div>
-                  <ExternalLink className="w-4 h-4 text-gray-400 shrink-0" />
-                </a>
-              </li>
-            ))}
+                    <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
       </div>
