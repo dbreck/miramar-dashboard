@@ -38,7 +38,8 @@ interface PushResult {
 }
 
 export async function POST(request: NextRequest) {
-  if (!(await requireReconcile())) {
+  const caller = await requireReconcile();
+  if (!caller) {
     return NextResponse.json({ error: 'Reconcile access required' }, { status: 403 });
   }
 
@@ -146,6 +147,7 @@ export async function POST(request: NextRequest) {
     await logPush({
       action: 'update_utm',
       timestamp: new Date().toISOString(),
+      actor: caller.userId,
       contacts: results.map((r, i) => ({
         name: r.name,
         email: r.email,

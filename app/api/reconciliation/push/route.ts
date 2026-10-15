@@ -49,7 +49,8 @@ interface PushResult {
 }
 
 export async function POST(request: NextRequest) {
-  if (!(await requireReconcile())) {
+  const caller = await requireReconcile();
+  if (!caller) {
     return NextResponse.json({ error: 'Reconcile access required' }, { status: 403 });
   }
 
@@ -141,11 +142,20 @@ export async function POST(request: NextRequest) {
             const isSuccess = res.status === 302 && location.includes('thank-you');
 
             if (!isSuccess) {
+              let detail = '';
+              if (location.includes('form-error')) {
+                detail = recaptchaToken
+                  ? 'Spark rejected the submission (form-error redirect)'
+                  : 'Spark rejected the submission — no reCAPTCHA token was generated in your browser';
+              } else if (res.status !== 302) {
+                const text = await res.text().catch(() => '');
+                detail = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+              }
               return {
                 email: c.email,
                 name: c.name,
                 success: false,
-                error: `Spark form ${res.status}: redirected to ${location || '(no location)'}`,
+                error: `Spark form ${res.status}: redirected to ${location || '(no location)'}${detail ? ` — ${detail}` : ''}`,
               };
             }
 
@@ -179,6 +189,7 @@ export async function POST(request: NextRequest) {
     await logPush({
       action: 'create_contact',
       timestamp: new Date().toISOString(),
+      actor: `${caller.userId}${recaptchaToken ? '' : ' (no recaptcha token)'}`,
       contacts: results.map((r, i) => ({
         name: r.name,
         email: r.email,

@@ -185,7 +185,7 @@ export default function ReconciliationPage() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set());
   const [pushing, setPushing] = useState(false);
-  const [pushResults, setPushResults] = useState<{ succeeded: number; failed: number; results: any[] } | null>(null);
+  const [pushResults, setPushResults] = useState<{ succeeded: number; failed: number; results: any[]; note?: string } | null>(null);
   const [selectedUtmEmails, setSelectedUtmEmails] = useState<Set<string>>(new Set());
   const [pushingUtm, setPushingUtm] = useState(false);
   const [pushUtmResults, setPushUtmResults] = useState<{ succeeded: number; failed: number; results: any[] } | null>(null);
@@ -330,10 +330,12 @@ export default function ReconciliationPage() {
     try {
       // Generate reCAPTCHA token in the admin's browser
       let recaptchaToken = '';
+      let recaptchaError = '';
       try {
         recaptchaToken = await getRecaptchaToken();
-      } catch {
-        // Continue without token — Spark will reject if reCAPTCHA is required
+      } catch (e: any) {
+        // Continue without token — Spark will reject, but record why so the banner can say so
+        recaptchaError = e?.message || 'reCAPTCHA failed';
       }
 
       const res = await fetch('/api/reconciliation/push', {
@@ -342,12 +344,22 @@ export default function ReconciliationPage() {
         body: JSON.stringify({ contacts: contactsToPush, recaptchaToken }),
       });
       const result = await res.json();
-      setPushResults({ succeeded: result.summary.succeeded, failed: result.summary.failed, results: result.results });
+      if (!res.ok || !result.summary) {
+        throw new Error(result.error || `Push request failed (${res.status})`);
+      }
+      setPushResults({
+        succeeded: result.summary.succeeded,
+        failed: result.summary.failed,
+        results: result.results,
+        note: recaptchaError
+          ? `reCAPTCHA did not load in this browser (${recaptchaError}). Spark requires it — check for an ad/script blocker or privacy extension, then retry.`
+          : undefined,
+      });
       setSelectedEmails(new Set());
       // Refresh data after push
       setTimeout(() => fetchData(), 1500);
     } catch (err: any) {
-      setPushResults({ succeeded: 0, failed: contactsToPush.length, results: [] });
+      setPushResults({ succeeded: 0, failed: contactsToPush.length, results: [], note: err?.message });
     } finally {
       setPushing(false);
     }
@@ -742,27 +754,44 @@ export default function ReconciliationPage() {
 
               {/* Push Results Banner */}
               {pushResults && (
-                <div className={`px-4 py-3 border-b border-gray-800 flex items-center gap-3 ${
+                <div className={`px-4 py-3 border-b border-gray-800 ${
                   pushResults.failed > 0 ? 'bg-amber-500/10' : 'bg-emerald-500/10'
                 }`}>
-                  {pushResults.failed > 0 ? (
-                    <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                  ) : (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                  )}
-                  <p className="text-sm">
-                    <span className="text-emerald-400 font-medium">{pushResults.succeeded} created</span>
-                    {pushResults.failed > 0 && (
-                      <span className="text-amber-400 font-medium ml-2">{pushResults.failed} failed</span>
+                  <div className="flex items-center gap-3">
+                    {pushResults.failed > 0 ? (
+                      <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    ) : (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                     )}
-                    <span className="text-gray-500 ml-2">— refreshing data...</span>
-                  </p>
-                  <button
-                    onClick={() => setPushResults(null)}
-                    className="ml-auto text-gray-500 hover:text-gray-300 text-xs"
-                  >
-                    Dismiss
-                  </button>
+                    <p className="text-sm">
+                      <span className="text-emerald-400 font-medium">{pushResults.succeeded} created</span>
+                      {pushResults.failed > 0 && (
+                        <span className="text-amber-400 font-medium ml-2">{pushResults.failed} failed</span>
+                      )}
+                      <span className="text-gray-500 ml-2">— refreshing data...</span>
+                    </p>
+                    <button
+                      onClick={() => setPushResults(null)}
+                      className="ml-auto text-gray-500 hover:text-gray-300 text-xs"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                  {pushResults.note && (
+                    <p className="mt-2 text-xs text-amber-300">{pushResults.note}</p>
+                  )}
+                  {pushResults.results.some((r: any) => !r.success) && (
+                    <ul className="mt-2 space-y-1 text-xs text-gray-400">
+                      {pushResults.results.filter((r: any) => !r.success).slice(0, 5).map((r: any) => (
+                        <li key={r.email}>
+                          <span className="text-gray-300">{r.name || r.email}</span>: {r.error || 'unknown error'}
+                        </li>
+                      ))}
+                      {pushResults.results.filter((r: any) => !r.success).length > 5 && (
+                        <li className="text-gray-500">…and {pushResults.results.filter((r: any) => !r.success).length - 5} more with the same shape</li>
+                      )}
+                    </ul>
+                  )}
                 </div>
               )}
 
