@@ -328,20 +328,26 @@ export default function ReconciliationPage() {
       }));
 
     try {
-      // Generate reCAPTCHA token in the admin's browser
-      let recaptchaToken = '';
+      // Generate a reCAPTCHA token per contact in the admin's browser.
+      // reCAPTCHA v3 tokens are single-use: reusing one token across a batch
+      // makes every contact after the first fail with Spark's form-error redirect.
       let recaptchaError = '';
-      try {
-        recaptchaToken = await getRecaptchaToken();
-      } catch (e: any) {
-        // Continue without token — Spark will reject, but record why so the banner can say so
-        recaptchaError = e?.message || 'reCAPTCHA failed';
+      const contactsWithTokens: (typeof contactsToPush[number] & { recaptchaToken: string })[] = [];
+      for (const c of contactsToPush) {
+        let token = '';
+        try {
+          token = await getRecaptchaToken();
+        } catch (e: any) {
+          // Continue without token — Spark will reject, but record why so the banner can say so
+          recaptchaError = e?.message || 'reCAPTCHA failed';
+        }
+        contactsWithTokens.push({ ...c, recaptchaToken: token });
       }
 
       const res = await fetch('/api/reconciliation/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contacts: contactsToPush, recaptchaToken }),
+        body: JSON.stringify({ contacts: contactsWithTokens }),
       });
       const result = await res.json();
       if (!res.ok || !result.summary) {

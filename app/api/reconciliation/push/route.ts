@@ -38,6 +38,8 @@ interface PushContact {
   comments: string;
   isAgent: boolean;
   brokerage: string;
+  /** Per-contact reCAPTCHA v3 token. Tokens are single-use, so each contact needs its own. */
+  recaptchaToken?: string;
 }
 
 interface PushResult {
@@ -57,7 +59,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const contacts: PushContact[] = body.contacts || [];
-    const recaptchaToken: string = body.recaptchaToken || '';
+    // Legacy single token (pre per-contact tokens); only valid for the first contact.
+    const sharedRecaptchaToken: string = body.recaptchaToken || '';
 
     if (contacts.length === 0) {
       return NextResponse.json({ error: 'No contacts provided' }, { status: 400 });
@@ -119,7 +122,8 @@ export async function POST(request: NextRequest) {
               formData.set('contact[custom_fields_attributes][22410][template_id]', '22410');
             }
 
-            // reCAPTCHA token (generated in admin's browser)
+            // reCAPTCHA token (generated in admin's browser, one per contact)
+            const recaptchaToken = c.recaptchaToken || sharedRecaptchaToken;
             if (recaptchaToken) {
               formData.set('g-recaptcha-response', recaptchaToken);
             }
@@ -189,7 +193,7 @@ export async function POST(request: NextRequest) {
     await logPush({
       action: 'create_contact',
       timestamp: new Date().toISOString(),
-      actor: `${caller.userId}${recaptchaToken ? '' : ' (no recaptcha token)'}`,
+      actor: `${caller.userId}${contacts.every(c => c.recaptchaToken || sharedRecaptchaToken) ? '' : ' (missing recaptcha token)'}`,
       contacts: results.map((r, i) => ({
         name: r.name,
         email: r.email,
