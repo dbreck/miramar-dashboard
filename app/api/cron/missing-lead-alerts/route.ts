@@ -5,7 +5,7 @@
  * CallRail submissions with no Spark match. Then:
  *
  *   AUTO_PUSH_ENABLED=true  -> creates each one in Spark via the API, held for
- *                              review (assigned to Heather, rating Lead, source
+ *                              review (assigned to Heather, rating New, source
  *                              Reconciliation Import, explanatory note). See
  *                              lib/spark-push.ts and
  *                              docs/plans/2026-10-15-auto-push-missing-leads.md.

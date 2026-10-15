@@ -127,7 +127,7 @@ export function alertHtml(opts: DigestSections & { windowLabel: string; dashboar
     blocks.push(`
     <h2 style="margin:0 0 4px;font-size:18px">${plural(added.length, 'lead', 'leads')} added to Spark for review</h2>
     <p style="margin:0 0 16px;color:#6b7280">These visitors started an inquiry form but it never reached Spark, so the dashboard added them automatically.
-      Each is assigned to Heather with source <strong>Reconciliation Import</strong> and rating <strong>Lead</strong>, and has a note saying it came from an incomplete form.
+      Each is assigned to Heather with source <strong>Reconciliation Import</strong> and rating <strong>New</strong>, and has a note saying it came from an incomplete form.
       No auto-reply was sent and no round-robin assignment happened. Please review before anyone reaches out.</p>
     ${table(added.map(a => contactRow(a.contact, sparkLink(a.contact.email, 'Open in Spark'))).join(''))}`);
   }

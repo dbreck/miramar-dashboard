@@ -5,7 +5,7 @@
  * AUTO_PUSH_ENABLED=true. The cron has no browser, so it cannot mint the
  * reCAPTCHA token Spark's registration form requires; the API path is the only
  * option and deliberately skips round-robin and the auto-reply. Contacts land
- * held for review: assigned to Heather, rating "Lead", source "Reconciliation
+ * held for review: assigned to Heather, rating "New", source "Reconciliation
  * Import", with a note explaining the incomplete capture.
  * Decisions + spike: docs/plans/2026-10-15-auto-push-missing-leads.md.
  */
@@ -15,8 +15,8 @@ import { splitName, UTM_FIELD_IDS, type ReconContact } from '@/lib/reconciliatio
 
 /** Reconciliation Import (registration source 18468, project 2855). */
 export const AUTO_PUSH_SOURCE_ID = 18468;
-/** "Lead" rating (60954), Spark's default for unworked contacts. */
-export const AUTO_PUSH_RATING_ID = 60954;
+/** "New" rating (58245). Heather (2026-10-15): the sales team reads New as "not yet reached out". */
+export const AUTO_PUSH_RATING_ID = 58245;
 /** Heather Van Workum (7926). Override with AUTO_PUSH_TEAM_MEMBER_IDS="7926,7924". */
 const DEFAULT_TEAM_MEMBER_IDS = [7926];
 
