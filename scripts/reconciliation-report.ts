@@ -15,11 +15,16 @@ import { join } from "path";
 
 // --- Configuration ---
 
-const CALLRAIL_API_TOKEN = "REDACTED_CALLRAIL_TOKEN";
-const CALLRAIL_ACCOUNT_ID = "ACC2fd0a83431e1451cba08cdc21d851925";
-const CALLRAIL_COMPANY_ID = "COM01985c132b03722996a8a09a1343b248";
+// Secrets come from .env.local (run: npm run reconcile). Never hard-code them: this repo is public.
+const CALLRAIL_API_TOKEN = process.env.CALLRAIL_API_TOKEN!;
+const CALLRAIL_ACCOUNT_ID = process.env.CALLRAIL_ACCOUNT_ID || "ACC2fd0a83431e1451cba08cdc21d851925";
+const CALLRAIL_COMPANY_ID = process.env.CALLRAIL_COMPANY_ID || "COM01985c132b03722996a8a09a1343b248";
 
-const SPARK_API_KEY = "REDACTED_SPARK_KEY";
+const SPARK_API_KEY = process.env.SPARK_API_KEY!;
+if (!CALLRAIL_API_TOKEN || !SPARK_API_KEY) {
+  console.error("CALLRAIL_API_TOKEN and SPARK_API_KEY must be set (npx tsx --env-file=.env.local ...)");
+  process.exit(1);
+}
 const SPARK_PROJECT_ID = 2855;
 
 const UTM_FIELD_IDS = {

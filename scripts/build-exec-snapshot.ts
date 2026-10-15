@@ -13,6 +13,7 @@
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { createHash } from 'crypto';
 import { SparkAPIClient } from '../lib/spark-client';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -50,10 +51,11 @@ function isWebsiteSourceName(name: string): boolean {
 }
 
 // Internal test buyers that should never appear in the executive summary.
-// Matched on email exact (lowercased) or full name (lowercased, whitespace-collapsed).
-const INTERNAL_TEST_EMAILS = new Set<string>([
-  'alison.sung@spark.re',
-  'redacted@example.com',
+// Matched on email (SHA-256 of the lowercased address, so personal emails stay
+// out of this public repo; @spark.re is caught below) or full name
+// (lowercased, whitespace-collapsed).
+const INTERNAL_TEST_EMAIL_SHA256 = new Set<string>([
+  '032c4880835e58c37f3f5e5e925d74a7ae3179fdec71a1df9f5cd67cab3436ed',
 ]);
 const INTERNAL_TEST_NAMES = new Set<string>([
   'ali spark',
@@ -63,7 +65,7 @@ const INTERNAL_TEST_NAMES = new Set<string>([
 function isInternalTestContact(contact: any): boolean {
   if (!contact) return false;
   const email = (contact.email || '').toString().trim().toLowerCase();
-  if (email && INTERNAL_TEST_EMAILS.has(email)) return true;
+  if (email && INTERNAL_TEST_EMAIL_SHA256.has(createHash('sha256').update(email).digest('hex'))) return true;
   if (email.endsWith('@spark.re')) return true;
   const name = [contact.first_name, contact.last_name]
     .filter(Boolean)

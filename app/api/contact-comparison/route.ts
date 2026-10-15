@@ -1,6 +1,5 @@
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
 import { NextResponse } from 'next/server';
+import { loadReportHtml } from '@/lib/report-files';
 import { requireAdmin } from '@/lib/require-admin';
 
 export async function GET() {
@@ -8,16 +7,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }
 
-  const htmlPath = join(process.cwd(), 'data', 'client-contact-comparison.html');
+  const html = await loadReportHtml('client-contact-comparison.html');
 
-  if (!existsSync(htmlPath)) {
+  if (!html) {
     return new NextResponse(
       '<h1>Report not generated yet</h1><p>The contact comparison report has not been generated.</p>',
       { status: 404, headers: { 'Content-Type': 'text/html' } }
     );
   }
-
-  const html = readFileSync(htmlPath, 'utf-8');
 
   return new NextResponse(html, {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
