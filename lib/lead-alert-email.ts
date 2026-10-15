@@ -177,12 +177,18 @@ export function alertHtml(opts: DigestSections & { windowLabel: string; dashboar
 export async function sendAlertEmail(opts: { to: string[]; subject: string; html: string }): Promise<{ id: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.LEAD_ALERT_FROM || 'Mira Mar Dashboard <alerts@clearph.com>';
+  // alerts@clearph.com is send-only (no mailbox): replies bounced until 2026-10-15.
+  // Comma-separated list; override with LEAD_ALERT_REPLY_TO.
+  const replyTo = (process.env.LEAD_ALERT_REPLY_TO || 'danny@clearph.com')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
   if (!apiKey) throw new Error('RESEND_API_KEY is not configured.');
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: opts.to, subject: opts.subject, html: opts.html }),
+    body: JSON.stringify({ from, to: opts.to, reply_to: replyTo, subject: opts.subject, html: opts.html }),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
