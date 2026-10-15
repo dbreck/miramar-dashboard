@@ -12,6 +12,7 @@ import { requireAdmin } from '@/lib/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { EMAIL_RE, envRecipients, listAlertRecipients, normalizeEmail } from '@/lib/alert-recipients';
 import { alertHtml, sendAlertEmail } from '@/lib/lead-alert-email';
+import { autoPushEnabled } from '@/lib/spark-push';
 import type { ReconContact } from '@/lib/reconciliation';
 
 async function readEmail(request: NextRequest): Promise<{ email: string; action?: string } | NextResponse> {
@@ -77,7 +78,15 @@ export async function POST(request: NextRequest) {
       const { id } = await sendAlertEmail({
         to: [email],
         subject: 'TEST: Mira Mar missing lead alert',
-        html: alertHtml({ newMissing: [sample], resolved: [], windowLabel: 'test message', dashboardUrl }),
+        html: alertHtml({
+          // Mirror whichever digest the cron currently sends.
+          added: autoPushEnabled() ? [{ contact: sample, sparkContactId: null }] : [],
+          failed: [],
+          missing: autoPushEnabled() ? [] : [sample],
+          resolved: [],
+          windowLabel: 'test message',
+          dashboardUrl,
+        }),
       });
       return NextResponse.json({ ok: true, id });
     } catch (e: any) {

@@ -124,7 +124,7 @@ async function fetchCallRailSubmissions(startDate?: string, endDate?: string): P
 
 // --- Helpers ---
 
-function isTestEmail(email: string): boolean {
+export function isTestEmail(email: string): boolean {
   const lower = email.toLowerCase();
   return TEST_EMAIL_PATTERNS.some(p => lower.includes(p));
 }
@@ -210,7 +210,7 @@ function normalizePhone(phone: string): string {
 }
 
 // Split name into first/last for Spark search
-function splitName(fullName: string): { first: string; last: string } {
+export function splitName(fullName: string): { first: string; last: string } {
   const parts = fullName.trim().split(/\s+/);
   return {
     first: parts[0] || '',

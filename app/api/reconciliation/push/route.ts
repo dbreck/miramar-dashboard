@@ -8,22 +8,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireReconcile } from '@/lib/require-admin';
 import { logPush } from '@/lib/push-logger';
+import { mapMarketingSource } from '@/lib/spark-push';
 
 export const maxDuration = 60;
 
 const SPARK_FORM_URL = 'https://spark.re/mira-mar-acquisitions-company-llc/mira-mar/register/inquire-form';
-
-// Map CallRail source names to Spark marketing_source values
-function mapMarketingSource(callrailSource: string): string {
-  const s = callrailSource.toLowerCase();
-  if (s.includes('facebook')) return 'Facebook';
-  if (s.includes('instagram')) return 'Instagram';
-  if (s.includes('google ads')) return 'Google';
-  if (s.includes('google organic')) return 'Google';
-  if (s.includes('duckduck')) return 'DuckDuckGo';
-  if (s.includes('miramarsarasota')) return 'Website';
-  return '';
-}
 
 interface PushContact {
   name: string;

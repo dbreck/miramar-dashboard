@@ -401,6 +401,19 @@ export class SparkAPIClient {
   }
 
   /**
+   * Create a contact via the API. Spark upserts on email: if the email already
+   * exists, the submitted fields overwrite that contact (including its rating),
+   * so callers must check by email first. Unlike the registration form URL,
+   * this fires no form automations (round-robin, default rating, auto-reply).
+   */
+  async createContact(body: Record<string, any>): Promise<{ id: number }> {
+    return this.request(`/contacts`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+  }
+
+  /**
    * Partially update a contact. Spark applies only the fields present in the
    * body (e.g. `{ registration_source_id }`); everything else is untouched.
    * A plain PUT does NOT fire form-level automations (auto-assignment,
