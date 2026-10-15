@@ -265,8 +265,7 @@ export default function ExecutiveSummaryPage() {
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 Run <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-mono text-xs">npm run snapshot</code>{' '}
-                locally, then commit and push <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-700 font-mono text-xs">public/exec-summary-snapshot.json</code>.
-                Once Vercel redeploys, the report appears here.
+                locally or run the snapshot workflow in GitHub Actions. The report appears here as soon as it uploads.
               </p>
               <button
                 onClick={handleRefresh}

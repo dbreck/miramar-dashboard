@@ -2,24 +2,43 @@
  * Executive Summary Snapshot Builder
  *
  * Runs the same aggregation as /api/executive-summary/stream but locally,
- * writing the result to public/exec-summary-snapshot.json so the dashboard
- * can serve it as a static asset on Vercel Hobby (where 60s function limits
- * make the SSE endpoint impractical for a cold pull).
+ * then uploads the result to the PRIVATE Supabase Storage bucket `snapshots`
+ * (object `exec-summary-snapshot.json`). The dashboard reads it through the
+ * signed-in route /api/exec-summary-snapshot. It used to be committed to
+ * public/, but the repo is public and the payload carries buyer names and
+ * prices (moved 2026-10-15). A local copy lands in data/ (gitignored).
+ * rating-history.json (aggregate counts only) is still committed to public/.
  *
- * Usage: npm run snapshot
- * Then: git add, commit, push — Vercel ships the JSON with the deploy.
+ * Usage: npm run snapshot   (needs SPARK_API_KEY, NEXT_PUBLIC_SUPABASE_URL,
+ *                            SUPABASE_SERVICE_ROLE_KEY)
  */
 
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 import { SparkAPIClient } from '../lib/spark-client';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ROOT = join(__dirname, '..');
-const OUT_PATH = join(ROOT, 'public', 'exec-summary-snapshot.json');
+const OUT_PATH = join(ROOT, 'data', 'exec-summary-snapshot.json');
+const SNAPSHOT_BUCKET = 'snapshots';
+const SNAPSHOT_OBJECT = 'exec-summary-snapshot.json';
+
+function storage() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error('NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set');
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } }).storage;
+}
+
+async function readPreviousSnapshot(): Promise<any | null> {
+  const { data, error } = await storage().from(SNAPSHOT_BUCKET).download(SNAPSHOT_OBJECT);
+  if (error || !data) return null;
+  return JSON.parse(await data.text());
+}
 const HISTORY_PATH = join(ROOT, 'public', 'rating-history.json');
 
 const PROJECT_ID = 2855;
@@ -312,11 +331,11 @@ async function main() {
 
   // Guard 2: a sudden drop in contact count almost always means we lost data to
   // rate limiting rather than that leads actually vanished. Compare against the
-  // currently committed snapshot and refuse to shrink it by more than 10%.
+  // currently published snapshot and refuse to shrink it by more than 10%.
   // Set ALLOW_SNAPSHOT_SHRINK=1 to override for a genuine bulk deletion.
-  if (existsSync(OUT_PATH) && !process.env.ALLOW_SNAPSHOT_SHRINK) {
+  if (!process.env.ALLOW_SNAPSHOT_SHRINK) {
     try {
-      const previous = JSON.parse(readFileSync(OUT_PATH, 'utf8'));
+      const previous = await readPreviousSnapshot();
       const previousCount = Array.isArray(previous?.contacts) ? previous.contacts.length : 0;
       const floor = Math.floor(previousCount * 0.9);
       if (previousCount > 0 && dedupedContacts.length < floor) {
@@ -593,6 +612,15 @@ async function main() {
   const size = (JSON.stringify(responseData).length / 1024).toFixed(1);
   log('done', `Wrote ${OUT_PATH} (${size} KB) in ${elapsed}s`);
 
+  const { error: uploadErr } = await storage()
+    .from(SNAPSHOT_BUCKET)
+    .upload(SNAPSHOT_OBJECT, JSON.stringify(responseData), { contentType: 'application/json', upsert: true });
+  if (uploadErr) {
+    console.error(`Snapshot upload to Supabase Storage failed: ${uploadErr.message}`);
+    process.exit(1);
+  }
+  log('done', `Uploaded to storage ${SNAPSHOT_BUCKET}/${SNAPSHOT_OBJECT}`);
+
   // ---------- Rating history (append-only time series) ----------
   // Compute today's rating distribution from the same contacts that were
   // just baked into the exec-summary snapshot. Cron runs twice daily (10:00
@@ -665,10 +693,8 @@ async function main() {
   );
 
   console.log('');
-  console.log('Next:');
-  console.log('  git add public/exec-summary-snapshot.json public/rating-history.json');
-  console.log('  git commit -m "data: refresh executive summary snapshot"');
-  console.log('  git push');
+  console.log('Snapshot is live (served from storage). To publish the rating history:');
+  console.log('  git add public/rating-history.json && git commit -m "data: refresh rating history" && git push');
 }
 
 main().catch((err) => {
