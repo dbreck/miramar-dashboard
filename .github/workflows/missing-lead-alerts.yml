@@ -1,11 +1,13 @@
 name: Missing Lead Alerts
 
-# Hourly. Vercel Hobby crons only run once a day, so GitHub Actions pings the
-# dashboard's cron route instead. The route dedupes against the lead_alerts
-# table, so extra or late ticks never double-send.
+# Manual trigger only. The hourly schedule lives on cron-job.org (job
+# "Mira Mar missing-lead alerts + auto-push (hourly)", 5 * * * * America/New_York),
+# because GitHub's scheduler delayed and dropped runs (5 runs in 24h observed
+# 2026-10-15). Do not re-add a schedule here: two schedulers can run at once.
+#
+# This repo is PUBLIC and so are its Actions logs. The route's response
+# contains lead names and emails, so only counts are printed below.
 on:
-  schedule:
-    - cron: "0 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -24,5 +26,7 @@ jobs:
           http_code=$(curl -sS -o response.json -w '%{http_code}' --max-time 120 \
             -H "Authorization: Bearer $CRON_SECRET" \
             "$DASHBOARD_URL/api/cron/missing-lead-alerts")
-          cat response.json; echo
+          jq '{ok, autoPush, scanned, missingInWindow, inGrace, heldByCap,
+               pushed: (.pushed // [] | length), newAlerts: (.newAlerts // [] | length),
+               resolved: (.resolved // [] | length), emailed: (.emailed != null), error}' response.json || true
           test "$http_code" = "200" || { echo "Route returned $http_code"; exit 1; }
