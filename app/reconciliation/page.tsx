@@ -786,6 +786,15 @@ export default function ReconciliationPage() {
                   {pushResults.note && (
                     <p className="mt-2 text-xs text-amber-300">{pushResults.note}</p>
                   )}
+                  {pushResults.results.some((r: any) => r.success && r.warning) && (
+                    <ul className="mt-2 space-y-1 text-xs text-amber-300">
+                      {pushResults.results.filter((r: any) => r.success && r.warning).map((r: any) => (
+                        <li key={r.email}>
+                          <span className="text-gray-300">{r.name || r.email}</span>: {r.warning}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {pushResults.results.some((r: any) => !r.success) && (
                     <ul className="mt-2 space-y-1 text-xs text-gray-400">
                       {pushResults.results.filter((r: any) => !r.success).slice(0, 5).map((r: any) => (

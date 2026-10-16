@@ -125,3 +125,46 @@ export async function autoPushContact(client: SparkAPIClient, c: ReconContact): 
     return { status: 'push_failed', error: String(err?.message || err).slice(0, 500) };
   }
 }
+
+export type PinRatingResult =
+  | { pinned: true; sparkContactId: number }
+  | { pinned: false; sparkContactId?: number; error: string };
+
+/**
+ * Force a contact's rating to "New" after a form-URL submission. The
+ * registration form cannot set a rating itself (it takes Spark's form default),
+ * so the manual Reconcile push calls this once Spark redirects to thank-you.
+ * Spark's list index can trail a fresh create by a few seconds, so the email
+ * lookup retries before giving up. PUT responses omit `ratings`; a follow-up
+ * GET is the only way to see the value, so the caller trusts a 2xx.
+ */
+export async function pinRatingByEmail(
+  client: SparkAPIClient,
+  email: string,
+  ratingId: number = AUTO_PUSH_RATING_ID,
+  attempts = 4,
+): Promise<PinRatingResult> {
+  let contactId: number | undefined;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const existing = await client.listContacts({ email_eq: email, per_page: 5 });
+      const list = Array.isArray(existing) ? existing : existing?.data || [];
+      if (list.length) {
+        contactId = list[0].id;
+        break;
+      }
+    } catch {
+      // fall through to retry
+    }
+    if (i < attempts - 1) await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+  }
+  if (!contactId) {
+    return { pinned: false, error: `contact not yet visible in Spark list by email after ${attempts} lookups` };
+  }
+  try {
+    await client.updateContact(contactId, { rating_id: ratingId });
+    return { pinned: true, sparkContactId: contactId };
+  } catch (err: any) {
+    return { pinned: false, sparkContactId: contactId, error: String(err?.message || err).slice(0, 300) };
+  }
+}

@@ -8,7 +8,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireReconcile } from '@/lib/require-admin';
 import { logPush } from '@/lib/push-logger';
-import { mapMarketingSource } from '@/lib/spark-push';
+import { mapMarketingSource, pinRatingByEmail, AUTO_PUSH_RATING_ID } from '@/lib/spark-push';
+import { SparkAPIClient } from '@/lib/spark-client';
 
 export const maxDuration = 60;
 
@@ -37,6 +38,10 @@ interface PushResult {
   success: boolean;
   sparkId?: number;
   error?: string;
+  /** Rating forced to New (58245) after the form submission. */
+  ratingPinned?: boolean;
+  /** Set when the submission succeeded but the rating could not be pinned. */
+  warning?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -60,6 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     const results: PushResult[] = [];
+    const sparkClient = process.env.SPARK_API_KEY ? new SparkAPIClient(process.env.SPARK_API_KEY) : null;
 
     // Process in batches of 3 to avoid rate limits
     for (let i = 0; i < contacts.length; i += 3) {
@@ -152,11 +158,19 @@ export async function POST(request: NextRequest) {
               };
             }
 
-            return {
-              email: c.email,
-              name: c.name,
-              success: true,
-            };
+            // The form takes Spark's default rating; pin it to New so manual
+            // pushes match the cron's auto-push (Heather, 2026-10-15).
+            const result: PushResult = { email: c.email, name: c.name, success: true };
+            if (sparkClient) {
+              const pin = await pinRatingByEmail(sparkClient, c.email, AUTO_PUSH_RATING_ID);
+              result.sparkId = pin.sparkContactId;
+              result.ratingPinned = pin.pinned;
+              if (!pin.pinned) result.warning = `Created, but rating not pinned to New: ${pin.error}`;
+            } else {
+              result.ratingPinned = false;
+              result.warning = 'Created, but rating not pinned to New: SPARK_API_KEY is not set';
+            }
+            return result;
           } catch (err: any) {
             return {
               email: c.email,
@@ -188,7 +202,7 @@ export async function POST(request: NextRequest) {
         email: r.email,
         sparkContactId: r.sparkId,
         success: r.success,
-        error: r.error,
+        error: r.error ?? r.warning,
         utmSource: contacts[i]?.utmSource,
         utmMedium: contacts[i]?.utmMedium,
         utmCampaign: contacts[i]?.utmCampaign,
