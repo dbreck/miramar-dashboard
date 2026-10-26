@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { SparkAPIClient } from '@/lib/spark-client';
+import { currentProfile } from '@/lib/require-admin';
 
 const PROJECT_ID = 2855; // Mira Mar project ID
 
@@ -247,6 +248,9 @@ function setCache(key: string, data: any): void {
 }
 
 export async function GET(request: Request) {
+  if (!(await currentProfile())) {
+    return Response.json({ error: 'Not authenticated' }, { status: 401 });
+  }
   try {
     const { searchParams } = new URL(request.url);
     const startParam = searchParams.get('start');

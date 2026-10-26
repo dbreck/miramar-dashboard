@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { SparkAPIClient } from '@/lib/spark-client';
+import { currentProfile } from '@/lib/require-admin';
 
 export async function GET() {
+  if (!(await currentProfile())) {
+    return Response.json({ error: 'Not authenticated' }, { status: 401 });
+  }
   try {
     const apiKey = process.env.SPARK_API_KEY;
 

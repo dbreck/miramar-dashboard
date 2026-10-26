@@ -30,6 +30,19 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // API routes are default-deny: no session -> 401. Only login/logout (/api/auth)
+  // and the cron endpoints (own CRON_SECRET bearer check) are reachable signed out.
+  // Routes still enforce their own role checks on top of this.
+  const path = request.nextUrl.pathname;
+  if (
+    !user &&
+    path.startsWith("/api") &&
+    !path.startsWith("/api/auth/") &&
+    !path.startsWith("/api/cron/")
+  ) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
   // Unauthenticated users -> redirect to /login
   if (
     !user &&
@@ -55,7 +68,6 @@ export async function updateSession(request: NextRequest) {
   // /admin/*          -> role = admin
   // /reconciliation/* -> role = admin OR can_reconcile
   if (user) {
-    const path = request.nextUrl.pathname;
     const needsAdmin = path === "/admin" || path.startsWith("/admin/");
     const needsReconcile =
       path === "/reconciliation" || path.startsWith("/reconciliation/");
