@@ -1,8 +1,7 @@
 /**
  * Executive Summary Snapshot Builder
  *
- * Runs the same aggregation as /api/executive-summary/stream but locally,
- * then uploads the result to the PRIVATE Supabase Storage bucket `snapshots`
+ * Pulls every Mira Mar contact and reservation from Spark, then uploads the result to the PRIVATE Supabase Storage bucket `snapshots`
  * (object `exec-summary-snapshot.json`). The dashboard reads it through the
  * signed-in route /api/exec-summary-snapshot. It used to be committed to
  * public/, but the repo is public and the payload carries buyer names and

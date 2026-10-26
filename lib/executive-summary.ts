@@ -1,6 +1,6 @@
 // Types + pure-function aggregations for the Executive Summary report.
 // All aggregations operate on the snapshot fetched once from
-// /api/executive-summary/stream and re-derive on date-range changes client-side.
+// /api/exec-summary-snapshot and re-derive on date-range changes client-side.
 
 export interface ExecSummaryContact {
   id: number;
