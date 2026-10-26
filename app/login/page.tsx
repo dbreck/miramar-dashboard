@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [recovery, setRecovery] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [recoveryDone, setRecoveryDone] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
   const router = useRouter();
 
   // Handle Supabase password-recovery / magic-link redirects.
@@ -22,6 +23,9 @@ export default function LoginPage() {
   // which the server never sees — only this client component can consume them.
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("error") === "auth") {
+      setError("That sign-in link is invalid or expired. Request a new one.");
+    }
     const hash = window.location.hash;
     if (!hash || !hash.includes("access_token")) return;
 
@@ -76,6 +80,33 @@ export default function LoginPage() {
     router.refresh();
   }
 
+  // Passwordless sign-in. shouldCreateUser:false so the button can only reach
+  // existing accounts; the link lands on /auth/callback, which exchanges the code.
+  async function handleMagicLink() {
+    setError("");
+    if (!email) {
+      setError("Enter your email first.");
+      return;
+    }
+    setLoading(true);
+    const supabase = createClient();
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+    setLoading(false);
+    // Unknown emails come back as an error; show the same message either way so
+    // the form doesn't reveal which addresses have accounts.
+    if (otpError && otpError.status !== 400 && otpError.status !== 422) {
+      setError(otpError.message);
+      return;
+    }
+    setLinkSent(true);
+  }
+
   async function handleSetNewPassword(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -118,6 +149,12 @@ export default function LoginPage() {
           {exchanging && (
             <div className="mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-sm">
               Verifying your link…
+            </div>
+          )}
+
+          {linkSent && (
+            <div className="mb-4 p-3 rounded-lg bg-green-50 border border-green-200 text-green-700 text-sm">
+              If {email} has an account, a sign-in link is on its way. Open it in this browser.
             </div>
           )}
 
@@ -199,6 +236,15 @@ export default function LoginPage() {
               className="w-full py-3 px-4 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Signing in..." : "Sign in"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleMagicLink}
+              disabled={loading}
+              className="w-full py-3 px-4 bg-white text-blue-600 font-medium rounded-lg border border-blue-200 hover:bg-blue-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Email me a sign-in link
             </button>
           </form>
           )}
